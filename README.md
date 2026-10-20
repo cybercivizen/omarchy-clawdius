@@ -13,6 +13,14 @@ session opens up close in the island).
 A community plugin for [Omarchy](https://omarchy.org). Not made by or
 affiliated with Anthropic; Claude and Clawd are theirs.
 
+## See it in action
+
+[![The island asking to approve a command, with the limits beside it](preview.png)](brag.mp4)
+
+A 24-second tour: approving a request, answering Claude's question, a
+finished turn, a session live, search and a new chat. Click the picture to
+watch it.
+
 ## Install
 
 ```bash
