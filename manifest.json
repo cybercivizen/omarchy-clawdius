@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "id": "cybercivizen.clawdius",
+  "name": "Clawdius",
+  "version": "0.9.0",
+  "author": "cybercivizen",
+  "description": "Clawdius, a pixel crab beside the clock, keeps an eye on your Claude Code sessions. Hover the bar's middle for an island with the moment that matters (approvals and Claude's questions, finished turns, the session at work), a new-chat view, live and recent sessions, usage, and an app search (Alt+Space) that also works out sums, runs commands and Google searches.",
+  "homepage": "https://github.com/cybercivizen/omarchy-clawdius",
+  "license": "MIT",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Clawdius",
+    "description": "Clawdius, a pixel crab beside the clock, keeps an eye on your Claude Code sessions. Hover the bar's middle for an island with the moment that matters (approvals and Claude's questions, finished turns, the session at work), a new-chat view, live and recent sessions, usage, and an app search (Alt+Space) that also works out sums, runs commands and Google searches.",
+    "category": "AI",
+    "aliases": [
+      "claude",
+      "clawd",
+      "crab"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {
+      "alwaysShow": true,
+      "maxIdleSessions": 4,
+      "hoverDelayMs": 200,
+      "closeDelayMs": 400,
+      "chatCommand": "cd ~/chat && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --chat",
+      "codeCommand": "cd ~/Work && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --permission-mode auto",
+      "webCommand": "omarchy-launch-browser https://claude.ai",
+      "frostOpacity": 92,
+      "terminalFontSize": 13,
+      "idleStopMinutes": 30,
+      "idleKeepRunning": 5,
+      "hoverZoneWidth": 560
+    },
+    "schema": [
+      {
+        "key": "alwaysShow",
+        "type": "boolean",
+        "label": "Always show the crab",
+        "defaultValue": true,
+        "description": "Off: the crab only shows while Claude is working, or when you hover the clock."
+      },
+      {
+        "key": "maxIdleSessions",
+        "type": "integer",
+        "label": "Idle sessions listed",
+        "min": 0,
+        "max": 20,
+        "step": 1,
+        "defaultValue": 4
+      },
+      {
+        "key": "hoverDelayMs",
+        "type": "integer",
+        "label": "Hover delay (ms)",
+        "min": 0,
+        "max": 1000,
+        "step": 20,
+        "defaultValue": 200
+      },
+      {
+        "key": "closeDelayMs",
+        "type": "integer",
+        "label": "Close delay (ms)",
+        "min": 0,
+        "max": 2000,
+        "step": 50,
+        "defaultValue": 400
+      },
+      {
+        "key": "hoverZoneWidth",
+        "type": "integer",
+        "label": "Hover zone width (px)",
+        "min": 0,
+        "max": 1600,
+        "step": 20,
+        "defaultValue": 560,
+        "description": "How much of the bar's middle opens the island on hover, centered on the bar. 0: only the clock and the crab."
+      },
+      {
+        "key": "chatCommand",
+        "type": "string",
+        "label": "Chat command",
+        "defaultValue": "cd ~/chat && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --chat",
+        "description": "--chat keeps it talk only: no commands, no file edits. The folder is made the first time."
+      },
+      {
+        "key": "codeCommand",
+        "type": "string",
+        "label": "Code command",
+        "defaultValue": "cd ~/Work && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --permission-mode auto"
+      },
+      {
+        "key": "webCommand",
+        "type": "string",
+        "label": "Web command",
+        "defaultValue": "omarchy-launch-browser https://claude.ai"
+      },
+      {
+        "key": "idleStopMinutes",
+        "type": "integer",
+        "label": "Stop idle chats after (min)",
+        "min": 0,
+        "max": 720,
+        "step": 5,
+        "defaultValue": 30,
+        "description": "Background chats idle this long are stopped to free memory (~400 MB each); the conversation is kept and reopens with a click. 0 turns this off."
+      },
+      {
+        "key": "idleKeepRunning",
+        "type": "integer",
+        "label": "Idle chats kept running",
+        "min": 0,
+        "max": 30,
+        "step": 1,
+        "defaultValue": 5,
+        "description": "Past this many idle background chats, the oldest are stopped even before the idle time is up."
+      },
+      {
+        "key": "terminalFontSize",
+        "type": "integer",
+        "label": "Live terminal text size (px)",
+        "min": 9,
+        "max": 20,
+        "step": 1,
+        "defaultValue": 13
+      },
+      {
+        "key": "frostOpacity",
+        "type": "integer",
+        "label": "Island opacity (%)",
+        "min": 20,
+        "max": 100,
+        "step": 2,
+        "defaultValue": 92,
+        "description": "How solid the island is. Lower lets more of the blurred desktop through."
+      }
+    ]
+  }
+}

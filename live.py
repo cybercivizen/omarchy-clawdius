@@ -1,0 +1,982 @@
+#!/usr/bin/env python3
+"""Background Claude sessions for the crab: start them, and mirror them live.
+
+    live.py launch [claude args...]
+        Start the session in the background (`claude --bg`), then attach this
+        terminal to it. Closing the window only detaches: the session carries
+        on in Claude Code's own daemon, and `claude attach <id>` (or the crab)
+        picks it back up.
+
+        Where Claude won't start a background session because the folder
+        isn't trusted (always the case for the home folder), it runs plain
+        interactive `claude` in this terminal instead.
+
+    live.py start [claude args...]
+        Same, but only prints the job id (or the error, exit 1) so the card
+        can show the session in its own live terminal. On "not trusted" the
+        card opens the session in a terminal window (`launch`) instead.
+
+        For both, `--chat` among the args makes it the island's Chat: talk
+        only, wherever it runs. Bash and the file-editing tools are denied,
+        and chat.md (next to this file) asks Claude to answer the way it
+        does on claude.ai.
+
+    live.py reap JOB_ID...
+        Stop the background sessions that never got a prompt: no transcript,
+        nothing attached (a terminal or the card's view), and older than a
+        few seconds. Chat / Code start one per click, so the card drops the
+        ones you walk away from.
+
+    live.py sweep [--idle-min 30] [--keep 5] [--protect JOB_ID...] [--dry-run]
+        Stop idle background sessions so they don't pile up in memory (each
+        is ~400 MB). Of the idle ones, newest first, keep `keep` running and
+        stop the rest, plus any idle for `idle-min` minutes. Never touched:
+        anything busy or waiting on you (a permission prompt, a question),
+        attached (a terminal, the card's view), named in --protect, still
+        running background work, with a wakeup / monitor pending from its
+        last turn or a cron job it set up, idle under two minutes, or a
+        terminal session (plain `claude`). The conversation is kept:
+        resuming picks it straight back up. Prints {"stopped": [...]} and
+        notes them in $XDG_STATE_HOME/clawdius/asleep.json (session id →
+        when). Runs at most every 30s, under a lock (one bar per monitor).
+
+    live.py stop JOB_ID
+        `claude stop` that one (the card's Stop button).
+
+    live.py trust DIR
+        Save Claude Code's workspace trust for DIR (and so everything in it),
+        as accepting its trust dialog there would: `projects[DIR]
+        .hasTrustDialogAccepted` in ~/.claude.json. The card asks first, then
+        starts the session it couldn't. Never the home folder (Claude doesn't
+        save that one either), nor /.
+
+    live.py view JOB_ID COLS ROWS [FG BG DIM]
+        The card's live terminal. A hidden tmux pane (own socket, no user
+        config) runs `claude attach JOB_ID`, so tmux does the terminal
+        emulation; its screen goes out as JSON lines whenever it changes:
+            {"html": "<pre>…</pre>", "alive": true, "model": "Opus 5.5", "mode": "auto", "effort": "high",
+             "scrolled": false, "prompt": true,
+             "attachments": ["[Image #1]"], "suggestion": "run the tests"}
+        The banner, status line and mode line are cut out of the picture; the
+        model and mode they showed come along as fields instead. "prompt" is
+        true while Claude's prompt is empty and cut out too: the card draws
+        its own input then. "suggestion" is Claude's predicted next prompt,
+        the gray text it draws in that empty prompt. A background session only
+        makes one for a focused viewer, so the pane says it has focus.
+        Commands come in on stdin, one JSON object per line:
+            {"submit": "hello"}         pasted, then Enter
+            {"clip": true}              attach the clipboard's image, if any
+            {"text": "hello"}           typed literally (pasted if multi-line)
+            {"keys": ["Enter", "C-c"]}  tmux key names
+            {"size": [cols, rows]}
+        Closing stdin (the card collapsing the view) kills the pane, which only
+        detaches that viewer. Attached clients share one size, so a terminal
+        attached at the same time draws at the card's size until it closes.
+"""
+
+import fcntl
+import glob
+import html
+import json
+import os
+import re
+import select
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+SOCKET = "clawdius"
+FRAME_SEC = 0.12
+FAST_FRAME_SEC = 0.03
+FAST_FOR_SEC = 1.5
+SUBMIT_PAUSE_SEC = 0.15
+# The pane is taller than the card shows: the prompt box and status lines
+# under it go, and so does the welcome banner once scrolled up to it, and the
+# card should still have a full screen of conversation left.
+EXTRA_ROWS = 14
+
+
+CHAT_TOOLS = "Bash,Edit,Write,NotebookEdit"
+CHAT_PROMPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat.md")
+
+
+def chat_args(args):
+    """`--chat` (before any `--` and the prompt) as the flags it stands for."""
+    end = args.index("--") if "--" in args else len(args)
+    if "--chat" not in args[:end]:
+        return args
+    i = args.index("--chat")
+    return args[:i] + ["--disallowedTools", CHAT_TOOLS, "--append-system-prompt-file", CHAT_PROMPT] + args[i + 1:]
+
+
+def start(args):
+    claude = shutil.which("claude") or "claude"
+    # Not a terminal, Claude waits ~3s for a prompt piped on stdin; the card's
+    # Process leaves its pipe open, so hand it nothing.
+    out = subprocess.run([claude, "--bg"] + args, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    text = out.stdout + out.stderr
+    return claude, text, re.search(r"backgrounded\W+([0-9a-f]{6,})", text)
+
+
+def launch_job(args):
+    claude, text, match = start(args)
+    if not match:
+        sys.stdout.write(text or "claude --bg failed\n")
+        return 1
+    sys.stdout.write(match.group(1) + "\n")
+    return 0
+
+
+def launch(args):
+    claude, text, match = start(args)
+    if not match and "not trusted" in text:
+        # Claude only starts background sessions where the folder's trust is
+        # saved, which it never is for the home folder: run it right here
+        # instead, where Claude can ask.
+        os.execvp(claude, [claude] + args)
+    if not match:
+        # Bad flag…: show why instead of a window that just closes.
+        sys.stdout.write(text or "claude --bg failed\n")
+        sys.stdout.write("\nPress Enter to close.")
+        sys.stdout.flush()
+        sys.stdin.readline()
+        return 1
+    os.execvp(claude, [claude, "attach", match.group(1)])
+
+
+CLAUDE_JSON = os.path.expanduser("~/.claude.json")
+LOCK_WAIT_SEC = 5
+LOCK_STALE_SEC = 10
+
+
+def trust(folder):
+    """Save trust for folder, under the lock Claude takes to save its config
+    (a ~/.claude.json.lock directory), written whole and swapped in."""
+    folder = os.path.realpath(os.path.expanduser(folder))
+    if not os.path.isdir(folder) or folder in ("/", os.path.realpath(os.path.expanduser("~"))):
+        sys.stderr.write("won't trust %s\n" % folder)
+        return 1
+    lock = CLAUDE_JSON + ".lock"
+    deadline = time.monotonic() + LOCK_WAIT_SEC
+    while True:
+        try:
+            os.mkdir(lock)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - os.stat(lock).st_mtime > LOCK_STALE_SEC:
+                    os.rmdir(lock)
+                    continue
+            except OSError:
+                continue
+            if time.monotonic() > deadline:
+                sys.stderr.write("~/.claude.json is locked\n")
+                return 1
+            time.sleep(0.05)
+    try:
+        with open(CLAUDE_JSON) as f:
+            config = json.load(f)
+        project = config.setdefault("projects", {}).setdefault(folder, {})
+        if project.get("hasTrustDialogAccepted") is True:
+            return 0
+        project["hasTrustDialogAccepted"] = True
+        tmp = "%s.crab-%d" % (CLAUDE_JSON, os.getpid())
+        with open(tmp, "w") as f:
+            os.fchmod(f.fileno(), os.stat(CLAUDE_JSON).st_mode & 0o777)
+            json.dump(config, f, indent=2)
+        os.replace(tmp, CLAUDE_JSON)
+        return 0
+    finally:
+        os.rmdir(lock)
+
+
+REAP_AFTER_SEC = 20
+
+
+def attached_jobs():
+    jobs = set()
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            with open("/proc/%s/cmdline" % pid, "rb") as f:
+                argv = f.read().decode(errors="replace").split("\0")
+        except OSError:
+            continue
+        if "attach" in argv:
+            i = argv.index("attach")
+            if i + 1 < len(argv):
+                jobs.add(argv[i + 1])
+    return jobs
+
+
+def reap_empty(jobs):
+    home = os.path.expanduser("~/.claude")
+    attached = attached_jobs()
+    claude = shutil.which("claude") or "claude"
+    for job in jobs:
+        if not re.fullmatch(r"[0-9a-f]{6,}", job) or job in attached:
+            continue
+        state_path = os.path.join(home, "jobs", job, "state.json")
+        try:
+            with open(state_path) as f:
+                state = json.load(f)
+            age = time.time() - os.stat(os.path.dirname(state_path)).st_mtime
+        except (OSError, ValueError):
+            continue
+        sid = state.get("sessionId") or ""
+        if not sid or age < REAP_AFTER_SEC:
+            continue
+        if any(os.path.exists(os.path.join(home, "projects", d, sid + ".jsonl"))
+               for d in os.listdir(os.path.join(home, "projects"))):
+            continue
+        subprocess.run([claude, "stop", job], capture_output=True)
+    return 0
+
+
+# ---- Sweeping idle sessions
+
+CLAUDE_HOME = os.path.expanduser("~/.claude")
+STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "clawdius")
+ASLEEP_PATH = os.path.join(STATE_DIR, "asleep.json")
+SWEEP_STAMP = os.path.join(STATE_DIR, "sweep.stamp")
+SWEEP_EVERY_SEC = 30
+SWEEP_GRACE_SEC = 120
+ASLEEP_FOR_SEC = 7 * 86400
+# Left pending by a turn, these die with the process.
+PENDING_TOOLS = ("ScheduleWakeup", "Monitor")
+
+
+def read_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def proc_alive(pid, proc_start):
+    """True when pid is running and is the same process the file was written by."""
+    try:
+        with open("/proc/%d/stat" % int(pid)) as f:
+            stat = f.read()
+    except (OSError, ValueError, TypeError):
+        return False
+    if not proc_start:
+        return True
+    fields = stat[stat.rfind(")") + 2:].split()
+    return len(fields) > 19 and fields[19] == str(proc_start)
+
+
+def is_prompt(rec):
+    """A user record that starts a turn: typed text, not a tool result or a notification."""
+    content = (rec.get("message") or {}).get("content")
+    if isinstance(content, str):
+        return not content.lstrip().startswith("<")
+    if isinstance(content, list):
+        return any(isinstance(b, dict) and b.get("type") == "text" and not b.get("text", "").lstrip().startswith("<")
+                   for b in content)
+    return False
+
+
+def has_pending(transcript):
+    """A wakeup or monitor from the last turn, or a cron job never deleted."""
+    pending_turn = False
+    crons = 0
+    try:
+        with open(transcript, errors="replace") as f:
+            for line in f:
+                if '"tool_use"' not in line and '"user"' not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if rec.get("isSidechain"):
+                    continue
+                if rec.get("type") == "user" and is_prompt(rec):
+                    pending_turn = False
+                elif rec.get("type") == "assistant":
+                    for block in (rec.get("message") or {}).get("content") or []:
+                        if not isinstance(block, dict) or block.get("type") != "tool_use":
+                            continue
+                        name = block.get("name")
+                        if name in PENDING_TOOLS:
+                            pending_turn = True
+                        elif name == "CronCreate":
+                            crons += 1
+                        elif name == "CronDelete":
+                            crons -= 1
+    except OSError:
+        return False
+    return pending_turn or crons > 0
+
+
+def sweep(args):
+    idle_min, keep, protect, dry = 30.0, 5, set(), False
+    i = 0
+    while i < len(args):
+        if args[i] == "--idle-min" and i + 1 < len(args):
+            idle_min = float(args[i + 1]); i += 2
+        elif args[i] == "--keep" and i + 1 < len(args):
+            keep = int(args[i + 1]); i += 2
+        elif args[i] == "--protect":
+            i += 1
+            while i < len(args) and not args[i].startswith("--"):
+                protect.add(args[i]); i += 1
+        elif args[i] == "--dry-run":
+            dry = True; i += 1
+        else:
+            sys.stderr.write("sweep: unknown argument %r\n" % args[i])
+            return 2
+
+    os.makedirs(STATE_DIR, exist_ok=True)
+    lock = open(os.path.join(STATE_DIR, "sweep.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        emit({"stopped": [], "skipped": "locked"})
+        return 0
+    now = time.time()
+    if not dry:
+        try:
+            if now - os.stat(SWEEP_STAMP).st_mtime < SWEEP_EVERY_SEC:
+                emit({"stopped": [], "skipped": "recent"})
+                return 0
+        except OSError:
+            pass
+        open(SWEEP_STAMP, "w").close()
+
+    attached = attached_jobs()
+    idle = []
+    for path in glob.glob(os.path.join(CLAUDE_HOME, "sessions", "*.json")):
+        meta = read_json(path)
+        if not isinstance(meta, dict) or meta.get("kind") != "bg" or not meta.get("jobId"):
+            continue
+        if meta.get("status") != "idle" or not proc_alive(meta.get("pid"), meta.get("procStart")):
+            continue
+        sid, job = meta.get("sessionId") or "", str(meta["jobId"])
+        transcripts = glob.glob(os.path.join(CLAUDE_HOME, "projects", "*", sid + ".jsonl")) if sid else []
+        if not transcripts:
+            continue   # never prompted: `reap` deals with those
+        since = (meta.get("statusUpdatedAt") or meta.get("updatedAt") or 0) / 1000.0
+        state = read_json(os.path.join(CLAUDE_HOME, "jobs", job, "state.json")) or {}
+        in_flight = state.get("inFlight") if isinstance(state.get("inFlight"), dict) else {}
+        why = ("protected" if job in protect
+               else "attached" if job in attached
+               else "background work" if in_flight.get("tasks") or in_flight.get("queued") or state.get("children")
+               else "pending wakeup / monitor / cron" if has_pending(transcripts[0])
+               else "")
+        idle.append({"job": job, "id": sid, "name": meta.get("name") or state.get("name") or job,
+                     "idle": now - since, "keep": why})
+    idle.sort(key=lambda r: r["idle"])   # newest first
+
+    kept = sum(1 for r in idle if r["keep"])
+    report = []
+    for r in idle:
+        if r["keep"]:
+            report.append(dict(r, action="keep"))
+            continue
+        if r["idle"] < SWEEP_GRACE_SEC or (r["idle"] < idle_min * 60 and kept < keep):
+            kept += 1
+            report.append(dict(r, action="keep", keep="recent"))
+            continue
+        report.append(dict(r, action="stop", keep="idle %dm" % (r["idle"] // 60) if r["idle"] >= idle_min * 60 else "over the cap"))
+
+    stopped = [r for r in report if r["action"] == "stop"]
+    if dry:
+        emit({"stopped": [], "plan": report})
+        return 0
+    claude = shutil.which("claude") or "claude"
+    asleep = read_json(ASLEEP_PATH) or {}
+    for r in stopped:
+        subprocess.run([claude, "stop", r["job"]], capture_output=True)
+        asleep[r["id"]] = int(now * 1000)
+    if stopped:
+        asleep = {k: v for k, v in asleep.items() if now - v / 1000.0 < ASLEEP_FOR_SEC}
+        tmp = ASLEEP_PATH + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(asleep, f)
+        os.replace(tmp, ASLEEP_PATH)
+    emit({"stopped": [{"job": r["job"], "id": r["id"], "name": r["name"], "why": r["keep"]} for r in stopped]})
+    return 0
+
+
+def stop_job(job):
+    if not re.fullmatch(r"[0-9a-f]{6,}", job):
+        return 2
+    subprocess.run([shutil.which("claude") or "claude", "stop", job], capture_output=True)
+    return 0
+
+
+# ---- tmux's screen (SGR escapes only) → Qt rich text
+
+BASE16 = ["#000000", "#cd3131", "#0dbc79", "#e5e510", "#2472c8", "#bc3fbc", "#11a8cd", "#e5e5e5",
+          "#666666", "#f14c4c", "#23d18b", "#f5f543", "#3b8eea", "#d670d6", "#29b8db", "#ffffff"]
+
+
+def color256(n):
+    if n < 16:
+        return BASE16[n]
+    if n < 232:
+        n -= 16
+        steps = [0, 95, 135, 175, 215, 255]
+        return "#%02x%02x%02x" % (steps[n // 36], steps[n // 6 % 6], steps[n % 6])
+    v = 8 + (n - 232) * 10
+    return "#%02x%02x%02x" % (v, v, v)
+
+
+class Style:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.fg = self.bg = None
+        self.bold = self.dim = self.italic = self.under = self.inverse = False
+
+    def apply(self, params):
+        codes = [int(p) if p.isdigit() else 0 for p in re.split(r"[;:]", params)] if params else [0]
+        i = 0
+        while i < len(codes):
+            c = codes[i]
+            if c == 0:
+                self.reset()
+            elif c == 1:
+                self.bold = True
+            elif c == 2:
+                self.dim = True
+            elif c == 3:
+                self.italic = True
+            elif c == 4:
+                self.under = True
+            elif c == 7:
+                self.inverse = True
+            elif c == 22:
+                self.bold = self.dim = False
+            elif c == 23:
+                self.italic = False
+            elif c == 24:
+                self.under = False
+            elif c == 27:
+                self.inverse = False
+            elif 30 <= c <= 37 or 90 <= c <= 97:
+                self.fg = BASE16[c - 30 if c < 90 else c - 82]
+            elif 40 <= c <= 47 or 100 <= c <= 107:
+                self.bg = BASE16[c - 40 if c < 100 else c - 92]
+            elif c == 39:
+                self.fg = None
+            elif c == 49:
+                self.bg = None
+            elif c in (38, 48) and i + 1 < len(codes):
+                if codes[i + 1] == 5 and i + 2 < len(codes):
+                    value, i = color256(codes[i + 2] & 255), i + 2
+                elif codes[i + 1] == 2 and i + 4 < len(codes):
+                    value, i = "#%02x%02x%02x" % tuple(min(255, x) for x in codes[i + 2:i + 5]), i + 4
+                else:
+                    value = None
+                if c == 38:
+                    self.fg = value
+                else:
+                    self.bg = value
+            i += 1
+
+    def css(self):
+        fg, bg = self.fg, self.bg
+        if self.inverse:
+            fg, bg = bg or "@BG@", fg or "@FG@"
+        parts = []
+        if fg:
+            parts.append("color:" + fg)
+        if bg:
+            parts.append("background-color:" + bg)
+        if self.bold:
+            parts.append("font-weight:bold")
+        if self.italic:
+            parts.append("font-style:italic")
+        if self.under:
+            parts.append("text-decoration:underline")
+        return ";".join(parts), self.dim
+
+
+SGR = re.compile(r"\x1b\[([0-9;:]*)m")
+# Everything else tmux may pass through: OSC (hyperlinks: ESC ] 8 ; … ESC \)
+# and any non-SGR CSI. The text between a link's ends stays.
+NOISE = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;:?<=>]*[A-Za-ln-z@`]")
+
+
+RULE = re.compile(r"^─{8,}")
+# Scrolled up, Claude lays a pill over a line of the conversation: "Jump to
+# bottom (ctrl+End) ↓", or "3 new messages (ctrl+End) ↓" once more arrives.
+# The card draws its own over the screen instead, so the pill goes (with its
+# colors) and the frame says "scrolled" and how many are unread. The pill
+# always opens with its colors, which keeps the conversation quoting it safe.
+JUMP = re.compile(r"(?:\x1b\[[0-9;:]*m)+ ?(?:Jump to bottom|(\d+) new messages?)(?: \([^)\x1b]*\))? ↓ ?")
+IMAGE_TOKEN = re.compile(r"\[Image #\d+\]")
+
+
+def trim(raws, rows, cursor, scrolled=False):
+    """The lines worth showing in the card, and what the dropped chrome said.
+
+    The card draws model, mode and folder itself, so this drops the welcome
+    banner (reading the model off it), update notices, and everything under
+    the prompt box: the status line and the mode line (reading the mode).
+    While the prompt is empty the box goes too: the card draws its own, so
+    typing doesn't wait on a round trip through the terminal.
+    The card shows the last `rows` of them, or the first once scrolled back
+    to the banner: the pane's extra rows would hide the conversation's start.
+    Returns (line indexes to keep, model or None, mode or None, prompt ready,
+    attachments, effort or None, suggestion)."""
+    plain = [SGR.sub("", raw) for raw in raws]
+    keep = list(range(len(plain)))
+    model = mode = effort = None
+    ready = False
+    attachments = []
+    suggestion = ""
+    banner = False
+    for i, text in enumerate(plain[:6]):
+        if "Claude Code v" in text:
+            # "▝▜██████▀  Opus 5.5 with medium effort · Claude Pro"
+            info = re.sub(r"^[\s\u2580-\u259f]+", "", plain[i + 1] if i + 1 < len(plain) else "")
+            model = info.split(" · ")[0].split(" with ")[0].strip() or None
+            m = re.search(r" with (\w+) effort", info)
+            effort = m.group(1) if m else None
+            end = i + 3
+            while end < len(plain) and not plain[end].strip():
+                end += 1
+            keep = [k for k in keep if k >= end]
+            banner = True
+            break
+    # The prompt box: two rules with the ❯ line between, the footer under it.
+    rules = [i for i, text in enumerate(plain) if RULE.match(text.strip())]
+    if len(rules) >= 2:
+        top, bottom = rules[-2], rules[-1]
+        if bottom - top <= 12 and len(plain) - bottom <= 6 \
+                and any(plain[k].lstrip().startswith("❯") for k in range(top + 1, bottom)):
+            mode = "default"
+            for text in plain[bottom + 1:]:
+                m = re.search(r"([a-z][a-z ]*?) on \(shift\+tab", text)
+                if m:
+                    mode = m.group(1).replace(" mode", "").strip()
+            # Empty: one ❯ line with nothing typed (a dim placeholder sits
+            # after the cursor, so the cursor still at the start counts too).
+            line = top + 1
+            typed = plain[line].strip().lstrip("❯").strip()
+            # Pasted images sit in Claude's box as [Image #1]: the card shows
+            # them as attachments and keeps its own prompt.
+            attachments = IMAGE_TOKEN.findall(typed)
+            rest = IMAGE_TOKEN.sub("", typed).strip()
+            ready = bottom - top == 2 and (not typed or (attachments and not rest)
+                                          or (cursor is not None and cursor[1] == line and cursor[0] <= 3))
+            # Text after a cursor still at the start is the gray suggestion.
+            if ready and rest and not attachments:
+                suggestion = rest
+            keep = [k for k in keep if k < (top if ready else bottom)]
+            # The TUI pads short conversations down to the prompt: close the gap.
+            gap = top - 1
+            while gap >= 0 and (not plain[gap].strip() or "Update available!" in plain[gap]):
+                gap -= 1
+            keep = [k for k in keep if not gap < k < top]
+    keep = [k for k in keep if "Update available!" not in plain[k]]
+    # The TUI pads down to the prompt box wherever it likes, above the spinner
+    # mid-turn too, and the padding shrinks as the reply streams in, so the
+    # view would hold a block of black and then jump. Claude separates blocks
+    # with one blank line; any more is padding.
+    keep = [k for n, k in enumerate(keep)
+            if plain[k].strip() or (n > 0 and plain[keep[n - 1]].strip())]
+    while keep and not plain[keep[0]].strip():
+        keep.pop(0)
+    while keep and not plain[keep[-1]].strip():
+        keep.pop()
+    shown = keep[:rows] if banner and scrolled else keep[-rows:]
+    # Scrolled into a long conversation, Claude pins the prompt being answered
+    # to the top row: keep it there when the pane's extra rows push it out.
+    if rows > 1 and keep and keep[0] == 0 and plain[0].startswith("❯") and shown[0] != 0:
+        shown = [0] + keep[-(rows - 1):]
+    return shown, model, mode, ready, attachments if ready else [], effort, suggestion
+
+
+# Glyphs Claude draws that the card's monospace font (JetBrains Mono) lacks.
+# Qt borrows them from other fonts, wider or taller ones, so the spinner
+# (· ✢ ✳ ✶ ✻ ✽) changed width and line height every frame and the screen
+# shook; these stand-ins are all in the font.
+GLYPHS = str.maketrans({
+    "✢": "+", "✳": "×", "✻": "*", "✽": "✶",
+    "⏺": "●", "⎿": "└", "⎯": "─",
+    "☐": "□", "☒": "■", "◻": "□", "◼": "■", "✔": "✓", "✘": "✗",
+    "◐": "○", "◑": "○", "◒": "○", "◓": "○",
+})
+
+
+def to_html(raws, keep, cursor):
+    """A block per line, a span per style run. The cursor cell is drawn inverted.
+
+    tmux doesn't restate the style at a line start (it carries on from the
+    line before), so every line is parsed, dropped ones too. Lines are blocks
+    rather than one <pre>: Qt gives a newline the background of the span
+    before it and paints that to the right edge, so a highlighted prompt
+    would bleed over the reply under it."""
+    style = Style()
+    shown = set(keep)
+    lines = []
+    for y, raw in enumerate(raws):
+        raw = raw.translate(GLYPHS)
+        cells = []   # (char, css, dim)
+        pos = 0
+        for m in SGR.finditer(raw):
+            for ch in raw[pos:m.start()]:
+                cells.append((ch,) + style.css())
+            style.apply(m.group(1))
+            pos = m.end()
+        for ch in raw[pos:]:
+            cells.append((ch,) + style.css())
+        if y not in shown:
+            continue
+        if cursor and cursor[1] == y:
+            x = cursor[0]
+            while len(cells) <= x:
+                cells.append((" ",) + Style().css())
+            cells[x] = (cells[x][0], "background-color:@FG@;color:@BG@", False)
+        out, run, key = [], [], None
+        for ch, css, dim in cells:
+            if (css, dim) != key:
+                if run:
+                    out.append(span(key, "".join(run)))
+                run, key = [], (css, dim)
+            run.append(ch)
+        if run:
+            out.append(span(key, "".join(run)))
+        lines.append('<p style="margin:0;white-space:pre">%s</p>' % ("".join(out) or " "))
+    return "".join(lines)
+
+
+def span(key, text):
+    css, dim = key
+    text = html.escape(text, quote=False)
+    if dim and "color:" not in css.replace("background-color:", ""):
+        css = (css + ";" if css else "") + "color:@DIM@"
+    return '<span style="%s">%s</span>' % (css, text) if css else text
+
+
+# ---- the hidden pane
+
+def tmux(*args, check=False):
+    return subprocess.run(["tmux", "-L", SOCKET, "-f", "/dev/null"] + list(args),
+                          capture_output=True, text=True, check=check)
+
+
+def reap():
+    """Panes left by viewers that are gone (named live-<job>-<viewer pid>)."""
+    for name in tmux("list-sessions", "-F", "#{session_name}").stdout.split():
+        pid = name.rsplit("-", 1)[-1]
+        if name.startswith("live-") and pid.isdigit() and not os.path.exists("/proc/" + pid):
+            tmux("kill-session", "-t", name)
+
+
+CURSOR_FORMAT = "#{pane_dead} #{cursor_x} #{cursor_y} #{cursor_flag}"
+# With nothing drawn, still a look now and then (a pane dying draws nothing).
+IDLE_LOOK_SEC = 1.0
+BLOCK_END = re.compile(rb"^%(end|error) \d+ (\d+) \d+$")
+
+
+class Control:
+    """A tmux control-mode client on the pane. It says when the pane draws
+    (%output), so an unchanged screen is never captured, and it runs the
+    captures without starting a tmux process for each one."""
+
+    def __init__(self, name):
+        self.proc = subprocess.Popen(["tmux", "-L", SOCKET, "-f", "/dev/null", "-C", "attach", "-t", name],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        self.fd = self.proc.stdout.fileno()
+        os.set_blocking(self.fd, False)
+        self.buf = b""
+        self.block = None      # the reply being read: (number, ours, lines)
+        self.replies = []      # finished replies to our commands: (ok, text), oldest first
+        self.dirty = True
+        self.closed = False
+
+    def send(self, *commands):
+        try:
+            self.proc.stdin.write("".join(c + "\n" for c in commands).encode())
+            self.proc.stdin.flush()
+        except (OSError, ValueError):
+            self.closed = True
+
+    def read(self):
+        try:
+            chunk = os.read(self.fd, 1 << 16)
+        except BlockingIOError:
+            return
+        except OSError:
+            chunk = b""
+        if not chunk:
+            self.closed = True
+            return
+        *lines, self.buf = (self.buf + chunk).split(b"\n")
+        for line in lines:
+            if self.block is not None:
+                end = BLOCK_END.match(line)
+                if end and end.group(2) == self.block[0]:
+                    if self.block[1]:
+                        self.replies.append((end.group(1) == b"end", b"\n".join(self.block[2]).decode(errors="replace")))
+                    self.block = None
+                else:
+                    self.block[2].append(line)
+            elif line.startswith(b"%begin "):
+                parts = line.split()
+                # Flag 1: a command this client sent (attaching answers one of its own).
+                ours = len(parts) > 3 and parts[3].isdigit() and int(parts[3]) & 1
+                self.block = (parts[2] if len(parts) > 2 else b"", bool(ours), [])
+            elif line.startswith(b"%output "):
+                self.dirty = True
+            elif line.startswith(b"%exit"):
+                self.closed = True
+
+    def close(self):
+        try:
+            self.proc.stdin.close()
+        except OSError:
+            pass
+        try:
+            self.proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+
+
+PASTE_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "clawdius", "paste")
+# Pasted images live in RAM (the runtime dir is a tmpfs); a day is long past
+# Claude having read them.
+PASTE_KEEP_SEC = 86400
+
+
+def clean_pastes():
+    try:
+        names = os.listdir(PASTE_DIR)
+    except OSError:
+        return
+    cutoff = time.time() - PASTE_KEEP_SEC
+    for n in names:
+        path = os.path.join(PASTE_DIR, n)
+        try:
+            if os.stat(path).st_mtime < cutoff:
+                os.remove(path)
+        except OSError:
+            pass
+
+
+def view(job, cols, rows, theme):
+    claude = shutil.which("claude") or "claude"
+    name = "live-%s-%d" % (re.sub(r"[^0-9A-Za-z]", "", job), os.getpid())
+    env = ["-e", "COLORTERM=truecolor"]
+    reap()
+    clean_pastes()
+    tmux("new-session", "-d", "-s", name, "-x", str(cols), "-y", str(rows + EXTRA_ROWS), *env, claude, "attach", job, check=True)
+    for opt in (("status", "off"), ("window-size", "manual"), ("remain-on-exit", "on")):
+        tmux("set-option", "-t", name, *opt)
+    tmux("set-option", "-g", "default-terminal", "tmux-256color")
+    # The shell may SIGKILL us when the card closes: a detached watchdog takes
+    # the pane down once this process is gone (tail waits without a process a second).
+    subprocess.Popen(["sh", "-c", 'tail --pid="$1" -f /dev/null 2>/dev/null; tmux -L "$2" -f /dev/null kill-session -t "$3"',
+                      "watchdog", str(os.getpid()), SOCKET, name],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+    def cleanup(*_):
+        if focused:
+            focus(False)
+        tmux("kill-session", "-t", name)
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, cleanup)
+    signal.signal(signal.SIGHUP, cleanup)
+
+    last = None
+    last_input = 0.0
+    model = mode = effort = None
+    focused = False
+
+    # Focus in / out reports (CSI I / CSI O), as a terminal sends them: a
+    # background session only predicts the next prompt while a viewer has focus.
+    def focus(on):
+        tmux("send-keys", "-t", name, "-H", "1b", "5b", "49" if on else "4f")
+
+    def show(info, screen):
+        """Emit the frame if it changed; False once the pane is gone."""
+        nonlocal last, model, mode, effort, focused
+        if len(info) < 4:
+            emit({"html": "", "alive": False})
+            return False
+        dead = info[0] == "1"
+        cursor = (int(info[1]), int(info[2])) if info[3] == "1" and not dead else None
+        frame = (screen, cursor, dead)
+        if frame == last:
+            return True
+        last = frame
+        raws = NOISE.sub("", screen).split("\n")
+        scrolled = False
+        unread = 0
+        for n, raw in enumerate(raws):
+            pill = JUMP.search(raw)
+            if pill:
+                raws[n] = raw[:pill.start()] + "\x1b[0m" + " " * len(SGR.sub("", pill.group(0))) + raw[pill.end():]
+                scrolled = True
+                unread = int(pill.group(1) or 0)
+        keep, seen_model, seen_mode, ready, attachments, seen_effort, suggestion = trim(raws, rows, cursor, scrolled)
+        model, mode, effort = seen_model or model, seen_mode or mode, seen_effort or effort
+        # Once Claude's prompt box is up, it's listening for the focus report.
+        if seen_mode and not focused and not dead:
+            focus(True)
+            focused = True
+        page = to_html(raws, keep, None if ready else cursor)
+        for token, color in zip(("@FG@", "@BG@", "@DIM@"), theme):
+            page = page.replace(token, color)
+        emit({"html": page, "alive": not dead, "model": model or "", "mode": mode or "", "prompt": ready,
+              "attachments": attachments, "effort": effort or "", "scrolled": scrolled, "unread": unread,
+              "suggestion": suggestion})
+        return True
+
+    # Without a control client (it failed, or went away), the old way: two
+    # tmux processes a frame.
+    try:
+        ctl = Control(name)
+    except OSError:
+        ctl = None
+    asked = False        # a look is out: waiting on its two replies
+    last_look = 0.0
+    try:
+        while True:
+            # Quicker frames for a moment after input, so its effect shows fast.
+            now = time.monotonic()
+            gap = FAST_FRAME_SEC if now - last_input < FAST_FOR_SEC else FRAME_SEC
+            if ctl is None or asked:
+                wait = gap
+            else:
+                wait = max(0.0, last_look + (gap if ctl.dirty else IDLE_LOOK_SEC) - now)
+            ready, _, _ = select.select([sys.stdin] + ([ctl.fd] if ctl else []), [], [], wait)
+            if sys.stdin in ready:
+                line = sys.stdin.readline()
+                if not line:
+                    break   # the card let go
+                handle(name, line)
+                last_input = time.monotonic()
+                # Drain whatever else is queued before drawing, so typing stays snappy.
+                while True:
+                    more, _, _ = select.select([sys.stdin], [], [], 0)
+                    if not more:
+                        break
+                    line = sys.stdin.readline()
+                    if not line:
+                        return
+                    handle(name, line)
+                if ctl:
+                    ctl.dirty = True
+            if ctl and ctl.fd in ready:
+                ctl.read()
+            if ctl and ctl.closed:
+                ctl.close()
+                ctl = None
+                asked = False
+            if ctl is None:
+                info = tmux("display-message", "-p", "-t", name, CURSOR_FORMAT).stdout.split()
+                screen = tmux("capture-pane", "-p", "-e", "-t", name).stdout.rstrip("\n") if len(info) >= 4 else ""
+                if not show(info, screen):
+                    break
+                continue
+            if not asked and time.monotonic() >= last_look + (gap if ctl.dirty else IDLE_LOOK_SEC):
+                ctl.dirty = False
+                last_look = time.monotonic()
+                ctl.send("display-message -p -t %s '%s'" % (name, CURSOR_FORMAT), "capture-pane -p -e -t %s" % name)
+                asked = True
+            if asked and len(ctl.replies) >= 2:
+                (info_ok, info), (screen_ok, screen) = ctl.replies[:2]
+                del ctl.replies[:2]
+                asked = False
+                if not show(info.split() if info_ok else [], screen.rstrip("\n") if screen_ok else ""):
+                    break
+    finally:
+        if ctl:
+            ctl.close()
+        if focused:
+            focus(False)
+        tmux("kill-session", "-t", name)
+
+
+def handle(name, line):
+    try:
+        cmd = json.loads(line)
+    except ValueError:
+        return
+    if cmd.get("clip"):
+        attach_clipboard_image(name)
+    if cmd.get("submit"):
+        # Pasted whole, then Enter on its own: an Enter in the same burst
+        # reads as part of the paste and doesn't send.
+        tmux("set-buffer", "-b", "crab", "--", str(cmd["submit"]))
+        tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
+        time.sleep(SUBMIT_PAUSE_SEC)
+        tmux("send-keys", "-t", name, "Enter")
+    if cmd.get("text"):
+        text = str(cmd["text"])
+        if "\n" in text:
+            # Typed as keys, a newline would submit; a bracketed paste keeps it whole.
+            tmux("set-buffer", "-b", "crab", "--", text)
+            tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
+        else:
+            tmux("send-keys", "-t", name, "-l", "--", text)
+    for key in cmd.get("keys") or []:
+        tmux("send-keys", "-t", name, str(key))
+    size = cmd.get("size")
+    if isinstance(size, list) and len(size) == 2:
+        tmux("resize-window", "-t", name, "-x", str(max(20, int(size[0]))), "-y", str(max(5, int(size[1])) + EXTRA_ROWS))
+
+
+def attach_clipboard_image(name):
+    """An image on the clipboard: save it and paste its path, which Claude
+    turns into [Image #n]. (Its own Ctrl+V would read the clipboard from the
+    background daemon, which may not see this Wayland session.)"""
+    try:
+        types = subprocess.run(["wl-paste", "--list-types"], capture_output=True, text=True, timeout=2).stdout.split()
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    images = [t for t in types if t.startswith("image/")]
+    if not images:
+        return
+    kind = "image/png" if "image/png" in images else images[0]
+    os.makedirs(PASTE_DIR, exist_ok=True)
+    path = os.path.join(PASTE_DIR, "clip-%d.%s" % (time.time() * 1000, kind.split("/")[1].split("+")[0]))
+    try:
+        with open(path, "wb") as out:
+            subprocess.run(["wl-paste", "--no-newline", "--type", kind], stdout=out, timeout=5, check=True)
+    except (OSError, subprocess.SubprocessError):
+        return
+    tmux("set-buffer", "-b", "crab", "--", path)
+    tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
+
+
+def emit(obj):
+    sys.stdout.write(json.dumps(obj) + "\n")
+    sys.stdout.flush()
+
+
+def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "reap":
+        return reap_empty(sys.argv[2:])
+    if len(sys.argv) >= 2 and sys.argv[1] == "sweep":
+        return sweep(sys.argv[2:])
+    if len(sys.argv) == 3 and sys.argv[1] == "trust":
+        return trust(sys.argv[2])
+    if len(sys.argv) == 3 and sys.argv[1] == "stop":
+        return stop_job(sys.argv[2])
+    if len(sys.argv) >= 2 and sys.argv[1] == "start":
+        return launch_job(chat_args(sys.argv[2:]))
+    if len(sys.argv) >= 2 and sys.argv[1] == "launch":
+        return launch(chat_args(sys.argv[2:]))
+    if len(sys.argv) in (5, 8) and sys.argv[1] == "view":
+        theme = sys.argv[5:8] or ["#e5e5e5", "#101010", "#808080"]
+        return view(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), theme)
+    sys.stderr.write(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)
