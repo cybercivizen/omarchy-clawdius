@@ -132,3 +132,16 @@ renders, but nobody has clicked or typed through it yet.
 - [ ] Ring when the Claude limits reset: a bell on a Limits row, or "Alert
       me" on the out-of-usage moment, sets an alarm for the reset time.
 - [ ] The running timer's time left beside the crab on the bar.
+
+## Live session composer
+
+- [x] Link files or a folder: the paperclip beside Send opens a zenity
+      chooser; picks go into the prompt as `@path`. (Not seen on screen: the
+      worktree isn't the loaded plugin. Unverified: the island staying up
+      while zenity has focus.)
+- [x] Model and effort chips are pickers: `/model <alias>`, `/effort <level>`.
+      (Not seen on screen; the paste-then-Enter of a slash command untested.)
+- [x] opusplan: the feed reports `modelSetting` (`/model` output, the job's
+      `--model`, else the settings); the chip reads "Opus Plan · Opus/Sonnet"
+      after the mode, and no longer sticks to the banner's start model.
+      (Feed checked against live sessions.)

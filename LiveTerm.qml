@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "Icons.js" as Icons
 
 // A background session's terminal, live inside the card. live.py runs
 // `claude attach` in a hidden tmux pane and streams its screen.
@@ -29,6 +30,8 @@ Column {
   property string model: ""
   property string effort: ""
   property string mode: ""
+  // The alias it runs under ("opusplan", "sonnet", …), also from the feed.
+  property string modelSetting: ""
   property string cwd: ""
   property color fg: Color.foreground
   property color mutedFg: Qt.darker(fg, 1.45)
@@ -105,12 +108,92 @@ Column {
     return names[key] || (mode ? String(mode) : "")
   }
 
-  readonly property string modelLabel: root.screenModel || modelName(root.model)
+  // xhigh → Extra high
+  function effortName(e) {
+    e = String(e || "")
+    return e === "xhigh" ? "Extra high" : e ? e.charAt(0).toUpperCase() + e.slice(1) : ""
+  }
+
+  // opusplan: Opus while in plan mode, Sonnet otherwise. The banner calls it "Opus Plan".
+  readonly property bool opusPlan: modelSetting !== "" ? /^opusplan/i.test(modelSetting) : /^Opus Plan/.test(screenModel)
+  // The model answering: the transcript's is per turn, the banner's is the start's.
+  readonly property string liveModel: modelName(root.model) || (/^Opus Plan/.test(root.screenModel) ? "" : root.screenModel)
+  readonly property bool planning: String(root.screenMode || root.mode).replace(/\s+/g, "").toLowerCase() === "plan"
+  // On opusplan, the half in use follows the mode at once (not a reply later),
+  // with the transcript's version once a reply of that family is in.
+  readonly property string modelLabel: {
+    if (!opusPlan) return liveModel
+    var family = planning ? "Opus" : "Sonnet"
+    return "Opus Plan · " + (liveModel.indexOf(family) === 0 ? liveModel : family)
+  }
   readonly property string modeLabel: modeName(root.screenMode || root.mode)
-  // The transcript's is per turn (it follows /effort); the banner's is the start's.
-  readonly property string effortLabel: {
-    var e = String(root.effort || root.screenEffort || "")
-    return e ? e.charAt(0).toUpperCase() + e.slice(1) + " effort" : ""
+  // The transcript's follows /effort; the banner's is the start's.
+  readonly property string currentEffort: String(root.effort || root.screenEffort || "").toLowerCase()
+  readonly property string effortLabel: currentEffort ? effortName(currentEffort) + " effort" : ""
+  readonly property string currentModel: opusPlan ? "opusplan" : ((/^[A-Za-z]+/.exec(liveModel) || [""])[0]).toLowerCase()
+
+  // The row of choices open under the composer: "model", "effort", "attach" or "".
+  property string picker: ""
+  // Model and effort change through Claude's own /model and /effort, so only
+  // while its prompt is up and empty, and ours is too.
+  readonly property bool canCommand: alive && promptReady && !rawKeys && inputText === "" && attachments.length === 0
+  onCanCommandChanged: if (!canCommand && picker !== "attach") picker = ""
+  readonly property var pickerOptions: picker === "model" ? [
+      { id: "opus", label: "Opus" }, { id: "sonnet", label: "Sonnet" }, { id: "haiku", label: "Haiku" },
+      { id: "fable", label: "Fable" }, { id: "opusplan", label: "Opus Plan" } ]
+    : picker === "effort" ? ["low", "medium", "high", "xhigh", "max"].map(function(e) { return { id: e, label: effortName(e) } })
+    : picker === "attach" ? [{ id: "files", label: "Files…" }, { id: "folder", label: "Folder…" }]
+    : []
+  readonly property string pickerCurrent: picker === "model" ? currentModel : picker === "effort" ? currentEffort : ""
+
+  function togglePicker(which) {
+    root.picker = root.picker === which ? "" : which
+    root.focusInput()
+  }
+
+  function pick(id) {
+    var which = root.picker
+    root.picker = ""
+    if (which === "attach") root.browse(id)
+    else if (root.canCommand) root.send({ submit: "/" + which + " " + id })
+    root.focusInput()
+  }
+
+  // Files or a folder to point Claude at, from the desktop's file chooser:
+  // typed into our prompt as @path, as Claude's own @ completion would.
+  readonly property bool picking: browser.running
+  Process {
+    id: browser
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.mention(text.split("\n"))
+    }
+  }
+
+  function browse(kind) {
+    if (browser.running) return
+    browser.command = ["zenity", "--file-selection", "--filename=" + (root.cwd || root.home) + "/",
+                       "--title=" + (kind === "folder" ? "Link a folder" : "Link files")]
+      .concat(kind === "folder" ? ["--directory"] : ["--multiple", "--separator=\n"])
+    browser.running = true
+  }
+
+  // Inside the session's folder relative, else absolute; quoted if it has spaces.
+  function mention(paths) {
+    var refs = []
+    for (var i = 0; i < paths.length; i++) {
+      var path = paths[i]
+      if (!path) continue
+      if (root.cwd && path === root.cwd) path = "."
+      else if (root.cwd && path.indexOf(root.cwd + "/") === 0) path = path.slice(root.cwd.length + 1)
+      refs.push(/\s/.test(path) ? '@"' + path + '"' : "@" + path)
+    }
+    if (!refs.length || !input) return
+    var at = input.cursorPosition
+    var before = input.text.slice(0, at)
+    var add = (before && !/\s$/.test(before) ? " " : "") + refs.join(" ") + " "
+    input.text = before + add + input.text.slice(at)
+    input.cursorPosition = at + add.length
   }
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string cwdLabel: home && cwd.indexOf(home) === 0 ? "~" + cwd.slice(home.length) : cwd
@@ -406,10 +489,16 @@ Column {
     property string label: ""
     property bool loud: false
     property real maxWidth: 100000
+    // A picker chip: opens its choices under the composer.
+    property bool clickable: false
+    property bool open: false
+    signal clicked()
     width: Math.min(chipText.implicitWidth + Style.space(18), maxWidth)
     height: Style.space(24)
     radius: height / 2
-    color: loud ? root.tint(root.hot, 0.18) : root.tint(root.ink, 0.07)
+    color: loud ? root.tint(root.hot, 0.18)
+      : open ? root.tint(root.ink, 0.16)
+      : clickable && chipMouse.containsMouse ? root.tint(root.ink, 0.12) : root.tint(root.ink, 0.07)
     border.width: 1
     border.color: loud ? root.tint(root.hot, 0.4) : root.tint(root.ink, 0.06)
 
@@ -420,9 +509,18 @@ Column {
       text: chip.label
       textFormat: Text.PlainText
       elide: Text.ElideMiddle
-      color: chip.loud ? root.hot : root.quietInk
+      color: chip.loud ? root.hot : chip.open ? root.ink : root.quietInk
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
+    }
+
+    MouseArea {
+      id: chipMouse
+      anchors.fill: parent
+      enabled: chip.clickable
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: chip.clicked()
     }
   }
 
@@ -712,7 +810,7 @@ Column {
       id: promptArea
       x: Style.space(16)
       y: Style.space(10)
-      width: parent.width - x - sendButton.width - Style.space(10) - Style.space(10)
+      width: parent.width - x - sendButton.width - attachButton.width - Style.space(6) - Style.space(10) - Style.space(10)
       spacing: Style.space(6)
 
       Flow {
@@ -902,6 +1000,37 @@ Column {
       }
     }
 
+    // Link files or a folder: the chooser, from the choices under the composer.
+    Rectangle {
+      id: attachButton
+      anchors.right: sendButton.left
+      anchors.rightMargin: Style.space(6)
+      anchors.verticalCenter: sendButton.verticalCenter
+      width: Style.space(28)
+      height: width
+      radius: width / 2
+      color: root.picker === "attach" || root.picking ? root.tint(root.ink, 0.14)
+        : attachMouse.containsMouse ? root.tint(root.ink, 0.08) : "transparent"
+      Behavior on color { ColorAnimation { duration: 120 } }
+
+      Icon {
+        anchors.centerIn: parent
+        d: Icons.clip
+        size: Style.space(15)
+        stroke: 2
+        color: attachMouse.containsMouse || root.picker === "attach" ? root.ink : root.quietInk
+      }
+
+      MouseArea {
+        id: attachMouse
+        anchors.fill: parent
+        enabled: root.alive && !root.picking
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.togglePicker("attach")
+      }
+    }
+
     // Send: filled once there's something to send.
     Rectangle {
       id: sendButton
@@ -935,6 +1064,53 @@ Column {
     }
   }
 
+  // The open chip's (or the paperclip's) choices, on the right under the composer.
+  Item {
+    visible: root.picker !== ""
+    width: parent.width
+    height: pickerRow.implicitHeight
+
+    Row {
+      id: pickerRow
+      anchors.right: parent.right
+      spacing: Style.space(2)
+
+      Repeater {
+        model: root.pickerOptions
+
+        Rectangle {
+          id: option
+          required property var modelData
+          readonly property bool on: root.pickerCurrent === modelData.id
+          width: optionText.implicitWidth + Style.space(12) * 2
+          height: Style.space(26)
+          radius: height / 2
+          color: on ? root.tint(root.ink, 0.14) : optionMouse.containsMouse ? root.tint(root.ink, 0.06) : "transparent"
+          Behavior on color { ColorAnimation { duration: 120 } }
+
+          Text {
+            id: optionText
+            anchors.centerIn: parent
+            text: option.modelData.label
+            textFormat: Text.PlainText
+            color: option.on ? root.ink : root.quietInk
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            font.bold: option.on
+          }
+
+          MouseArea {
+            id: optionMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.pick(option.modelData.id)
+          }
+        }
+      }
+    }
+  }
+
   // Key hints on the left (the key in a small outlined box, then what it
   // does; Esc and ⇧Tab can be clicked), model and effort on the right.
   Item {
@@ -947,8 +1123,21 @@ Column {
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(6)
 
-      InfoChip { visible: root.modelLabel !== ""; label: root.modelLabel }
-      InfoChip { visible: root.effortLabel !== ""; label: root.effortLabel }
+      // Click for the choices: /model and /effort, sent to the session.
+      InfoChip {
+        visible: root.modelLabel !== "" || root.canCommand
+        label: root.modelLabel || "Model"
+        clickable: root.canCommand
+        open: root.picker === "model"
+        onClicked: root.togglePicker("model")
+      }
+      InfoChip {
+        visible: root.effortLabel !== "" || root.canCommand
+        label: root.effortLabel || "Effort"
+        clickable: root.canCommand
+        open: root.picker === "effort"
+        onClicked: root.togglePicker("effort")
+      }
     }
 
     Row {
