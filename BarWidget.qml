@@ -592,7 +592,33 @@ BarWidget {
   readonly property real hoverZoneWidth: Math.max(0, Number(setting("hoverZoneWidth", 560)))
   property bool zoneHovered: false
 
+  //      Only the empty stretches count: over another module (the tray's
+  //      arrows, the media title) the pointer is after that widget, not us.
+  function overOtherModule(item, pos) {
+    var kids = item.children
+    for (var i = kids.length - 1; i >= 0; i--) {
+      var c = kids[i]
+      if (c === hoverZone || !c.visible || c.width <= 0 || c.height <= 0) continue
+      var p = item.mapToItem(c, pos.x, pos.y)
+      if (p.x < 0 || p.y < 0 || p.x >= c.width || p.y >= c.height) continue
+      if (c.moduleName !== undefined && !/clock/.test(c.moduleName) && !root.isDescendantOf(c)) return true
+      if (overOtherModule(c, p)) return true
+    }
+    return false
+  }
+  function isDescendantOf(item) {
+    for (var o = root; o; o = o.parent) if (o === item) return true
+    return false
+  }
+  function updateZone(handler) {
+    var on = handler.hovered && !(root.barWindow && overOtherModule(root.barWindow.contentItem, hoverZone.mapToItem(root.barWindow.contentItem, handler.point.position.x, handler.point.position.y)))
+    if (on === root.zoneHovered) return
+    root.zoneHovered = on
+    root.hoverChanged(on)
+  }
+
   Item {
+    id: hoverZone
     parent: root.barWindow ? root.barWindow.contentItem : null
     visible: root.hoverZoneWidth > 0 && !!root.bar && !root.vertical
     x: parent ? (parent.width - width) / 2 : 0
@@ -601,10 +627,8 @@ BarWidget {
     z: 100
 
     HoverHandler {
-      onHoveredChanged: {
-        root.zoneHovered = hovered
-        root.hoverChanged(hovered)
-      }
+      onHoveredChanged: root.updateZone(this)
+      onPointChanged: root.updateZone(this)
     }
   }
 
