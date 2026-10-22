@@ -2312,8 +2312,10 @@ BarWidget {
                   requests: root.requests
                   sessionCount: root.sessions.length
                   usage: root.usage
+                  timers: root.timers
                   onAnswered: function(request, choice, answers) { root.answerRequest(request, choice, answers) }
                   onDismissed: root.finished = null
+                  onAlarmRequested: function(at, label) { root.addTimer("alarm", label, at, at - Date.now()) }
                   onOpened: function(s) { root.openSession(s) }
                   onTerminal: function(s) { root.focusSession(s) }
                   onNewChat: root.openView("quick")
