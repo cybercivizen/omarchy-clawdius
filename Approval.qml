@@ -417,6 +417,18 @@ Column {
     }
   }
 
+  // What the Always button would save, and where, before it's clicked.
+  Text {
+    visible: !root.asking && !!root.request && !!root.request.alwaysRule
+    width: parent.width
+    text: root.request ? "Always allows " + root.request.alwaysRule : ""
+    textFormat: Text.PlainText
+    elide: Text.ElideRight
+    color: root.pal.muted
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.bodySmall
+  }
+
   Text {
     visible: root.more > 0
     text: "+" + root.more + " more waiting"
