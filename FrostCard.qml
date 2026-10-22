@@ -53,9 +53,21 @@ PopupWindow {
   readonly property var coordinatorKey: owner || root
   readonly property var anchorWindow: anchorItem ? anchorItem.QsWindow.window : null
   readonly property var popupScreen: anchorWindow ? anchorWindow.screen : null
-  readonly property bool containsMouse: cardHover.hovered
+  readonly property bool containsMouse: cardHover.hovered || floatHover.hovered
   // Where the drawn surface is, in the bar window's coordinates.
   readonly property rect surfaceRect: Qt.rect(popupAnchor.rect.x + maskBox.x, popupAnchor.rect.y + maskBox.y, maskBox.width, maskBox.height)
+  // Over the surface and not clipped by it, the window's size: a menu put
+  // here can hang past the island's edge into the window's empty part.
+  // floatMask (an item in it) joins the input mask; floatRect is where it is,
+  // in the bar window's coordinates.
+  readonly property Item floatLayer: floatHolder
+  property Item floatMask: null
+  readonly property rect floatRect: floatMask && floatMask.visible && !tucked
+    ? Qt.rect(popupAnchor.rect.x + floatMask.x, popupAnchor.rect.y + floatMask.y, floatMask.width, floatMask.height)
+    : Qt.rect(0, 0, 0, 0)
+  // Out of the way of a window that has to be over it (a file chooser: no
+  // window goes above the bar's layer): undrawn and click-through, still open.
+  property bool tucked: false
   readonly property real screenW: popupScreen ? popupScreen.width : 0
   readonly property real screenH: popupScreen ? popupScreen.height : 0
   readonly property real barW: anchorWindow ? anchorWindow.width : 0
@@ -125,7 +137,10 @@ PopupWindow {
   // item when its geometry changes, not its scale, so masking the surface
   // itself froze the drop-in's 0.94 scale and left its edges dead to the
   // pointer (the card closed while you were still on its padding).
-  mask: Region { item: maskBox }
+  mask: Region {
+    item: root.tucked ? null : maskBox
+    Region { item: root.floatMask && root.floatMask.visible && !root.tucked ? root.floatMask : null }
+  }
 
   onOpenChanged: {
     progressAnim.stop()
@@ -195,6 +210,7 @@ PopupWindow {
 
   Rectangle {
     id: surface
+    visible: !root.tucked
     width: root.island && root.progress < 1
       ? root.islandStartWidth + (root.contentWidth - root.islandStartWidth) * root.islandWidthT
       : root.contentWidth
@@ -290,6 +306,18 @@ PopupWindow {
 
     HoverHandler {
       id: cardHover
+    }
+  }
+
+  Item {
+    id: floatHolder
+    anchors.fill: parent
+    visible: !root.tucked
+    opacity: surface.opacity
+
+    // Only the mask's parts reach it, so this is the pointer on the float.
+    HoverHandler {
+      id: floatHover
     }
   }
 }

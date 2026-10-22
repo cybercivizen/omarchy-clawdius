@@ -971,6 +971,7 @@ BarWidget {
     wanted: root.islandOpen && !root.keysOff && !root.livePicking && (root.terminalUp || root.quickActive || root.searchActive || root.homeKeys)
     cover: root.summoned
     hole: card.surfaceRect
+    floatHole: card.floatRect
     barHeight: root.barWindow ? root.barWindow.height : 0
     onOutsideClicked: root.close()
     onEscapePressed: root.close()
@@ -1655,7 +1656,7 @@ BarWidget {
     target: root
     function onIslandOpenChanged() {
       // Folded away: its notification went with it.
-      if (!root.islandOpen) { root.newMenuOpen = false; if (!root.peeking) root.toast = null; return }
+      if (!root.islandOpen) { root.newMenuOpen = false; quickChat.picker = ""; if (!root.peeking) root.toast = null; return }
       root.refreshResumable()
       if (root.summoned) return
       if (root.view !== "detail" || (!root.liveId && !root.startingLabel)) root.view = "home"
@@ -1850,6 +1851,11 @@ BarWidget {
     passive: root.peeking
     triggerMode: root.peeking ? "hover" : root.summoned || root.terminalUp || root.keysView || root.homeKeys ? "sticky" : root.pinned && !root.autoOpened ? "click" : "hover"
     grabWindows: liveKeys.visible ? [liveKeys] : []
+    // The chat view's open menu hangs past the island's bottom.
+    floatMask: quickChat.picker !== "" ? quickChat.menuItem : null
+    // A file chooser is up (the live view's, the chat view's, the + menu's):
+    // no window goes over the bar's layer, so the island gets out of its way.
+    tucked: root.livePicking || pickProcess.running
     // Settled on the live view, the terminal resizes all the time; easing
     // after it only clips. Switching views morphs, into the live view too.
     animateHeight: root.view !== "detail" || viewMorph.running
@@ -1868,8 +1874,7 @@ BarWidget {
     readonly property real cap: Style.space(root.tallView ? 900 : 680)
     contentHeight: root.peeking ? card.fittedContentHeight(toastBanner.implicitHeight)
       : card.fittedContentHeight(Math.max(toastSlot.height + nav.height + content.spacing + body.implicitHeight,
-                                          root.newMenuOpen ? newMenu.y + newMenu.height + Style.space(8) : 0,
-                                          quickChat.menuBottom), cap)
+                                          root.newMenuOpen ? newMenu.y + newMenu.height + Style.space(8) : 0), cap)
     // The window stays tall till the island has folded down out of the live view.
     maxContentHeight: card.fittedContentHeight(100000, root.tallView || viewMorph.running ? Style.space(900) : cap)
 
@@ -2269,7 +2274,7 @@ BarWidget {
                 effort: root.quickEffort
                 dir: root.quickDir
                 recentDir: root.recentFolders.length ? root.recentFolders[0].cwd : ""
-                menuLayer: islandRoot
+                menuLayer: card.floatLayer
                 onPicked: function(which) { root.quickMode = which; liveKeys.prime() }
                 onModelPicked: function(which) { root.quickModel = which }
                 onEffortPicked: function(which) { root.quickEffort = which }

@@ -21,8 +21,10 @@ PanelWindow {
   property bool wanted: false
   property bool primed: false
   property bool cover: false
-  // In this window's coordinates (the monitor's): the card, and the bar strip.
+  // In this window's coordinates (the monitor's): the card, a menu hanging
+  // past it (floatHole), and the bar strip.
   property rect hole: Qt.rect(0, 0, 0, 0)
+  property rect floatHole: Qt.rect(0, 0, 0, 0)
   property real barHeight: 0
   signal outsideClicked()
   // Esc, taken before the handler: it always closes the island.
@@ -58,6 +60,7 @@ PanelWindow {
     item: root.cover ? coverArea : null
     Region { intersection: Intersection.Subtract; width: root.width; height: root.barHeight }
     Region { intersection: Intersection.Subtract; x: root.hole.x; y: root.hole.y; width: root.hole.width; height: root.hole.height }
+    Region { intersection: Intersection.Subtract; x: root.floatHole.x; y: root.floatHole.y; width: root.floatHole.width; height: root.floatHole.height }
   }
 
   WlrLayershell.namespace: "clawdius-keys"

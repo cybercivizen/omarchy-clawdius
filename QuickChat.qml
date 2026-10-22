@@ -55,12 +55,12 @@ Rectangle {
   readonly property real inputWidth: shown.width
 
   // The open menu: "model", "effort", "folder", "attach" or "". It drops
-  // from its chip into `menuLayer` (the island, so the view's scroll doesn't
-  // clip it); menuBottom is how far down it reaches there, for the island to fit.
+  // from its chip into `menuLayer` (the card's float layer, so it can hang
+  // past the island's bottom instead of stretching it); menuItem is it there.
   property string picker: ""
   property Item pickerAnchor: null
   property Item menuLayer: null
-  readonly property real menuBottom: menu.visible ? menu.y + menu.height + Style.space(8) : 0
+  readonly property Item menuItem: menu
   onVisibleChanged: if (!visible) picker = ""
   onModeChanged: if (picker === "folder") picker = ""
 

@@ -215,8 +215,10 @@ buffer squashed into the new size.
   place the caret, drag or double-click to select, Ctrl+C / Ctrl+V.
   Beside Send, the **model** and **effort** chips and the **paperclip** each
   open a small menu, the same as the live view's (`PickMenu.qml`) but
-  dropping down, as the composer sits just under the bar; the island grows
-  to fit it and a click elsewhere closes it. Model and effort go on the
+  dropping down, as the composer sits just under the bar. It hangs past the
+  island's bottom on the card's float layer (`FrostCard.floatLayer`, added to
+  its input mask and cut out of the key window's cover) instead of stretching
+  the island; a click elsewhere closes it. Model and effort go on the
   command line (`--model`, `--effort`) and are kept in prefs.json; the
   paperclip's Files… / Folder… land in the text as `@path`, relative to the
   folder the session will start in. In Code, the folder by the toggle opens
@@ -350,8 +352,10 @@ chips over its prompt and sends them with your next message (Backspace on an
 empty prompt removes the last one). Text size: the `terminalFontSize`
 setting (13px default).
 The **paperclip** beside Send offers **Files…** or **Folder…**: a zenity
-chooser (the island waits for it, and the key window lets go of the keyboard
-meanwhile) whose picks land in the prompt as `@path`, relative to the
+chooser (the island waits for it, tucked away: no window can go over the
+bar's layer, so the card stops drawing and lets clicks through till the
+chooser closes; the key window lets go of the keyboard meanwhile; the chat
+view's paperclip and the + menu's Open folder… do the same) whose picks land in the prompt as `@path`, relative to the
 session's folder when inside it, quoted when they have spaces, as Claude's own
 `@` completion would type them.
 The **model** and **effort** chips under the composer are clickable while
