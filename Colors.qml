@@ -49,9 +49,11 @@ QtObject {
   // The posture nudge: calm, not a session's status.
   readonly property color posture: light ? "#0E7C86" : "#3CBFC0"
   // Effort, cool to hot as it climbs: low … max; the default stays muted.
+  // Pastel: each hue softened toward the page so the levels don't shout.
   function effort(e) {
-    return e === "low" ? posture : e === "medium" ? done : e === "high" ? needsYou
-      : e === "xhigh" ? crab : e === "max" ? failed : muted
+    var c = e === "low" ? "#7FC8C8" : e === "medium" ? "#9FD3A8" : e === "high" ? "#EBCB8B"
+      : e === "xhigh" ? "#F0A98C" : e === "max" ? "#E89AA0" : ""
+    return c === "" ? muted : light ? mix(c, fg, 0.35) : c
   }
 
   // The island: near-black (Solitude's darker background) holding cards one

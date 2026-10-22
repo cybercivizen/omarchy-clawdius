@@ -153,6 +153,16 @@ Rectangle {
         width: newRow.implicitWidth
         height: newRow.implicitHeight + Style.space(4)
 
+        Rectangle {
+          x: -Style.space(6)
+          y: Style.space(4) - Style.space(3)
+          width: newRow.implicitWidth + Style.space(12)
+          height: newRow.implicitHeight + Style.space(6)
+          radius: Style.space(6)
+          color: root.pal.secondary
+          opacity: newMouse.containsMouse ? 1 : 0
+        }
+
         Row {
           id: newRow
           y: Style.space(4)
