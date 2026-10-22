@@ -610,6 +610,9 @@ Column {
         label: root.modeLabel
         // Plan and bypass change what Claude may do: those stand out.
         loud: /plan|bypass/i.test(root.modeLabel)
+        // Click cycles to the next mode, like ⇧Tab.
+        clickable: true
+        onClicked: { root.send({ keys: ["BTab"] }); root.focusInput() }
       }
 
       // The folder takes what's left beside the status, eliding its middle.
