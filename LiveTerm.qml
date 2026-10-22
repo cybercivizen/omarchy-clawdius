@@ -115,9 +115,9 @@ Column {
   }
 
   // opusplan: Opus while in plan mode, Sonnet otherwise. The banner calls it "Opus Plan".
-  readonly property bool opusPlan: modelSetting !== "" ? /^opusplan/i.test(modelSetting) : /^Opus Plan/.test(screenModel)
+  readonly property bool opusPlan: modelSetting !== "" ? /^opusplan/i.test(modelSetting) : /^Opus (Plan|in plan mode)/.test(screenModel)
   // The model answering: the transcript's is per turn, the banner's is the start's.
-  readonly property string liveModel: modelName(root.model) || (/^Opus Plan/.test(root.screenModel) ? "" : root.screenModel)
+  readonly property string liveModel: modelName(root.model) || (/^Opus (Plan|in plan mode)/.test(root.screenModel) ? "" : root.screenModel)
   readonly property bool planning: String(root.screenMode || root.mode).replace(/\s+/g, "").toLowerCase() === "plan"
   // On opusplan, the half in use follows the mode at once (not a reply later),
   // with the transcript's version once a reply of that family is in.

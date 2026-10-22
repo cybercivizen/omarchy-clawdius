@@ -63,7 +63,7 @@ DEFAULT_CONTEXT_WINDOW = 200_000
 # `[1m]` suffix, so the family has to be recognised by name.
 NATIVE_1M_MODEL = re.compile(r"claude-(?:(?:opus|sonnet|fable)-[5-9]|haiku-5-5|opus-4-[7-9])")
 SETTINGS_FILE = os.path.join(CLAUDE_DIR, "settings.json")
-# What `/model` and `/effort` print into the transcript. opusplan is "Opus Plan Mode".
+# What `/model` and `/effort` print into the transcript. opusplan is "Opus Plan Mode" (older) or "Opus in plan mode, else Sonnet".
 MODEL_SET = re.compile(r"^<local-command-stdout>(?:Set model to|Kept model as) `([^`]+)`")
 EFFORT_SET = re.compile(r"^<local-command-stdout>Set effort level to (\w+)")
 CHILD_DONE = re.compile(r"<task-id>([\w-]+)</task-id>|<agent-message from=\"([\w-]+)\"")
@@ -407,7 +407,7 @@ class Transcript:
         if kind == "user" and isinstance(content, str) and content.startswith("<local-command-stdout>"):
             m = MODEL_SET.match(content)
             if m:
-                self.model_setting = "opusplan" if m.group(1).startswith("Opus Plan") else m.group(1)
+                self.model_setting = "opusplan" if re.match(r"Opus Plan|Opus in plan mode", m.group(1)) else m.group(1)
             m = EFFORT_SET.match(content)
             if m:
                 self.effort = m.group(1).lower()
