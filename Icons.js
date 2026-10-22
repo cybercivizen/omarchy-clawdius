@@ -22,3 +22,8 @@ var terminal = "M4 6l6 6-6 6M12 18h8"
 var back = "M15 6l-6 6 6 6"
 var forward = "M9 6l6 6-6 6"
 var search = "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4.2-4.2"
+// From the mockups' island nav (Timers), plus the posture check's sitter.
+var timer = "M12 5a8 8 0 1 0 0 16a8 8 0 1 0 0-16M12 9v4l2 2M9 2h6"
+var posture = "M12 2.5a2 2 0 1 0 0 4a2 2 0 1 0 0-4M7 10h10M12 10v6M9 21l3-5 3 5"
+var bell = "M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"
+var minus = "M5 12h14"

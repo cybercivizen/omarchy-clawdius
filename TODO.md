@@ -113,3 +113,17 @@ renders, but nobody has clicked or typed through it yet.
       from a two-line page in the same font. Measured: 26 lines are exactly
       the card at 13–16 px; the top frame from live.py starts on the ❯
       prompt. Not seen scrolled to the top on screen.)
+
+## Corner card: Timer and Posture
+
+- [x] The right-hand Limits card is switchable: Limits, Timer, Posture.
+      (Seen on screen: the setter, the list with a draining bar, a timer
+      ringing as a toast and leaving the list, the posture pane with its
+      countdown. Not hand-tested: clicking the buttons, the chime's sound,
+      the crab's slump in the last two minutes, a two-monitor bar.)
+- [ ] Reminders take their note from a short list; typing one (and a time)
+      into the Alt+Space search, e.g. `remind 14:30 call mom`, would need no
+      new input in the island.
+- [ ] The nav's Timers icon from the mockups (clock with a dot while
+      something runs) isn't built; the corner card is the only way in.
+- [ ] The Music and Note corner modes from the mockups.

@@ -140,6 +140,13 @@
         "step": 2,
         "defaultValue": 92,
         "description": "How solid the island is. Lower lets more of the blurred desktop through."
+      },
+      {
+        "key": "timerSound",
+        "type": "boolean",
+        "label": "Timer sound",
+        "defaultValue": true,
+        "description": "Play a chime when a timer, alarm, reminder or posture nudge goes off."
       }
     ]
   }
