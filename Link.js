@@ -72,6 +72,10 @@ function closeAll() {
 // The one crab that keeps shared state on disk (app usage), so the copies on
 // other monitors don't write over each other.
 function isLeader(crab) {
+  // A crab destroyed by a reload can linger at the front; drop it or nobody leads.
+  while (crabs.length > 0) {
+    try { crabs[0].stateDir; break } catch (e) { crabs.shift() }
+  }
   return crabs.length > 0 && crabs[0] === crab
 }
 
