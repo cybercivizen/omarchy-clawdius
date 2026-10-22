@@ -160,7 +160,7 @@ Rectangle {
           height: newRow.implicitHeight + Style.space(6)
           radius: Style.space(6)
           color: root.pal.secondary
-          opacity: newMouse.containsMouse ? 1 : 0
+          opacity: (newMouse.containsMouse || newHover.hovered) ? 1 : 0
         }
 
         Row {
@@ -173,17 +173,17 @@ Rectangle {
             d: Icons.plus
             size: Style.space(13)
             stroke: 2.2
-            color: newMouse.containsMouse ? root.pal.crab : root.pal.muted
+            color: (newMouse.containsMouse || newHover.hovered) ? root.pal.crab : root.pal.muted
           }
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "New session here"
             textFormat: Text.PlainText
-            color: newMouse.containsMouse ? root.pal.fg : root.pal.muted
+            color: (newMouse.containsMouse || newHover.hovered) ? root.pal.fg : root.pal.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
-            font.underline: newMouse.containsMouse
+            font.underline: (newMouse.containsMouse || newHover.hovered)
           }
         }
 
@@ -194,6 +194,9 @@ Rectangle {
           cursorShape: Qt.PointingHandCursor
           onClicked: root.newSession(root.s.workdir || root.s.cwd)
         }
+
+        // Passive, so nothing laid over the button can swallow the hover.
+        HoverHandler { id: newHover }
       }
     }
 
