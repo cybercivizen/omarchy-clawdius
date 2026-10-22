@@ -107,9 +107,10 @@ with an icon nav: **Home**, **Chat** (a new chat), **Sessions**, **Search**
 (the icon stretches into a search bar), the status ("1 needs you · 2
 working"), and **+** for a new session from any view. Opened by hovering,
 the nav also shows the two shortcuts (hidden when the status leaves no room).
-The island opens from anywhere in the middle 560 px of the bar
+The island opens from the empty bar within the middle 560 px
 (`hoverZoneWidth`), not only the clock and crab: a passive `HoverHandler` on
-the bar window, so the widgets under it keep their own hover and clicks.
+the bar window. Other widgets in that stretch (the tray arrows, a media title)
+are skipped, so they keep their own hover and clicks and never open it.
 
 Every view is 948 px wide, however it was opened (only a notification peek
 is narrower). The popup window stays at the widest and tallest size and
