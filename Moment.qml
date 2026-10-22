@@ -111,7 +111,8 @@ Rectangle {
       fillGradient: RadialGradient {
         centerX: glow.width * 0.4
         centerY: glow.height + glow.width * 0.22
-        centerRadius: glow.width * 0.42
+        // Fully faded by the top edge, so the arc never ends in a visible line.
+        centerRadius: Math.min(glow.width * 0.42, centerY - 2)
         focalX: centerX
         focalY: centerY
         GradientStop { position: 0.0; color: Qt.rgba(root.glowColor.r, root.glowColor.g, root.glowColor.b, 0.32) }
