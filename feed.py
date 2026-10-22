@@ -63,6 +63,9 @@ DEFAULT_CONTEXT_WINDOW = 200_000
 # `[1m]` suffix, so the family has to be recognised by name.
 NATIVE_1M_MODEL = re.compile(r"claude-(?:(?:opus|sonnet|fable)-[5-9]|haiku-5-5|opus-4-[7-9])")
 SETTINGS_FILE = os.path.join(CLAUDE_DIR, "settings.json")
+# What `/model` and `/effort` print into the transcript. opusplan is "Opus Plan Mode".
+MODEL_SET = re.compile(r"^<local-command-stdout>(?:Set model to|Kept model as) `([^`]+)`")
+EFFORT_SET = re.compile(r"^<local-command-stdout>Set effort level to (\w+)")
 CHILD_DONE = re.compile(r"<task-id>([\w-]+)</task-id>|<agent-message from=\"([\w-]+)\"")
 
 
@@ -92,6 +95,36 @@ def context_window(model, used):
         window = 1_000_000 if big else DEFAULT_CONTEXT_WINDOW
     # Past it without compacting: it must be a bigger window than we know.
     return window if used <= window else 1_000_000
+
+
+_model_settings = {}
+
+
+def model_setting(cwd):
+    """The `model` setting a session in cwd starts on: the project's, then the user's."""
+    paths = [os.path.join(cwd, ".claude", name) for name in ("settings.local.json", "settings.json")] if cwd else []
+    for path in paths + [SETTINGS_FILE]:
+        m = mtime(path)
+        if not m:
+            continue
+        cached = _model_settings.get(path)
+        if not cached or cached[0] != m:
+            data = read_json(path)
+            cached = _model_settings[path] = (m, str(data.get("model") or "") if isinstance(data, dict) else "")
+        if cached[1]:
+            return cached[1]
+    return ""
+
+
+def flag_value(flags, name):
+    """`--model opusplan` (or `--model=opusplan`) out of a job's respawnFlags."""
+    flags = [str(f) for f in flags] if isinstance(flags, list) else []
+    for i, f in enumerate(flags):
+        if f == name and i + 1 < len(flags):
+            return flags[i + 1]
+        if f.startswith(name + "="):
+            return f[len(name) + 1:]
+    return ""
 
 
 def read_json(path):
@@ -309,6 +342,7 @@ class Transcript:
         self.phase = "model"     # "tool" while a tool call is out, else the model's move
         self.model = ""          # the newest reply's model id
         self.effort = ""         # and the effort it ran at (low … max)
+        self.model_setting = ""  # what `/model` last set: an alias ("opusplan") or a name ("Sonnet 5.5")
         self.mode = ""           # permission mode, from its records and the prompts
         self.last_at = 0.0       # epoch of the newest record
         # Work running beside the conversation. Launches are matched to their
@@ -370,6 +404,13 @@ class Transcript:
             self.model = str(msg["model"])
             if rec.get("effort"):
                 self.effort = str(rec["effort"])
+        if kind == "user" and isinstance(content, str) and content.startswith("<local-command-stdout>"):
+            m = MODEL_SET.match(content)
+            if m:
+                self.model_setting = "opusplan" if m.group(1).startswith("Opus Plan") else m.group(1)
+            m = EFFORT_SET.match(content)
+            if m:
+                self.effort = m.group(1).lower()
         if kind == "system" and rec.get("subtype") == "compact_boundary":
             meta = rec.get("compactMetadata") or {}
             self.context = int(meta.get("postTokens") or 0)
@@ -830,6 +871,9 @@ def main():
                 "model": tr.model if tr else "",
                 "effort": tr.effort if tr else "",
                 "mode": tr.mode if tr else "",
+                # The alias it runs under: opusplan swaps Opus (plan mode) for Sonnet.
+                "modelSetting": (tr.model_setting if tr else "") or flag_value((job or {}).get("respawnFlags"), "--model")
+                                or model_setting(cwd),
                 "phase": tr.phase if tr and busy else "",
                 "phaseAt": int(tr.phase_at * 1000) if tr and busy else 0,
                 "note": tr.note if tr and (busy or waiting) else "",

@@ -336,6 +336,23 @@ Claude's box, which attaches it as `[Image #n]`; the card shows those as
 chips over its prompt and sends them with your next message (Backspace on an
 empty prompt removes the last one). Text size: the `terminalFontSize`
 setting (13px default).
+The **paperclip** beside Send offers **Files…** or **Folder…**: a zenity
+chooser (the island waits for it, and the key window lets go of the keyboard
+meanwhile) whose picks land in the prompt as `@path`, relative to the
+session's folder when inside it, quoted when they have spaces, as Claude's own
+`@` completion would type them.
+The **model** and **effort** chips under the composer are clickable while
+Claude's prompt is up and both prompts are empty: the choices (Opus, Sonnet,
+Haiku, Fable, Opus Plan; Low … Max) open in a small menu rising from the chip
+over the terminal (the paperclip's too; nothing moves, a click elsewhere
+closes it), and a pick sends
+`/model <alias>` or `/effort <level>` to the session. Claude Code saves either
+as your default for new sessions too. The model chip shows the model of the
+latest reply, not the banner's (that one is the start's). Sessions on
+`opusplan` (from `/model` in the transcript, else the job's `--model`, else the
+`model` setting) read **Opus Plan · Opus 5.5** in plan mode and **Opus Plan ·
+Sonnet** once it's left: the half in use follows the mode right away, the
+version shows once a reply from that model is in.
 While Claude shows a dialog instead of its prompt and the card's prompt is
 empty, keys go straight to the terminal so you can answer it. The card pins itself so it gets the
 keyboard, then widens. **Open in terminal** focuses the session's window, or

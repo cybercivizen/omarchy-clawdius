@@ -25,6 +25,8 @@ Rectangle {
   property bool active: true
   // The pointer is busy in the terminal (selecting): don't drag-scroll.
   readonly property bool holdsPointer: term.item ? term.item.holdsPointer : false
+  // The terminal's file chooser is open: it has the keyboard, the island stays.
+  readonly property bool picking: term.item ? term.item.picking : false
 
   signal grabbed()
   signal openTerminal()
@@ -389,6 +391,7 @@ Rectangle {
       title: root.s.name || ""
       model: root.s.model || ""
       effort: root.s.effort || ""
+      modelSetting: root.s.modelSetting || ""
       mode: root.s.mode || ""
       cwd: root.s.workdir || root.s.cwd || ""
       pal: root.pal

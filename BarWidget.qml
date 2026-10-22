@@ -166,7 +166,9 @@ BarWidget {
   // message or search; clicking another window still closes it, see
   // liveFocus below.
   readonly property bool terminalUp: (liveId !== "" || startingLabel !== "") && view === "detail"
-  readonly property bool holdOpen: pinned || terminalUp || (keysView && liveKeys.field.text !== "")
+  // The live terminal's file chooser is up: it has the keyboard, the island waits for it.
+  readonly property bool livePicking: !!detailLoader.item && detailLoader.item.picking
+  readonly property bool holdOpen: pinned || terminalUp || livePicking || (keysView && liveKeys.field.text !== "")
 
   // The clock (cybercivizen.clock) reports its hover here, so pointing at the
   // time is enough to bring the card up. Not while another panel (the
@@ -966,7 +968,7 @@ BarWidget {
   KeyWindow {
     id: liveKeys
     screen: root.barWindow ? root.barWindow.screen : null
-    wanted: root.islandOpen && !root.keysOff && (root.terminalUp || root.quickActive || root.searchActive || root.homeKeys)
+    wanted: root.islandOpen && !root.keysOff && !root.livePicking && (root.terminalUp || root.quickActive || root.searchActive || root.homeKeys)
     cover: root.summoned
     hole: card.surfaceRect
     barHeight: root.barWindow ? root.barWindow.height : 0
@@ -1425,7 +1427,7 @@ BarWidget {
   Timer {
     id: liveFocusLost
     interval: 180
-    onTriggered: if (!liveKeys.settling && !liveKeys.field.activeFocus && (root.terminalUp || root.keysView || root.homeKeys) && root.islandOpen && !card.containsMouse) root.close()
+    onTriggered: if (!liveKeys.settling && !root.livePicking && !liveKeys.field.activeFocus && (root.terminalUp || root.keysView || root.homeKeys) && root.islandOpen && !card.containsMouse) root.close()
   }
 
   // A quick second click on Search or Chat lands while the key window is
