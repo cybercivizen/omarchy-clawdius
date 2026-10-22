@@ -174,7 +174,8 @@ buffer squashed into the new size.
 - **Detail**: clicking a background session opens it up close. On the left:
   a back arrow beside its crab, its name and folder (where it's working now, so it follows a
   switch into a worktree), its git branch and, for a linked worktree, which
-  repository it belongs to, then its steps (ACTIONS, or PLAN; an idle
+  repository it belongs to, **+ New session here** (Code in that same folder,
+  so the same worktree and branch, in the card), then its steps (ACTIONS, or PLAN; an idle
   session keeps its last turn's, ■ for one cut off), and at the foot how
   full its **context** is (against Claude Code's auto-compact window: the
   `autoCompactWindow` setting, per model under `modelSettings`, else 200k),
@@ -226,8 +227,11 @@ buffer squashed into the new size.
   (zenity); that choice lasts until the shell restarts.
   **Opus Plan** stands out in both views' model menus: its row sits on a
   crab-to-purple sweep (`Shimmer.qml`) that drifts in steps while the menu is
-  open, with "Opus plans, Sonnet builds" beside it. On a model chip it
-  shows still and drifts only while pointed at or open.
+  open. On a model chip it shows still and drifts only while pointed at or
+  open. Effort levels run cool to hot (`Colors.effort`: teal, green, amber,
+  orange, red), as a dot and text in the menu and on the effort chip. The
+  menus' titles are small spaced-out caps over a hairline, like the island's
+  other section labels, so they don't read as a choice.
 - **Search** (the nav's search icon, **Alt+Space**, or just start typing on
   Home; Esc there closes the island): with nothing typed,
   a row of apps you've used lately (launches from here, and every window

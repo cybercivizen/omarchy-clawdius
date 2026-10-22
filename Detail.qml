@@ -31,6 +31,7 @@ Rectangle {
   signal grabbed()
   signal openTerminal()
   signal openEditor(string dir)
+  signal newSession(string dir)
   signal openLink(string url)
   signal collapse()
 
@@ -143,6 +144,45 @@ Rectangle {
           text: !root.s.git ? ""
             : root.s.git.worktree === root.s.git.branch ? "worktree of " + root.s.git.repo
             : "worktree " + root.s.git.worktree + " of " + root.s.git.repo
+        }
+      }
+
+      // Another Code session in the same folder (so the same worktree and branch).
+      Item {
+        visible: (root.s.workdir || root.s.cwd || "") !== ""
+        width: newRow.implicitWidth
+        height: newRow.implicitHeight + Style.space(4)
+
+        Row {
+          id: newRow
+          y: Style.space(4)
+          spacing: Style.space(7)
+
+          Icon {
+            anchors.verticalCenter: parent.verticalCenter
+            d: Icons.plus
+            size: Style.space(13)
+            stroke: 2.2
+            color: newMouse.containsMouse ? root.pal.crab : root.pal.muted
+          }
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "New session here"
+            textFormat: Text.PlainText
+            color: newMouse.containsMouse ? root.pal.fg : root.pal.muted
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            font.underline: newMouse.containsMouse
+          }
+        }
+
+        MouseArea {
+          id: newMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.newSession(root.s.workdir || root.s.cwd)
         }
       }
     }

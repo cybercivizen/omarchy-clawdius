@@ -140,8 +140,9 @@ Column {
   onCanCommandChanged: if (!canCommand && picker !== "attach") picker = ""
   readonly property var pickerOptions: picker === "model" ? [
       { id: "opus", label: "Opus" }, { id: "sonnet", label: "Sonnet" }, { id: "haiku", label: "Haiku" },
-      { id: "fable", label: "Fable" }, { id: "opusplan", label: "Opus Plan", special: true, hint: "Opus plans, Sonnet builds" } ]
-    : picker === "effort" ? ["low", "medium", "high", "xhigh", "max"].map(function(e) { return { id: e, label: effortName(e) } })
+      { id: "fable", label: "Fable" }, { id: "opusplan", label: "Opus Plan", special: true } ]
+    : picker === "effort" ? ["low", "medium", "high", "xhigh", "max"].map(function(e) {
+        return root.pal ? { id: e, label: effortName(e), tone: root.pal.effort(e) } : { id: e, label: effortName(e) } })
     : picker === "attach" ? [{ id: "files", label: "Files…" }, { id: "folder", label: "Folder…" }]
     : []
   readonly property string pickerCurrent: picker === "model" ? currentModel : picker === "effort" ? currentEffort : ""
@@ -499,6 +500,8 @@ Column {
     property bool open: false
     // Opus Plan: on its Shimmer, drifting while pointed at or open.
     property bool special: false
+    // Effort's level color, for the text; transparent for none.
+    property color tone: "transparent"
     signal clicked()
     width: Math.min(chipText.implicitWidth + Style.space(18), maxWidth)
     height: Style.space(24)
@@ -525,7 +528,7 @@ Column {
       text: chip.label
       textFormat: Text.PlainText
       elide: Text.ElideMiddle
-      color: chip.loud ? root.hot : chip.open || chip.special ? root.ink : root.quietInk
+      color: chip.loud ? root.hot : chip.tone.a > 0 ? chip.tone : chip.open || chip.special ? root.ink : root.quietInk
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
     }
@@ -1107,6 +1110,7 @@ Column {
         id: effortChip
         visible: root.effortLabel !== "" || root.canCommand
         label: root.effortLabel || "Effort"
+        tone: root.pal && root.currentEffort ? root.pal.effort(root.currentEffort) : "transparent"
         clickable: root.canCommand
         open: root.picker === "effort"
         onClicked: root.togglePicker("effort", effortChip)

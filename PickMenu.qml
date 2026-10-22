@@ -4,12 +4,14 @@ import qs.Commons
 // A chip's choices (model, effort, a folder, what to link): a small menu over
 // whatever is under it, so nothing moves. Its owner places it: rising from
 // the chip in the live view, dropping from it in the chat view. An option
-// with `special` (Opus Plan) sits on a drifting Shimmer, its `hint` beside it.
+// with `special` (Opus Plan) sits on a drifting Shimmer; one with a `tone`
+// (effort's levels) gets a dot and its text in that color, a `hint` sits
+// muted beside the label.
 Rectangle {
   id: root
 
   property string title: ""
-  // {id, label, special?, hint?}
+  // {id, label, special?, hint?, tone?}
   property var options: []
   property string current: ""
   property real minWidth: 0
@@ -40,17 +42,31 @@ Rectangle {
     y: root.pad
     width: parent.width - root.pad * 2
 
+    // A section label, as Home's and the + menu's: small caps, spaced out,
+    // a hairline under it, so it doesn't read as one of the choices.
     Text {
       visible: root.title !== ""
       leftPadding: Style.space(10)
-      topPadding: Style.space(4)
-      bottomPadding: Style.space(4)
-      text: root.title
+      topPadding: Style.space(5)
+      bottomPadding: Style.space(6)
+      text: root.title.toUpperCase()
       textFormat: Text.PlainText
-      color: root.quietInk
+      color: root.tint(root.quietInk, 0.75)
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Style.font.caption - 1
+      font.letterSpacing: 0.9
+      font.bold: true
     }
+
+    Rectangle {
+      visible: root.title !== ""
+      x: Style.space(6)
+      width: parent.width - Style.space(12)
+      height: 1
+      color: root.tint(root.ink, 0.08)
+    }
+
+    Item { visible: root.title !== ""; width: 1; height: Style.space(4) }
 
     Repeater {
       model: root.options
@@ -62,8 +78,9 @@ Rectangle {
         required property var modelData
         readonly property bool on: root.current === modelData.id
         readonly property bool special: !!modelData.special
-        width: optionText.implicitWidth + (hintText.visible ? hintText.implicitWidth + Style.space(10) : 0)
-               + Style.space(10) * 3 + Style.space(13)
+        readonly property bool toned: modelData.tone !== undefined
+        width: optionText.x + optionText.implicitWidth + (hintText.visible ? hintText.implicitWidth + Style.space(10) : 0)
+               + Style.space(10) * 2 + Style.space(13)
         height: Style.space(28)
 
         Shimmer {
@@ -86,13 +103,23 @@ Rectangle {
           Behavior on color { ColorAnimation { duration: 120 } }
         }
 
+        Rectangle {
+          visible: option.toned
+          x: Style.space(10)
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(7)
+          height: width
+          radius: width / 2
+          color: option.toned ? option.modelData.tone : "transparent"
+        }
+
         Text {
           id: optionText
-          x: Style.space(10)
+          x: option.toned ? Style.space(10) + Style.space(7) + Style.space(8) : Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
           text: option.modelData.label
           textFormat: Text.PlainText
-          color: option.on || option.special ? root.ink : root.quietInk
+          color: option.toned ? option.modelData.tone : option.on || option.special ? root.ink : root.quietInk
           font.family: Style.font.family
           font.pixelSize: Style.font.bodySmall
           font.bold: option.on

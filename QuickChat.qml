@@ -32,7 +32,7 @@ Rectangle {
     { id: "sonnet", label: "Sonnet" },
     { id: "haiku", label: "Haiku" },
     { id: "fable", label: "Fable" },
-    { id: "opusplan", label: "Opus Plan", special: true, hint: "Opus plans, Sonnet builds" }
+    { id: "opusplan", label: "Opus Plan", special: true }
   ]
   readonly property string modelLabel: {
     for (var i = 0; i < models.length; i++) if (models[i].id === model) return models[i].label
@@ -45,7 +45,7 @@ Rectangle {
     e = String(e || "")
     return e === "xhigh" ? "Extra high" : e ? e.charAt(0).toUpperCase() + e.slice(1) : "Default"
   }
-  readonly property var efforts: ["", "low", "medium", "high", "xhigh", "max"].map(function(e) { return { id: e, label: effortName(e) } })
+  readonly property var efforts: ["", "low", "medium", "high", "xhigh", "max"].map(function(e) { return { id: e, label: effortName(e), tone: pal.effort(e) } })
   // The folder Code starts in: "" for the Code folder. Its label opens the
   // choices: the Code folder, the one Claude worked in last, or any.
   property string dir: ""
@@ -282,6 +282,7 @@ Rectangle {
         anchors.rightMargin: Style.space(6)
         label: root.effort ? root.effortName(root.effort) + " effort" : "Effort"
         quiet: root.effort === ""
+        tone: root.effort ? root.pal.effort(root.effort) : "transparent"
         open: root.picker === "effort"
         onClicked: root.togglePicker("effort", effortChip)
       }
@@ -377,6 +378,8 @@ Rectangle {
     property bool open: false
     // Opus Plan: on its Shimmer, drifting while pointed at or open.
     property bool special: false
+    // Effort's level color, for the text; transparent for none.
+    property color tone: "transparent"
     signal clicked()
 
     anchors.verticalCenter: parent.verticalCenter
@@ -405,7 +408,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         text: chip.label
         textFormat: Text.PlainText
-        color: chip.quiet ? root.pal.muted : root.pal.strong
+        color: chip.tone.a > 0 ? chip.tone : chip.quiet ? root.pal.muted : root.pal.strong
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
       }

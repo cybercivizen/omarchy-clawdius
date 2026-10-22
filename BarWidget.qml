@@ -2513,6 +2513,7 @@ BarWidget {
                     root.close()
                     Quickshell.execDetached(["uwsm-app", "--", "code", dir])
                   }
+                  onNewSession: dir => root.startInFolder(dir)
                   onOpenLink: url => {
                     root.close()
                     Quickshell.execDetached(["omarchy-launch-browser", url])
