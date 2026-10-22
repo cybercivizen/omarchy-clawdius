@@ -354,6 +354,19 @@ Column {
     // An image on the clipboard goes to Claude as an attachment (live.py);
     // text still pastes here as usual.
     if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_V) { root.send({ clip: true }); return false }
+    // Backspace at (or inside) an @path chip takes the whole chip off, and
+    // the space after it.
+    if (event.key === Qt.Key_Backspace && plain && input.selectedText === "") {
+      var at = input.cursorPosition, t = root.inputText
+      for (var i = 0; i < root.links.length; i++) {
+        var l = root.links[i]
+        if (at > l.start && at <= l.end + (t.charAt(l.end) === " " ? 1 : 0)) {
+          input.text = t.slice(0, l.start) + t.slice(Math.max(at, l.end))
+          input.cursorPosition = l.start
+          return true
+        }
+      }
+    }
     // Backspace on an empty prompt takes the last image back off.
     if (empty && event.key === Qt.Key_Backspace && root.attachments.length) { root.send({ keys: ["BSpace"] }); return true }
     if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_C && input.selectedText === "") {
@@ -1013,11 +1026,11 @@ Column {
 
               component Segment: Rectangle {
                 id: seg
-                height: link.first.height
-                radius: Style.space(6)
-                color: root.tint(root.hot, seg.hovered ? 0.26 : 0.16)
+                height: link.first.height - 2
+                radius: height / 2.6
+                color: root.tint(root.hot, seg.hovered ? 0.24 : 0.12)
                 border.width: 1
-                border.color: root.tint(root.hot, 0.4)
+                border.color: root.tint(root.hot, seg.hovered ? 0.55 : 0.3)
                 readonly property bool hovered: segMouse.containsMouse
 
                 MouseArea {
@@ -1034,14 +1047,14 @@ Column {
 
               Segment {
                 x: link.first.x - Style.space(2)
-                y: link.first.y - root.inputScroll
+                y: link.first.y + 1 - root.inputScroll
                 width: (link.wraps ? shown.width : link.last.x + link.charW) - link.first.x + Style.space(4)
               }
 
               Segment {
                 visible: link.wraps
                 x: -Style.space(2)
-                y: link.last.y - root.inputScroll
+                y: link.last.y + 1 - root.inputScroll
                 width: link.last.x + link.charW + Style.space(4)
               }
             }

@@ -62,7 +62,7 @@ PopupWindow {
   // in the bar window's coordinates.
   readonly property Item floatLayer: floatHolder
   property Item floatMask: null
-  readonly property rect floatRect: floatMask && floatMask.visible && !tucked
+  readonly property rect floatRect: floatMask && !tucked
     ? Qt.rect(popupAnchor.rect.x + floatMask.x, popupAnchor.rect.y + floatMask.y, floatMask.width, floatMask.height)
     : Qt.rect(0, 0, 0, 0)
   // Out of the way of a window that has to be over it (a file chooser: no
@@ -139,7 +139,7 @@ PopupWindow {
   // pointer (the card closed while you were still on its padding).
   mask: Region {
     item: root.tucked ? null : maskBox
-    Region { item: root.floatMask && root.floatMask.visible && !root.tucked ? root.floatMask : null }
+    Region { item: root.floatMask && !root.tucked ? root.floatMask : null }
   }
 
   onOpenChanged: {
@@ -312,9 +312,10 @@ PopupWindow {
   Item {
     id: floatHolder
     anchors.fill: parent
-    // Only while a float is up: otherwise this full-window layer sits over
+    // Only while a float is up (not by floatMask.visible: that reads false while
+    // this is hidden, so it could never come up): otherwise this full-window layer sits over
     // the card and its own hover handler keeps the card's controls from hovering.
-    visible: !root.tucked && root.floatMask !== null && root.floatMask.visible
+    visible: !root.tucked && root.floatMask !== null
     opacity: surface.opacity
 
     // Only the mask's parts reach it, so this is the pointer on the float.
