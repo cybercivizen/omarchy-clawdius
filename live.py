@@ -16,11 +16,6 @@
         can show the session in its own live terminal. On "not trusted" the
         card opens the session in a terminal window (`launch`) instead.
 
-        For both, `--chat` among the args makes it the island's Chat: talk
-        only, wherever it runs. Bash and the file-editing tools are denied,
-        and chat.md (next to this file) asks Claude to answer the way it
-        does on claude.ai.
-
     live.py reap JOB_ID...
         Stop the background sessions that never got a prompt: no transcript,
         nothing attached (a terminal or the card's view), and older than a
@@ -39,6 +34,10 @@
         resuming picks it straight back up. Prints {"stopped": [...]} and
         notes them in $XDG_STATE_HOME/clawdius/asleep.json (session id →
         when). Runs at most every 30s, under a lock (one bar per monitor).
+
+    live.py history DIR
+        The prompts given in DIR, newest first, as a JSON list: the card's
+        Up / Down go through them in its own prompt.
 
     live.py stop JOB_ID
         `claude stop` that one (the card's Stop button).
@@ -68,6 +67,8 @@
             {"clip": true}              attach the clipboard's image, if any
             {"text": "hello"}           typed literally (pasted if multi-line)
             {"keys": ["Enter", "C-c"]}  tmux key names
+            {"wheel": 3}                scroll back 3 lines (negative: forward)
+            {"clear": 40}               delete up to 40 characters around the caret in Claude's box
             {"size": [cols, rows]}
         Closing stdin (the card collapsing the view) kills the pane, which only
         detaches that viewer. Attached clients share one size, so a terminal
@@ -92,23 +93,12 @@ FRAME_SEC = 0.12
 FAST_FRAME_SEC = 0.03
 FAST_FOR_SEC = 1.5
 SUBMIT_PAUSE_SEC = 0.15
+CLEAR_BATCH = 16
+CLEAR_PAUSE_SEC = 0.01
 # The pane is taller than the card shows: the prompt box and status lines
 # under it go, and so does the welcome banner once scrolled up to it, and the
 # card should still have a full screen of conversation left.
 EXTRA_ROWS = 14
-
-
-CHAT_TOOLS = "Bash,Edit,Write,NotebookEdit"
-CHAT_PROMPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat.md")
-
-
-def chat_args(args):
-    """`--chat` (before any `--` and the prompt) as the flags it stands for."""
-    end = args.index("--") if "--" in args else len(args)
-    if "--chat" not in args[:end]:
-        return args
-    i = args.index("--chat")
-    return args[:i] + ["--disallowedTools", CHAT_TOOLS, "--append-system-prompt-file", CHAT_PROMPT] + args[i + 1:]
 
 
 def start(args):
@@ -526,14 +516,17 @@ def trim(raws, rows, cursor, scrolled=False):
     typing doesn't wait on a round trip through the terminal.
     The card shows the last `rows` of them, or the first once scrolled back
     to the banner: the pane's extra rows would hide the conversation's start.
+    Text in Claude's box that the card didn't put there (a prompt given back
+    after an interrupt) comes out as the draft, for the card to take over.
     Returns (line indexes to keep, model or None, mode or None, prompt ready,
-    attachments, effort or None, suggestion)."""
+    attachments, effort or None, suggestion, draft)."""
     plain = [SGR.sub("", raw) for raw in raws]
     keep = list(range(len(plain)))
     model = mode = effort = None
     ready = False
     attachments = []
     suggestion = ""
+    draft = ""
     banner = False
     for i, text in enumerate(plain[:6]):
         if "Claude Code v" in text:
@@ -567,11 +560,14 @@ def trim(raws, rows, cursor, scrolled=False):
             # them as attachments and keeps its own prompt.
             attachments = IMAGE_TOKEN.findall(typed)
             rest = IMAGE_TOKEN.sub("", typed).strip()
-            ready = bottom - top == 2 and (not typed or (attachments and not rest)
-                                          or (cursor is not None and cursor[1] == line and cursor[0] <= 3))
-            # Text after a cursor still at the start is the gray suggestion.
+            # A cursor still at the start: what follows is the gray suggestion,
+            # however many lines it wraps to.
+            at_start = cursor is not None and cursor[1] == line and cursor[0] <= 3
+            ready = (bottom - top == 2 and (not typed or (attachments and not rest))) or at_start
             if ready and rest and not attachments:
-                suggestion = rest
+                suggestion = rest if bottom - top == 2 else box_text(plain[top:bottom])
+            if not ready:
+                draft = box_text(plain[top:bottom])
             keep = [k for k in keep if k < (top if ready else bottom)]
             # The TUI pads short conversations down to the prompt: close the gap.
             gap = top - 1
@@ -594,7 +590,24 @@ def trim(raws, rows, cursor, scrolled=False):
     # to the top row: keep it there when the pane's extra rows push it out.
     if rows > 1 and keep and keep[0] == 0 and plain[0].startswith("❯") and shown[0] != 0:
         shown = [0] + keep[-(rows - 1):]
-    return shown, model, mode, ready, attachments if ready else [], effort, suggestion
+    return shown, model, mode, ready, attachments if ready else [], effort, suggestion, draft
+
+
+def box_text(box):
+    """The text in Claude's prompt box (its top rule, then the ❯ line and
+    the lines under it), images left out. The box wraps long lines at a
+    space: a line that ran near the edge carries on with a space, any other
+    break was a newline."""
+    width = len(box[0].rstrip())
+    text = ""
+    for n, line in enumerate(box[1:]):
+        part = line.rstrip()
+        part = part.lstrip()[1:] if n == 0 else part
+        part = IMAGE_TOKEN.sub("", part[2:] if part.startswith("  ") else part.lstrip())
+        if n:
+            text += " " if len(box[n].rstrip()) >= width - 12 else "\n"
+        text += part.strip() if n == 0 else part.rstrip()
+    return text.strip()
 
 
 # Glyphs Claude draws that the card's monospace font (JetBrains Mono) lacks.
@@ -821,7 +834,7 @@ def view(job, cols, rows, theme):
                 raws[n] = raw[:pill.start()] + "\x1b[0m" + " " * len(SGR.sub("", pill.group(0))) + raw[pill.end():]
                 scrolled = True
                 unread = int(pill.group(1) or 0)
-        keep, seen_model, seen_mode, ready, attachments, seen_effort, suggestion = trim(raws, rows, cursor, scrolled)
+        keep, seen_model, seen_mode, ready, attachments, seen_effort, suggestion, draft = trim(raws, rows, cursor, scrolled)
         model, mode, effort = seen_model or model, seen_mode or mode, seen_effort or effort
         # Once Claude's prompt box is up, it's listening for the focus report.
         if seen_mode and not focused and not dead:
@@ -832,7 +845,7 @@ def view(job, cols, rows, theme):
             page = page.replace(token, color)
         emit({"html": page, "alive": not dead, "model": model or "", "mode": mode or "", "prompt": ready,
               "attachments": attachments, "effort": effort or "", "scrolled": scrolled, "unread": unread,
-              "suggestion": suggestion})
+              "suggestion": suggestion, "draft": draft})
         return True
 
     # Without a control client (it failed, or went away), the old way: two
@@ -925,6 +938,20 @@ def handle(name, line):
             tmux("send-keys", "-t", name, "-l", "--", text)
     for key in cmd.get("keys") or []:
         tmux("send-keys", "-t", name, str(key))
+    # Mouse-wheel steps (SGR, near the top-left, in the conversation): Claude
+    # scrolls a line for each, where PageUp / PageDown jump a page.
+    wheel = int(cmd.get("wheel") or 0)
+    if wheel:
+        step = "\x1b[<%d;2;2M" % (64 if wheel > 0 else 65)
+        tmux("send-keys", "-t", name, "-l", "--", step * min(abs(wheel), 60))
+    # Empties Claude's box: deletes forward, then back, so the caret's place
+    # doesn't matter (keys that only edit, unlike Ctrl+C, which can interrupt).
+    # A few at a time: a long burst reads as a paste and is mostly dropped.
+    clear = min(int(cmd.get("clear") or 0), 4000)
+    for key in ("DC", "BSpace") if clear else ():
+        for done in range(0, clear, CLEAR_BATCH):
+            tmux("send-keys", "-t", name, "-N", str(min(CLEAR_BATCH, clear - done)), key)
+            time.sleep(CLEAR_PAUSE_SEC)
     size = cmd.get("size")
     if isinstance(size, list) and len(size) == 2:
         tmux("resize-window", "-t", name, "-x", str(max(20, int(size[0]))), "-y", str(max(5, int(size[1])) + EXTRA_ROWS))
@@ -953,6 +980,50 @@ def attach_clipboard_image(name):
     tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
 
 
+# ---- Prompt history
+
+PASTED = re.compile(r"\[Pasted text #(\d+)(?: \+\d+ lines)?\]")
+
+
+def history(project, limit=200):
+    """The prompts given in PROJECT (or the repository whose worktree it is), newest first and each once, as Claude's
+    own Up arrow goes through them (~/.claude/history.jsonl): pasted text put
+    back in place of its [Pasted text #1], images left out. Prints a JSON list."""
+    project = os.path.realpath(os.path.expanduser(project))
+    # A session in one of Claude's worktrees counts as its repository's.
+    projects = {project, project.split("/.claude/worktrees/")[0]}
+    entries = []
+    try:
+        with open(os.path.join(CLAUDE_HOME, "history.jsonl"), encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(entry, dict) and entry.get("project") in projects:
+                    entries.append(entry)
+    except OSError:
+        pass
+    prompts = []
+    for entry in reversed(entries):
+        pasted = entry.get("pastedContents") or {}
+        missing = []
+
+        def fill(m):
+            content = (pasted.get(m.group(1)) or {}).get("content")
+            if not isinstance(content, str):
+                missing.append(m.group(0))
+                return m.group(0)
+            return content
+
+        text = IMAGE_TOKEN.sub("", PASTED.sub(fill, str(entry.get("display") or ""))).strip()
+        if text and not missing and text not in prompts:
+            prompts.append(text)
+            if len(prompts) >= limit:
+                break
+    emit(prompts)
+
+
 def emit(obj):
     sys.stdout.write(json.dumps(obj) + "\n")
     sys.stdout.flush()
@@ -967,10 +1038,12 @@ def main():
         return trust(sys.argv[2])
     if len(sys.argv) == 3 and sys.argv[1] == "stop":
         return stop_job(sys.argv[2])
+    if len(sys.argv) == 3 and sys.argv[1] == "history":
+        return history(sys.argv[2])
     if len(sys.argv) >= 2 and sys.argv[1] == "start":
-        return launch_job(chat_args(sys.argv[2:]))
+        return launch_job(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "launch":
-        return launch(chat_args(sys.argv[2:]))
+        return launch(sys.argv[2:])
     if len(sys.argv) in (5, 8) and sys.argv[1] == "view":
         theme = sys.argv[5:8] or ["#e5e5e5", "#101010", "#808080"]
         return view(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), theme)

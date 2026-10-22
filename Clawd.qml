@@ -51,15 +51,16 @@ Item {
   // Comes and goes with a fade, not all at once.
   property real thoughtsShown: thoughts ? 1 : 0
   Behavior on thoughtsShown { NumberAnimation { duration: 360; easing.type: Easing.OutCubic } }
-  // Each glyph's life is a cycle, 0..1. Four to a loop (twelve glyphs), so
-  // the loop wraps without changing any glyph or lane mid-flight.
+  // Each glyph's life is a cycle, 0..1, 2.9 s long. Four to a loop (twelve
+  // glyphs), so the loop wraps without changing any glyph or lane
+  // mid-flight. Stepped about 12 times a second, not every frame (see
+  // Throb.qml): they move in whole pixels anyway.
   property real flow: 0
-  NumberAnimation on flow {
-    from: 0
-    to: 4
-    duration: 4 * 2900
-    loops: Animation.Infinite
+  Timer {
     running: root.thoughtsShown > 0 && root.animate && root.visible
+    interval: 80
+    repeat: true
+    onTriggered: root.flow = (root.flow + interval / 2900) % 4
   }
 
   function smoothstep(v) { v = Math.max(0, Math.min(1, v)); return v * v * (3 - 2 * v) }

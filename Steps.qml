@@ -143,18 +143,13 @@ Column {
             }
 
             Icon {
+              id: arc
               anchors.centerIn: parent
               d: "M12 2a10 10 0 0 1 10 10"
               size: parent.width
               stroke: 2 * 24 / parent.width
               color: root.pal ? root.pal.crab : "orange"
-              NumberAnimation on rotation {
-                running: step.state === "running" && root.animate && root.visible
-                from: 0
-                to: 360
-                duration: 900
-                loops: Animation.Infinite
-              }
+              Spin { target: arc; running: step.state === "running" && root.animate && root.visible }
             }
           }
 

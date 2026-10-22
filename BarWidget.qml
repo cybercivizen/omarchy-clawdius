@@ -55,7 +55,7 @@ BarWidget {
   // switching the desktop's theme.
   property string previewTheme: ""
   readonly property int maxIdle: setting("maxIdleSessions", 4)
-  readonly property bool alwaysShow: setting("alwaysShow", true) === true
+  readonly property bool alwaysShow: setting("alwaysShow", false) === true
   readonly property real hoverDelay: setting("hoverDelayMs", 200)
   // Grace after the pointer leaves, so overshooting the edge doesn't close it.
   readonly property real closeDelay: setting("closeDelayMs", 400)
@@ -687,9 +687,8 @@ BarWidget {
   }
 
   // ---- Launchers, as the old agents right-click menu had them: a talk-only
-  //      chat (live.py's --chat denies Bash and the file tools) or Claude
-  //      Code in ~/Work.
-  readonly property string chatCommand: setting("chatCommand", "cd ~/chat && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --chat")
+  //      chat (~/chat denies the file tools) or Claude Code in ~/Work.
+  readonly property string chatCommand: setting("chatCommand", "cd ~/chat && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch")
   readonly property string codeCommand: setting("codeCommand", "cd ~/Work && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --permission-mode auto")
   readonly property string webCommand: setting("webCommand", "omarchy-launch-browser https://claude.ai")
 
@@ -742,15 +741,7 @@ BarWidget {
     root.pendingCommand = command
     root.pendingLabel = label
     root.pendingTitle = title || ""
-    // Chat's folder is only somewhere for chats to start, so it's made the
-    // first time. Any other missing folder says so, rather than failing with
-    // nothing on stdout.
-    var dir = root.commandDir(command)
-    var check = dir === "" ? ""
-      : dir === root.commandDir(root.chatCommand) ? "mkdir -p " + root.shellQuote(dir) + " && "
-      : "[ -d " + root.shellQuote(dir) + " ] || { echo "
-        + root.shellQuote("there's no " + dir + " folder. Make it, or change the command in the crab's settings") + "; exit 1; }; "
-    startProcess.command = ["bash", "-lc", check + command.replace(re, "python3 -I '" + root.livePath + "' start")]
+    startProcess.command = ["bash", "-lc", command.replace(re, "python3 -I '" + root.livePath + "' start")]
     startProcess.running = true
   }
 
@@ -975,6 +966,7 @@ BarWidget {
     hole: card.surfaceRect
     barHeight: root.barWindow ? root.barWindow.height : 0
     onOutsideClicked: root.close()
+    onEscapePressed: root.close()
   }
 
   // ---- The chat and search views take the keyboard (the key window holds
@@ -1052,11 +1044,6 @@ BarWidget {
       if (field.text !== "" || root.view === "quick") root.quickMode = root.quickMode === "chat" ? "code" : "chat"
       return true
     }
-    if (event.key === Qt.Key_Escape) {
-      if (field.text !== "") field.text = ""
-      else root.close()
-      return true
-    }
     return false
   }
 
@@ -1066,7 +1053,6 @@ BarWidget {
     var mods = event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)
     var paste = event.matches(StandardKey.Paste)
     var typed = !mods && /^[^\x00-\x20\x7f]/.test(event.text)
-    if (event.key === Qt.Key_Escape) { root.close(); return true }
     if (!typed && !paste) return true
     root.openView("search")
     root.searchChip = ""
@@ -1115,12 +1101,6 @@ BarWidget {
       root.searchChip = ""
       field.insert(0, typed)
       field.cursorPosition = typed.length
-      return true
-    }
-    if (key === Qt.Key_Escape) {
-      if (field.text !== "") field.text = ""
-      else if (root.searchChip !== "") root.searchChip = ""
-      else root.close()
       return true
     }
     return false
@@ -1496,9 +1476,7 @@ BarWidget {
   // "opening…" meanwhile (Folders and the pick-up chips pass the session id).
   function resumeSession(r, label) {
     var dir = "'" + String(r.cwd).replace(/'/g, "'\\''") + "'"
-    // A chat stays talk only when it's picked back up: --chat isn't saved with it.
-    var chat = root.commandDir(root.chatCommand) !== "" && String(r.cwd) === root.commandDir(root.chatCommand) ? " --chat" : ""
-    root.launchInCard("cd " + dir + " && {live} launch --resume " + r.id + chat, label || "", r.title)
+    root.launchInCard("cd " + dir + " && {live} launch --resume " + r.id, label || "", r.title)
   }
 
   Process {

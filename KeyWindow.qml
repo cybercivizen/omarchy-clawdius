@@ -25,6 +25,8 @@ PanelWindow {
   property rect hole: Qt.rect(0, 0, 0, 0)
   property real barHeight: 0
   signal outsideClicked()
+  // Esc, taken before the handler: it always closes the island.
+  signal escapePressed()
   // LiveTerm's key filter: return true to eat the key instead of typing it.
   property var handler: null
   readonly property alias field: field
@@ -94,6 +96,9 @@ PanelWindow {
     font.pixelSize: root.fontSize
     wrapMode: root.fieldWrap ? TextEdit.Wrap : TextEdit.NoWrap
     textFormat: TextEdit.PlainText
-    Keys.onPressed: function(event) { if (root.handler && root.handler(event)) event.accepted = true }
+    Keys.onPressed: function(event) {
+      if (event.key === Qt.Key_Escape) { event.accepted = true; root.escapePressed(); return }
+      if (root.handler && root.handler(event)) event.accepted = true
+    }
   }
 }

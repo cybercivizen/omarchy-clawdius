@@ -163,10 +163,19 @@ buffer squashed into the new size.
   full height from the start (Chat / Code open this view at once, saying
   "Starting Claude…" until the session is up), a rounded composer with a send button (amber while
   Claude's asking and keys go straight to the terminal; its text selects
-  with the mouse or Shift+arrows, Ctrl+C copies), and key hints (Esc and
-  ⇧Tab clickable) with the model and effort (the latest turn's, from the
-  transcript) on the right. Scrolled back, the screen holds its height and a
-  floating **Jump to bottom** stands in for Claude's own label.
+  with the mouse or Shift+arrows, Ctrl+C copies), and key hints (interrupt
+  and ⇧Tab clickable; Esc closes the island, so Ctrl+C on an empty prompt
+  interrupts) with the model and effort (the latest turn's, from the
+  transcript) on the right. The wheel scrolls it by lines (sent to Claude
+  as mouse-wheel steps: a touchpad one a line height swiped, a mouse wheel
+  three a notch). Scrolled back, the screen holds its height and a
+  floating **Jump to bottom** stands in for Claude's own label. Up / Down
+  in the composer go through the prompts given in that folder (Claude's
+  `~/.claude/history.jsonl`, as its own Up does; `live.py history`), never
+  opening Claude's prompt box. Past six lines the message scrolls inside
+  the composer, and the terminal gives up rows as it grows, so the card
+  stays the same height. Text that turns up in Claude's own box (a prompt
+  given back after an interrupt) moves over to the composer.
 - **Closing**: opened by hovering, the island goes when the pointer leaves,
   whatever you clicked inside it. Pinned (the crab clicked), it stays until
   you click outside it. While it shows a live terminal, or there's a chat

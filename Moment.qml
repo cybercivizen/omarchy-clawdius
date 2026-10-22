@@ -164,13 +164,13 @@ Rectangle {
         font.family: root.fontFamily
         font.pixelSize: Style.font.subtitle + index * 3
         font.bold: true
-        NumberAnimation on t {
+        // Stepped, not every frame (see Throb.qml).
+        Timer {
           running: root.active && root.kind === "limited"
-          from: 0
-          to: 1
-          duration: 2400
-          loops: Animation.Infinite
-          onStarted: zed.t = (zed.index * 0.33) % 1
+          interval: 80
+          repeat: true
+          onTriggered: zed.t = (zed.t + interval / 2400) % 1
+          onRunningChanged: if (running) zed.t = (zed.index * 0.33) % 1
         }
       }
     }
@@ -189,12 +189,12 @@ Rectangle {
         textFormat: Text.PlainText
         color: index === 1 ? root.pal.fg : root.pal.crab
         font.pixelSize: Style.font.subtitle - index % 2 * 3
-        NumberAnimation on t {
+        Timer {
           running: root.active && root.kind === "done"
-          from: 0
-          to: 1
-          duration: 1400 + spark.index * 250
-          loops: Animation.Infinite
+          interval: 80
+          repeat: true
+          onTriggered: spark.t = (spark.t + interval / (1400 + spark.index * 250)) % 1
+          onRunningChanged: if (!running) spark.t = 0
         }
       }
     }
@@ -858,13 +858,7 @@ Rectangle {
       height: width
       radius: width / 2
       color: line.dotColor
-      SequentialAnimation on opacity {
-        running: line.pulse && root.active
-        loops: Animation.Infinite
-        NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
-        NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
-        onRunningChanged: if (!running) lineDot.opacity = 1
-      }
+      Throb { target: lineDot; running: line.pulse && root.active }
     }
 
     Text {
