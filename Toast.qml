@@ -16,6 +16,7 @@ Rectangle {
   property QtObject pal
   property string fontFamily: Style.font.family
   // The feed's toast: {kind (done | failed | input | limited | waiting), status, id, name, text, meta, at}
+  // or a timer's / the posture nudge's (kind timer | posture), from BarWidget.
   property var toast: null
   property bool framed: true
   // The widest it grows to on its own (as the peek, nothing else sizes it).
@@ -30,6 +31,8 @@ Rectangle {
     : kind === "done" ? pal.done
     : kind === "failed" ? pal.failed
     : kind === "limited" ? pal.limit
+    : kind === "timer" ? pal.crab
+    : kind === "posture" ? pal.done
     : pal.needsYou
   readonly property color toneText: !pal ? "transparent" : kind === "waiting" || kind === "input" ? pal.needsYouText : tone
   readonly property string meta: toast && toast.meta ? toast.meta.join("  ·  ") : ""
@@ -62,10 +65,10 @@ Rectangle {
       pal: root.pal
       unit: Style.spaceReal(3)
       badgeSize: Style.space(15)
-      mood: root.kind === "done" ? "done" : root.kind === "failed" ? "failed"
+      mood: root.kind === "done" || root.kind === "posture" ? "done" : root.kind === "failed" ? "failed"
         : root.kind === "limited" ? "sleep" : "waiting"
       color: !root.pal ? "#D97757" : root.kind === "failed" || root.kind === "limited" ? root.pal.idleCrab : root.pal.crab
-      badge: root.kind === "input" ? "waiting" : root.kind
+      badge: root.kind === "input" ? "waiting" : root.kind === "timer" || root.kind === "posture" ? "" : root.kind
       // Ringed in whatever's behind it: the island while peeking, else the card.
       ring: !root.pal ? "black" : root.framed ? root.color : root.pal.island
       fontFamily: root.fontFamily

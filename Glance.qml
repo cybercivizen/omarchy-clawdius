@@ -2,13 +2,11 @@ import QtQuick
 import qs.Commons
 import "Icons.js" as Icons
 
-// Home's right-hand card: a glance at the Claude limits, the 5-hour window
-// and the week, each with a tick where an even burn would be. Orange when
-// ahead of that pace, red at 90%. Clicking it opens the full Stats.
-//
-// (The approved switchable corner adds Timer / Posture / Music / Note modes
-// here; until those exist, Limits is the only one, so there's no switcher.)
-Rectangle {
+// The Limits mode of Home's corner card (Corner.qml): a glance at the Claude
+// limits, the 5-hour window and the week, each with a tick where an even
+// burn would be. Orange when ahead of that pace, red at 90%. Clicking it
+// opens the full Stats.
+Item {
   id: root
 
   property QtObject pal
@@ -53,16 +51,13 @@ Rectangle {
     return "resets " + Qt.formatDateTime(new Date(t), "ddd HH:mm")
   }
 
-  implicitHeight: column.implicitHeight + Style.space(18) * 2
-  radius: Style.space(24)
-  color: pal ? pal.card : "transparent"
-  border.width: 1
-  border.color: pal ? pal.hairline : "transparent"
+  implicitHeight: column.implicitHeight
 
   Rectangle {
     anchors.fill: parent
-    radius: parent.radius
-    color: root.pal ? root.pal.alpha(root.pal.fg, mouse.containsMouse ? 0.03 : 0) : "transparent"
+    anchors.margins: -Style.space(6)
+    radius: Style.space(14)
+    color: root.pal ? root.pal.alpha(root.pal.fg, mouse.containsMouse ? 0.04 : 0) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
   }
 
@@ -76,48 +71,8 @@ Rectangle {
 
   Column {
     id: column
-    x: Style.space(18)
-    y: Style.space(18)
-    width: parent.width - Style.space(18) * 2
+    width: parent.width
     spacing: Style.space(14)
-
-    Item {
-      width: parent.width
-      height: Style.space(16)
-
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: "LIMITS"
-        textFormat: Text.PlainText
-        color: root.pal.muted
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
-        font.letterSpacing: 0.8
-      }
-
-      Row {
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: Style.space(6)
-        opacity: mouse.containsMouse ? 1 : 0.7
-
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Stats"
-          textFormat: Text.PlainText
-          color: root.pal.muted
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
-        }
-
-        Icon {
-          anchors.verticalCenter: parent.verticalCenter
-          d: Icons.limits
-          size: Style.space(13)
-          color: root.pal.muted
-        }
-      }
-    }
 
     Repeater {
       model: root.limits

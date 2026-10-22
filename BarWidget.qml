@@ -8,6 +8,7 @@ import qs.Ui
 import "Link.js" as Link
 import "Format.js" as Format
 import "Icons.js" as Icons
+import "Timers.js" as Timers
 
 // A tiny Clawd beside the clock that types while any Claude Code session is
 // busy: orange while Claude is doing something, gray when it isn't. Hovering
@@ -250,6 +251,8 @@ BarWidget {
 
   // A click: a background session up close in the island, else its terminal.
   function activateToast() {
+    // A timer or nudge has no session to go to; a click puts it away.
+    if (root.toastDrawn && (root.toastDrawn.kind === "timer" || root.toastDrawn.kind === "posture")) { hideToast(); return }
     var s = root.toastDrawn ? root.sessionById(root.toastDrawn.id) : null
     root.toast = null
     if (!s) { if (root.peeking) card.open = false; return }
@@ -363,7 +366,7 @@ BarWidget {
   Timer {
     // Keeps the "working 3m12s" timers ticking while the card is up.
     running: card.open
-    interval: root.activeSessions.length ? 1000 : 5000
+    interval: root.activeSessions.length || root.timers.length || root.posture.on ? 1000 : 5000
     repeat: true
     triggeredOnStart: true
     onTriggered: root.now = Date.now()
@@ -461,6 +464,8 @@ BarWidget {
     }
     // home | quick | sessions | search | stats | detail
     function setView(name: string): void { root.view = name }
+    // Home's corner card: limits | timer | posture.
+    function setCorner(mode: string): void { root.pickCorner(mode) }
     // Show a background session live, by its job id ("" hides it).
     function live(jobId: string): void { root.liveId = jobId; root.view = jobId ? "detail" : "home"; root.pinned = true; root.open() }
     // Clicking the index-th Recent row.
@@ -1215,6 +1220,150 @@ BarWidget {
     id: appsSave
     interval: 1500
     onTriggered: appsFile.setText(JSON.stringify(root.appUsage))
+  }
+
+  // ---- Timers, alarms and the posture check (Corner.qml). The
+  //      list lives in timers.json; every crab shows it, only the leader
+  //      rings what's due, so a two-monitor bar doesn't ring twice.
+  property var timers: []           // {id, kind: timer | alarm, label, at, len}
+  property var posture: ({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
+  property string cornerMode: "limits"
+  property int postureRings: 0
+
+  FileView {
+    id: timersFile
+    path: root.stateDir + "/timers.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var d = JSON.parse(text()) || {}
+        root.timers = d.timers || []
+        root.posture = Object.assign({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.posture || {})
+        root.cornerMode = d.mode || "limits"
+      } catch (e) { console.warn("clawdius timers parse", e) }
+    }
+  }
+
+  Timer {
+    id: timersSave
+    interval: 300
+    onTriggered: timersFile.setText(JSON.stringify({ timers: root.timers, posture: root.posture, mode: root.cornerMode }))
+  }
+
+  function addTimer(kind, label, at, len) {
+    root.timers = root.timers.concat([{ id: Timers.id(), kind: kind, label: label, at: at, len: len }])
+    timersSave.restart()
+  }
+
+  function cancelTimer(id) {
+    root.timers = root.timers.filter(function(t) { return t.id !== id })
+    timersSave.restart()
+  }
+
+  function setPosture(patch) {
+    var p = Object.assign({}, root.posture, patch)
+    // Turning it on, or changing how often, counts from now.
+    if ((patch.on && !root.posture.on) || (patch.everyMin && p.on)) {
+      p.nextAt = Date.now() + p.everyMin * 60000
+      p.awaySince = 0
+      p.pausedLeft = 0
+      p.rested = false
+    }
+    if (patch.on === false) { p.awaySince = 0; p.pausedLeft = 0; p.rested = false }
+    root.posture = p
+    timersSave.restart()
+  }
+
+  function pickCorner(mode) {
+    root.cornerMode = mode
+    timersSave.restart()
+  }
+
+  // The leader's check, once a second while anything is set.
+  function ringDue() {
+    if (!Link.isLeader(root)) return
+    // Left frozen by a shell restart while away: back now, so pick it up.
+    if (root.posture.awaySince > 0 && !idleMonitor.isIdle) root.postureIdle(false)
+    var t = Date.now()
+    var due = root.timers.filter(function(x) { return x.at <= t })
+    var posturing = root.posture.on && !root.posture.awaySince && root.posture.nextAt > 0 && root.posture.nextAt <= t
+    if (!due.length && !posturing) return
+    if (due.length) root.timers = root.timers.filter(function(x) { return x.at > t })
+    if (posturing) {
+      var p = Object.assign({}, root.posture)
+      p.nextAt = t + p.everyMin * 60000
+      p.rested = false
+      root.posture = p
+      root.postureRings++
+    }
+    timersSave.restart()
+    var focused = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
+    var crab = Link.openCrab() || Link.approvalCrab(focused) || root
+    if (due.length) {
+      var first = due[0]
+      var late = t - first.at > 90000
+      crab.ring({ kind: "timer", status: Timers.ringName(first.kind), name: first.label,
+        text: late ? "Was due " + Qt.formatDateTime(new Date(first.at), "HH:mm") : "Time's up.",
+        meta: due.length > 1 ? ["+" + (due.length - 1) + " more"] : [], at: t, id: "" })
+    } else {
+      crab.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(root.postureRings), meta: [], at: t, id: "" })
+    }
+  }
+
+  // Away from the keyboard (2 minutes without input, a playing video counts
+  // as there): the nudge count waits, from when you left. Back after a real
+  //  break (5 minutes), it starts over; after a short one it carries on.
+  function postureIdle(idle) {
+    if (!Link.isLeader(root) || !root.posture.on) return
+    var t = Date.now()
+    var p = Object.assign({}, root.posture)
+    if (idle && !p.awaySince) {
+      p.awaySince = t - 120000
+      p.pausedLeft = Math.max(0, p.nextAt - p.awaySince)
+    } else if (!idle && p.awaySince) {
+      var rested = t - p.awaySince >= 300000
+      p.nextAt = t + (rested ? p.everyMin * 60000 : p.pausedLeft)
+      p.rested = rested
+      p.awaySince = 0
+      p.pausedLeft = 0
+    } else return
+    root.posture = p
+    timersSave.restart()
+  }
+
+  IdleMonitor {
+    id: idleMonitor
+    enabled: root.posture.on
+    timeout: 120
+    respectInhibitors: true
+    onIsIdleChanged: root.postureIdle(isIdle)
+  }
+
+  // A timer or nudge going off: a toast in the island, and a sound.
+  function ring(t) {
+    root.lastToastAt = t.at
+    root.toast = t
+    toastTimer.interval = 15000
+    toastTimer.restart()
+    root.showPeek()
+    if (setting("timerSound", true)) {
+      chime.command = ["pw-play", "/usr/share/sounds/freedesktop/stereo/" + (t.kind === "posture" ? "bell" : "alarm-clock-elapsed") + ".oga"]
+      chime.running = true
+    }
+  }
+
+  Process {
+    id: chime
+    onExited: running = false
+  }
+
+  Timer {
+    running: root.timers.length > 0 || root.posture.on
+    interval: 1000
+    repeat: true
+    onTriggered: root.ringDue()
   }
 
   Connections {
@@ -2172,7 +2321,7 @@ BarWidget {
                   onMoreSessions: { root.view = "sessions"; root.sessionsTab = "live" }
                 }
 
-                Glance {
+                Corner {
                   id: glance
                   visible: home.glanceShown
                   anchors.right: parent.right
@@ -2182,7 +2331,15 @@ BarWidget {
                   record: root.usage
                   now: root.now
                   fontFamily: root.fontFamily
-                  onActivated: root.view = "stats"
+                  mode: root.cornerMode
+                  timers: root.timers
+                  posture: root.posture
+                  onModePicked: function(mode) { root.pickCorner(mode) }
+                  onStatsOpened: root.view = "stats"
+                  onTimerAdded: function(kind, label, at, len) { root.addTimer(kind, label, at, len) }
+                  onTimerCancelled: function(id) { root.cancelTimer(id) }
+                  onPostureEdited: function(patch) { root.setPosture(patch) }
+                  onNudged: root.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(++root.postureRings), meta: [], at: Date.now(), id: "" })
                 }
               }
 

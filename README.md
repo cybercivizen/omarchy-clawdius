@@ -140,8 +140,27 @@ buffer squashed into the new size.
   turn started while it works or waits, since it went idle otherwise).
   Hovering one peeks at it (state, folder, current step, Deny / Allow if it's
   waiting); a click pins it to the card, a double-click opens its terminal.
-  On the working and idle moments the **Limits** glance sits beside it (the
-  5-hour window and the week, with a pace tick); clicking it opens **Stats**.
+  On the working and idle moments a switchable **corner card** sits beside it
+  (the three icons at its top right; the choice is remembered):
+  - **Limits**: the 5-hour window and the week, with a pace tick; clicking it
+    opens **Stats**.
+  - **Timer**: a **Timer** (presets or − / +), or an **Alarm** (a clock
+    time, 15-minute steps, rings at the next one).
+    Running ones list with a draining bar and × to cancel. When one is due,
+    the island peeks open with a toast and a chime (setting **Timer sound**).
+    They survive a shell restart (`~/.local/state/clawdius/timers.json`); one
+    that came due while the shell was down rings on start, marked "Was due".
+  - **Posture**: a playful sit-up-straight nudge every 20 or 30
+    minutes, or a **Custom** wait (5 to 120 minutes, − / +). The crab sits
+    tall, slumps in the last two minutes, and hops in the toast with a line
+    to follow ("Shoulders down, claws loose."). **Nudge me now** rings one
+    to try it. It's idle-aware: after 2 minutes without input (a playing
+    video counts as there) the count pauses and the crab dozes; back after a
+    short break it carries on, after 5 minutes or more it starts over ("Fresh
+    start after your break.").
+
+  Only the first crab (the leader on a multi-monitor bar) rings, so nothing
+  goes off twice.
 - **Sessions**: **Live** (every running session: small crab, name, `bg` tag,
   folder, then its state on the right; waiting rows amber), **Recent** (every
   conversation that isn't running, newest 8 first then 25 at a time, with
@@ -271,7 +290,7 @@ and call its `hover(window, hovered)`.
 |---|---|---|
 | UI | Omarchy shell plugin (Quickshell / QML), `BarWidget.qml` | Lives in the same process as the bar, inherits theme, hot-reloads on save |
 | Sprite | `Sprite.js` + `Clawd.qml`, rectangles on an 18×10 grid | Clawd decoded from the CLI's `▐▛███▜▌` block art; crisp at any scale |
-| Island | `Moment.qml` (Home), `Glance.qml`, `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
+| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
 | Parts | `Crab.qml` (Clawd + badge), `Pill.qml`, `Steps.qml`, `Chip.qml`, `Icon.qml` + `Icons.js` (SVG line icons via QtQuick.Shapes), `Format.js` | Shared by the views |
 | Colors | `Colors.qml` | Theme-aware palette; the `color` setting overrides the orange |
 | Data | `feed.py` (Python stdlib), spawned by the widget, JSON lines on stdout | Zero config; polls cheap mtimes once a second |
