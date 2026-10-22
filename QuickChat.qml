@@ -267,19 +267,9 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text: " · " + root.permissionLabel
             textFormat: Text.PlainText
-            color: root.picker === "mode" || modeMouse.containsMouse ? root.pal.strong : root.pal.muted
+            color: modeMouse.containsMouse ? root.pal.strong : root.pal.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
-          }
-
-          Icon {
-            anchors.verticalCenter: parent.verticalCenter
-            d: "M6 9l6 6 6-6"
-            size: Style.space(11)
-            stroke: 2.4
-            rotation: root.picker === "mode" ? 180 : 0
-            color: root.pal.muted
-            Behavior on rotation { NumberAnimation { duration: 140 } }
           }
         }
 
@@ -288,7 +278,14 @@ Rectangle {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.togglePicker("mode", modeLabel)
+          // Straight to the next mode, as ⇧Tab does in a live session.
+          onClicked: {
+            root.picker = ""
+            for (var i = 0; i < root.permissions.length; i++)
+              if (root.permissions[i].id === root.permission) break
+            root.permissionPicked(root.permissions[(i + 1) % root.permissions.length].id)
+            root.focusRequested()
+          }
         }
       }
 
