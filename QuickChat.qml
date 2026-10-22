@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import "Format.js" as Format
 import "Icons.js" as Icons
@@ -23,54 +24,129 @@ Rectangle {
   property bool compact: false
   property bool focused: true
   // The model new sessions start on: a `claude --model` alias, "" for Claude's
-  // own default. The chip in the composer opens the choices under it.
+  // own default. Its chip in the composer opens the choices, as does effort's.
   property string model: ""
-  property bool modelsOpen: false
   readonly property var models: [
     { id: "", label: "Default" },
-    { id: "fable", label: "Fable" },
     { id: "opus", label: "Opus" },
     { id: "sonnet", label: "Sonnet" },
-    { id: "haiku", label: "Haiku" }
+    { id: "haiku", label: "Haiku" },
+    { id: "fable", label: "Fable" },
+    { id: "opusplan", label: "Opus Plan", special: true, hint: "Opus plans, Sonnet builds" }
   ]
   readonly property string modelLabel: {
     for (var i = 0; i < models.length; i++) if (models[i].id === model) return models[i].label
     return model
   }
-  // And its effort (`claude --effort`), "" for the default; the second row under the chip.
+  // And the effort (`claude --effort`), "" for the default.
   property string effort: ""
-  readonly property var efforts: [
-    { id: "", label: "Default" },
-    { id: "low", label: "Low" },
-    { id: "medium", label: "Medium" },
-    { id: "high", label: "High" },
-    { id: "xhigh", label: "XHigh" },
-    { id: "max", label: "Max" }
-  ]
-  readonly property string effortLabel: {
-    for (var i = 0; i < efforts.length; i++) if (efforts[i].id === effort) return efforts[i].label
-    return effort
+  // xhigh → Extra high, as the live view says it.
+  function effortName(e) {
+    e = String(e || "")
+    return e === "xhigh" ? "Extra high" : e ? e.charAt(0).toUpperCase() + e.slice(1) : "Default"
   }
-  readonly property string chipLabel: effort ? modelLabel + " · " + effortLabel : modelLabel
+  readonly property var efforts: ["", "low", "medium", "high", "xhigh", "max"].map(function(e) { return { id: e, label: effortName(e) } })
   // The folder Code starts in: "" for the Code folder. Its label opens the
   // choices: the Code folder, the one Claude worked in last, or any.
   property string dir: ""
   property string recentDir: ""
-  property bool foldersOpen: false
+  readonly property string startDir: mode === "code" ? (dir || codeDir) : chatDir
   // Laid out like this, the field's caret lines up with the drawing.
   readonly property real inputWidth: shown.width
+
+  // The open menu: "model", "effort", "folder", "attach" or "". It drops
+  // from its chip into `menuLayer` (the island, so the view's scroll doesn't
+  // clip it); menuBottom is how far down it reaches there, for the island to fit.
+  property string picker: ""
+  property Item pickerAnchor: null
+  property Item menuLayer: null
+  readonly property real menuBottom: menu.visible ? menu.y + menu.height + Style.space(8) : 0
+  onVisibleChanged: if (!visible) picker = ""
+  onModeChanged: if (picker === "folder") picker = ""
 
   signal picked(string mode)
   signal modelPicked(string model)
   signal effortPicked(string effort)
   signal dirPicked(string dir)
-  signal browseRequested()
   signal send()
   // Clicked into the composer: the key window takes the keyboard back.
   signal focusRequested()
 
   readonly property string text: field ? field.text : ""
   readonly property string home: Quickshell.env("HOME") || ""
+
+  function togglePicker(which, anchor) {
+    var opening = root.picker !== which
+    root.picker = ""
+    if (opening) { root.pickerAnchor = anchor; root.picker = which }
+    root.focusRequested()
+  }
+
+  function pick(id) {
+    var which = root.picker
+    root.picker = ""
+    if (which === "model") root.modelPicked(id)
+    else if (which === "effort") root.effortPicked(id)
+    else if (which === "folder") { if (id === "browse") { root.browse("dir"); return } root.dirPicked(id) }
+    else if (which === "attach") { root.browse(id); return }
+    root.focusRequested()
+  }
+
+  readonly property var pickerOptions: {
+    if (picker === "model") return models
+    if (picker === "effort") return efforts
+    if (picker === "attach") return [{ id: "files", label: "Files…" }, { id: "folder", label: "Folder…" }]
+    if (picker !== "folder") return []
+    var out = [{ id: "", label: Format.folder(codeDir, home), hint: "Code folder" }]
+    if (recentDir && recentDir !== codeDir) out.push({ id: recentDir, label: Format.folder(recentDir, home), hint: "last used" })
+    if (dir && dir !== recentDir) out.push({ id: dir, label: Format.folder(dir, home) })
+    out.push({ id: "browse", label: "Open folder…" })
+    return out
+  }
+
+  // The desktop's file chooser: a folder for Code to start in ("dir"), or
+  // files or a folder to point Claude at, typed in as @path like LiveTerm's.
+  readonly property bool picking: browser.running
+  property string browsing: ""
+  Process {
+    id: browser
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var paths = text.split("\n").filter(function(p) { return p[0] === "/" })
+        if (root.browsing === "dir") { if (paths.length) root.dirPicked(paths[0]) }
+        else root.mention(paths)
+        root.focusRequested()
+      }
+    }
+  }
+
+  function browse(kind) {
+    if (browser.running) return
+    root.browsing = kind
+    var title = kind === "dir" ? "Open Claude in a folder" : kind === "folder" ? "Link a folder" : "Link files"
+    browser.command = ["zenity", "--file-selection", "--filename=" + (root.startDir || root.home) + "/", "--title=" + title]
+      .concat(kind === "files" ? ["--multiple", "--separator=\n"] : ["--directory"])
+    browser.running = true
+  }
+
+  // Inside the folder it starts in relative, else absolute; quoted if it has spaces.
+  function mention(paths) {
+    var base = root.startDir
+    var refs = []
+    for (var i = 0; i < paths.length; i++) {
+      var path = paths[i]
+      if (base && path === base) path = "."
+      else if (base && path.indexOf(base + "/") === 0) path = path.slice(base.length + 1)
+      refs.push(/\s/.test(path) ? '@"' + path + '"' : "@" + path)
+    }
+    if (!refs.length || !field) return
+    var at = field.cursorPosition
+    var before = field.text.slice(0, at)
+    var add = (before && !/\s$/.test(before) ? " " : "") + refs.join(" ") + " "
+    field.text = before + add + field.text.slice(at)
+    field.cursorPosition = at + add.length
+  }
 
   readonly property real inset: compact ? Style.space(4) : Style.space(14)
   height: column.implicitHeight + inset * 2
@@ -109,24 +185,25 @@ Rectangle {
         }
       }
 
-      // In Code, the folder is a picker; click for the choices below.
+      // In Code, the folder is a picker too.
       Item {
+        id: dirLabel
         anchors.left: toggle.right
         anchors.leftMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
         width: dirRow.implicitWidth
-        height: dirRow.implicitHeight
+        height: Style.space(26)
 
         Row {
           id: dirRow
+          anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(4)
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: root.mode === "code" ? Format.folder(root.dir || root.codeDir, root.home) + " · auto mode"
-                                       : Format.folder(root.chatDir, root.home) + " · talk only"
+            text: Format.folder(root.startDir, root.home) + (root.mode === "code" ? " · auto mode" : " · talk only")
             textFormat: Text.PlainText
-            color: root.mode === "code" && (root.foldersOpen || dirMouse.containsMouse) ? root.pal.strong : root.pal.muted
+            color: root.mode === "code" && (root.picker === "folder" || dirMouse.containsMouse) ? root.pal.strong : root.pal.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
           }
@@ -137,7 +214,7 @@ Rectangle {
             d: "M6 9l6 6 6-6"
             size: Style.space(11)
             stroke: 2.4
-            rotation: root.foldersOpen ? 180 : 0
+            rotation: root.picker === "folder" ? 180 : 0
             color: root.pal.muted
             Behavior on rotation { NumberAnimation { duration: 140 } }
           }
@@ -149,7 +226,7 @@ Rectangle {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: { root.foldersOpen = !root.foldersOpen; root.modelsOpen = false; root.focusRequested() }
+          onClicked: root.togglePicker("folder", dirLabel)
         }
       }
 
@@ -177,7 +254,7 @@ Rectangle {
         id: shown
         x: Style.space(16)
         anchors.verticalCenter: parent.verticalCenter
-        width: parent.width - x - modelChip.width - sendButton.width - Style.space(8) * 3
+        width: parent.width - x - modelChip.width - effortChip.width - attachButton.width - sendButton.width - Style.space(8) * 3 - Style.space(6) * 2
         pal: root.pal
         field: root.field
         focused: root.focused
@@ -187,50 +264,56 @@ Rectangle {
         onFocusRequested: root.focusRequested()
       }
 
-      // Model for the next session; click for the choices below.
-      Rectangle {
+      // Model and effort for the next session; each opens its menu.
+      PickChip {
         id: modelChip
+        anchors.right: effortChip.left
+        anchors.rightMargin: Style.space(6)
+        label: root.modelLabel
+        quiet: root.model === ""
+        special: root.model === "opusplan"
+        open: root.picker === "model"
+        onClicked: root.togglePicker("model", modelChip)
+      }
+
+      PickChip {
+        id: effortChip
+        anchors.right: attachButton.left
+        anchors.rightMargin: Style.space(6)
+        label: root.effort ? root.effortName(root.effort) + " effort" : "Effort"
+        quiet: root.effort === ""
+        open: root.picker === "effort"
+        onClicked: root.togglePicker("effort", effortChip)
+      }
+
+      // Link files or a folder: the chooser, from its menu.
+      Rectangle {
+        id: attachButton
         anchors.right: sendButton.left
         anchors.rightMargin: Style.space(8)
         anchors.verticalCenter: parent.verticalCenter
-        width: chipRow.implicitWidth + Style.space(12) * 2
-        height: Style.space(26)
-        radius: height / 2
-        color: root.modelsOpen ? root.pal.alpha(root.pal.fg, 0.14)
-          : chipMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.10) : root.pal.alpha(root.pal.fg, 0.06)
+        width: Style.space(28)
+        height: width
+        radius: width / 2
+        color: root.picker === "attach" || root.picking ? root.pal.alpha(root.pal.fg, 0.14)
+          : attachMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : "transparent"
         Behavior on color { ColorAnimation { duration: 120 } }
 
-        Row {
-          id: chipRow
+        Icon {
           anchors.centerIn: parent
-          spacing: Style.space(5)
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: root.chipLabel
-            textFormat: Text.PlainText
-            color: root.model === "" && root.effort === "" ? root.pal.muted : root.pal.strong
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.bodySmall
-          }
-
-          Icon {
-            anchors.verticalCenter: parent.verticalCenter
-            d: "M6 9l6 6 6-6"
-            size: Style.space(12)
-            stroke: 2.4
-            rotation: root.modelsOpen ? 180 : 0
-            color: root.pal.muted
-            Behavior on rotation { NumberAnimation { duration: 140 } }
-          }
+          d: Icons.clip
+          size: Style.space(15)
+          stroke: 2
+          color: attachMouse.containsMouse || root.picker === "attach" ? root.pal.strong : root.pal.muted
         }
 
         MouseArea {
-          id: chipMouse
+          id: attachMouse
           anchors.fill: parent
+          enabled: !root.picking
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: { root.modelsOpen = !root.modelsOpen; root.foldersOpen = false; root.focusRequested() }
+          onClicked: root.togglePicker("attach", attachButton)
         }
       }
 
@@ -260,98 +343,90 @@ Rectangle {
         }
       }
     }
-
-    // The choices, under the composer while the chip is open: model, then effort.
-    Row {
-      visible: root.modelsOpen
-      spacing: Style.space(2)
-      leftPadding: Style.space(4)
-
-      Repeater {
-        model: root.models
-        Choice {
-          label: modelData.label
-          selected: root.model === modelData.id
-          onPicked: { root.modelPicked(modelData.id); root.modelsOpen = false; root.focusRequested() }
-        }
-      }
-    }
-
-    Row {
-      visible: root.modelsOpen
-      spacing: Style.space(2)
-      leftPadding: Style.space(4)
-
-      Repeater {
-        model: root.efforts
-        Choice {
-          label: modelData.label
-          selected: root.effort === modelData.id
-          onPicked: { root.effortPicked(modelData.id); root.modelsOpen = false; root.focusRequested() }
-        }
-      }
-    }
-
-    // Where Code starts, while its folder is open.
-    Row {
-      visible: root.foldersOpen && root.mode === "code"
-      spacing: Style.space(2)
-      leftPadding: Style.space(4)
-
-      Choice {
-        label: Format.folder(root.codeDir, root.home)
-        selected: root.dir === ""
-        onPicked: { root.dirPicked(""); root.foldersOpen = false; root.focusRequested() }
-      }
-      Choice {
-        visible: root.recentDir !== "" && root.recentDir !== root.codeDir
-        label: "Last: " + Format.folder(root.recentDir, root.home)
-        selected: root.dir === root.recentDir
-        onPicked: { root.dirPicked(root.recentDir); root.foldersOpen = false; root.focusRequested() }
-      }
-      Choice {
-        visible: root.dir !== "" && root.dir !== root.recentDir
-        label: Format.folder(root.dir, root.home)
-        selected: true
-        onPicked: { root.foldersOpen = false; root.focusRequested() }
-      }
-      Choice {
-        label: "Open folder…"
-        selected: false
-        onPicked: { root.foldersOpen = false; root.browseRequested() }
-      }
-    }
   }
 
-  component Choice: Rectangle {
-    id: opt
-    property string label: ""
-    property bool selected: false
-    signal picked()
+  // The open chip's choices, dropping from it: the composer sits just under
+  // the bar, so there's no room to rise as the live view's do. Lined up with
+  // the chip's right edge, the folder's on its left.
+  PickMenu {
+    id: menu
+    parent: root.menuLayer || root
+    readonly property point at: root.picker !== "" && root.pickerAnchor
+      ? root.pickerAnchor.mapToItem(parent, root.picker === "folder" ? 0 : root.pickerAnchor.width, root.pickerAnchor.height)
+      : Qt.point(0, 0)
+    visible: root.picker !== "" && root.visible
+    z: 20
+    x: root.picker === "folder" ? at.x : Math.max(0, at.x - width)
+    y: at.y + Style.space(6)
+    minWidth: root.pickerAnchor ? root.pickerAnchor.width : 0
+    title: root.picker === "model" ? "Model" : root.picker === "effort" ? "Effort" : root.picker === "folder" ? "Start in" : "Link"
+    options: root.pickerOptions
+    current: root.picker === "model" ? root.model : root.picker === "effort" ? root.effort : root.picker === "folder" ? root.dir : "-"
+    ink: root.pal.fg
+    quietInk: root.pal.muted
+    hot: root.pal.crab
+    glow: root.pal.limit
+    fill: root.pal.raised
+    onPicked: function(id) { root.pick(id) }
+  }
 
-    width: optText.implicitWidth + Style.space(12) * 2
+  component PickChip: Rectangle {
+    id: chip
+    property string label: ""
+    property bool quiet: false
+    property bool open: false
+    // Opus Plan: on its Shimmer, drifting while pointed at or open.
+    property bool special: false
+    signal clicked()
+
+    anchors.verticalCenter: parent.verticalCenter
+    width: chipRow.implicitWidth + Style.space(12) * 2
     height: Style.space(26)
     radius: height / 2
-    color: selected ? root.pal.alpha(root.pal.fg, 0.14) : optMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.06) : "transparent"
+    color: open ? root.pal.alpha(root.pal.fg, 0.14)
+      : chipMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.10) : root.pal.alpha(root.pal.fg, 0.06)
     Behavior on color { ColorAnimation { duration: 120 } }
 
-    Text {
-      id: optText
+    Shimmer {
+      visible: chip.special
+      anchors.fill: parent
+      radius: parent.radius
+      from: root.pal.crab
+      to: root.pal.limit
+      running: chip.open || chipMouse.containsMouse
+    }
+
+    Row {
+      id: chipRow
       anchors.centerIn: parent
-      text: opt.label
-      textFormat: Text.PlainText
-      color: opt.selected ? root.pal.strong : root.pal.muted
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-      font.bold: opt.selected
+      spacing: Style.space(5)
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: chip.label
+        textFormat: Text.PlainText
+        color: chip.quiet ? root.pal.muted : root.pal.strong
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Icon {
+        anchors.verticalCenter: parent.verticalCenter
+        d: "M6 9l6 6 6-6"
+        size: Style.space(12)
+        stroke: 2.4
+        rotation: chip.open ? 180 : 0
+        color: root.pal.muted
+        Behavior on rotation { NumberAnimation { duration: 140 } }
+      }
     }
 
     MouseArea {
-      id: optMouse
+      id: chipMouse
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: opt.picked()
+      onClicked: chip.clicked()
     }
   }
 

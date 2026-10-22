@@ -213,11 +213,19 @@ buffer squashed into the new size.
   live view; Shift+Enter is a new line, Esc clears it (or closes the island
   when empty). The text behaves like an input: an I-beam over it, click to
   place the caret, drag or double-click to select, Ctrl+C / Ctrl+V.
-  The chip beside the send button picks the model and the effort
-  (`--model`, `--effort`; both kept in prefs.json), e.g. "Opus · High". In
-  Code, the folder by the toggle is a picker too: the Code folder, the last
-  folder Claude worked in, or Open folder… (zenity); it lasts until the shell
-  restarts.
+  Beside Send, the **model** and **effort** chips and the **paperclip** each
+  open a small menu, the same as the live view's (`PickMenu.qml`) but
+  dropping down, as the composer sits just under the bar; the island grows
+  to fit it and a click elsewhere closes it. Model and effort go on the
+  command line (`--model`, `--effort`) and are kept in prefs.json; the
+  paperclip's Files… / Folder… land in the text as `@path`, relative to the
+  folder the session will start in. In Code, the folder by the toggle opens
+  one too: the Code folder, the last folder Claude worked in, or Open folder…
+  (zenity); that choice lasts until the shell restarts.
+  **Opus Plan** stands out in both views' model menus: its row sits on a
+  crab-to-purple sweep (`Shimmer.qml`) that drifts in steps while the menu is
+  open, with "Opus plans, Sonnet builds" beside it. On a model chip it
+  shows still and drifts only while pointed at or open.
 - **Search** (the nav's search icon, **Alt+Space**, or just start typing on
   Home; Esc there closes the island): with nothing typed,
   a row of apps you've used lately (launches from here, and every window

@@ -166,8 +166,8 @@ BarWidget {
   // message or search; clicking another window still closes it, see
   // liveFocus below.
   readonly property bool terminalUp: (liveId !== "" || startingLabel !== "") && view === "detail"
-  // The live terminal's file chooser is up: it has the keyboard, the island waits for it.
-  readonly property bool livePicking: !!detailLoader.item && detailLoader.item.picking
+  // The live terminal's (or the chat view's) file chooser is up: it has the keyboard, the island waits for it.
+  readonly property bool livePicking: (!!detailLoader.item && detailLoader.item.picking) || quickChat.picking
   readonly property bool holdOpen: pinned || terminalUp || livePicking || (keysView && liveKeys.field.text !== "")
 
   // The clock (cybercivizen.clock) reports its hover here, so pointing at the
@@ -995,7 +995,7 @@ BarWidget {
   property string quickMode: "chat"
   // The model new Chat / Code sessions start on ("" = Claude's default), picked in the chat view.
   property string quickModel: ""
-  // And the effort ("" = Claude's default), picked under the model.
+  // And the effort ("" = Claude's default), from the chip beside it.
   property string quickEffort: ""
   // The folder Code starts in from the chat view ("" = the Code folder); not kept across restarts.
   property string quickDir: ""
@@ -1588,11 +1588,8 @@ BarWidget {
   // Code folder) or asks for a new one's name (made there unless it's a full
   // path), then Code starts in it like any other folder. One under a trusted
   // folder (~/Work) runs in the card; elsewhere startFailed's terminal asks.
-  // forQuick: the chat view's folder choice, so pick it there instead of starting.
-  property bool pickForQuick: false
-  function browseFolder(how, forQuick) {
+  function browseFolder(how) {
     if (pickProcess.running) return
-    root.pickForQuick = !!forQuick
     var base = root.commandDir(root.codeCommand) || Quickshell.env("HOME")
     pickProcess.command = ["bash", "-c", [
       'how=$1 base=$2 shown=$3',
@@ -1616,7 +1613,6 @@ BarWidget {
   readonly property string clonePath: decodeURIComponent(String(Qt.resolvedUrl("clone.sh")).replace(/^file:\/\//, ""))
   function cloneRepo() {
     if (pickProcess.running) return
-    root.pickForQuick = false
     var base = root.commandDir(root.codeCommand) || Quickshell.env("HOME")
     pickProcess.command = ["bash", root.clonePath, base, Format.folder(base, Quickshell.env("HOME"))]
     pickProcess.running = true
@@ -1630,13 +1626,6 @@ BarWidget {
         var cwd = text.trim()
         if (!cwd || cwd[0] !== "/") return
         root.pinned = true
-        if (root.pickForQuick) {
-          root.quickDir = cwd
-          root.view = "quick"
-          root.open()
-          liveKeys.prime()
-          return
-        }
         root.open()
         root.startInFolder(cwd)
       }
@@ -1879,7 +1868,8 @@ BarWidget {
     readonly property real cap: Style.space(root.tallView ? 900 : 680)
     contentHeight: root.peeking ? card.fittedContentHeight(toastBanner.implicitHeight)
       : card.fittedContentHeight(Math.max(toastSlot.height + nav.height + content.spacing + body.implicitHeight,
-                                          root.newMenuOpen ? newMenu.y + newMenu.height + Style.space(8) : 0), cap)
+                                          root.newMenuOpen ? newMenu.y + newMenu.height + Style.space(8) : 0,
+                                          quickChat.menuBottom), cap)
     // The window stays tall till the island has folded down out of the live view.
     maxContentHeight: card.fittedContentHeight(100000, root.tallView || viewMorph.running ? Style.space(900) : cap)
 
@@ -2279,11 +2269,11 @@ BarWidget {
                 effort: root.quickEffort
                 dir: root.quickDir
                 recentDir: root.recentFolders.length ? root.recentFolders[0].cwd : ""
+                menuLayer: islandRoot
                 onPicked: function(which) { root.quickMode = which; liveKeys.prime() }
                 onModelPicked: function(which) { root.quickModel = which }
                 onEffortPicked: function(which) { root.quickEffort = which }
                 onDirPicked: function(dir) { root.quickDir = dir }
-                onBrowseRequested: root.browseFolder("open", true)
                 onSend: root.sendQuick()
                 onFocusRequested: liveKeys.prime()
               }
@@ -2540,6 +2530,15 @@ BarWidget {
             color: theme.alpha(theme.fg, 0.3)
           }
         }
+      }
+
+      // ---- The chat view's open menu (model, effort, folder, link) drops
+      //      into here; a click elsewhere closes it.
+      MouseArea {
+        visible: quickChat.picker !== "" && quickChat.visible
+        anchors.fill: parent
+        z: 19
+        onClicked: quickChat.picker = ""
       }
 
       // ---- The + menu, over whatever view is showing; a click elsewhere closes it.

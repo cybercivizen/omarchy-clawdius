@@ -140,7 +140,7 @@ Column {
   onCanCommandChanged: if (!canCommand && picker !== "attach") picker = ""
   readonly property var pickerOptions: picker === "model" ? [
       { id: "opus", label: "Opus" }, { id: "sonnet", label: "Sonnet" }, { id: "haiku", label: "Haiku" },
-      { id: "fable", label: "Fable" }, { id: "opusplan", label: "Opus Plan" } ]
+      { id: "fable", label: "Fable" }, { id: "opusplan", label: "Opus Plan", special: true, hint: "Opus plans, Sonnet builds" } ]
     : picker === "effort" ? ["low", "medium", "high", "xhigh", "max"].map(function(e) { return { id: e, label: effortName(e) } })
     : picker === "attach" ? [{ id: "files", label: "Files…" }, { id: "folder", label: "Folder…" }]
     : []
@@ -497,6 +497,8 @@ Column {
     // A picker chip: opens its choices under the composer.
     property bool clickable: false
     property bool open: false
+    // Opus Plan: on its Shimmer, drifting while pointed at or open.
+    property bool special: false
     signal clicked()
     width: Math.min(chipText.implicitWidth + Style.space(18), maxWidth)
     height: Style.space(24)
@@ -507,6 +509,15 @@ Column {
     border.width: 1
     border.color: loud ? root.tint(root.hot, 0.4) : root.tint(root.ink, 0.06)
 
+    Shimmer {
+      visible: chip.special
+      anchors.fill: parent
+      radius: parent.radius
+      from: root.hot
+      to: root.pal ? root.pal.limit : root.hot
+      running: chip.open || chipMouse.containsMouse
+    }
+
     Text {
       id: chipText
       anchors.centerIn: parent
@@ -514,7 +525,7 @@ Column {
       text: chip.label
       textFormat: Text.PlainText
       elide: Text.ElideMiddle
-      color: chip.loud ? root.hot : chip.open ? root.ink : root.quietInk
+      color: chip.loud ? root.hot : chip.open || chip.special ? root.ink : root.quietInk
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
     }
@@ -1089,6 +1100,7 @@ Column {
         label: root.modelLabel || "Model"
         clickable: root.canCommand
         open: root.picker === "model"
+        special: root.opusPlan
         onClicked: root.togglePicker("model", modelChip)
       }
       InfoChip {
@@ -1171,9 +1183,8 @@ Column {
 
     // The open chip's (or the paperclip's) choices: a menu rising from it,
     // over the composer and the terminal, so nothing under it moves.
-    Rectangle {
+    PickMenu {
       id: pickerMenu
-      readonly property real pad: Style.space(6)
       // The anchor's top-right corner, here.
       readonly property point at: root.picker !== "" && root.pickerAnchor
         ? root.pickerAnchor.mapToItem(footer, root.pickerAnchor.width, 0) : Qt.point(0, 0)
@@ -1181,86 +1192,16 @@ Column {
       z: 10
       x: Math.max(0, at.x - width)
       y: at.y - height - Style.space(6)
-      width: Math.max(menuColumn.implicitWidth, root.pickerAnchor ? root.pickerAnchor.width : 0) + pad * 2
-      height: menuColumn.implicitHeight + pad * 2
-      radius: Style.space(12)
-      color: root.pal ? root.pal.raised : root.screenColor
-      border.width: 1
-      border.color: root.tint(root.ink, 0.12)
-
-      // A click on the padding stays in the menu.
-      MouseArea { anchors.fill: parent }
-
-      Column {
-        id: menuColumn
-        x: pickerMenu.pad
-        y: pickerMenu.pad
-        width: parent.width - pickerMenu.pad * 2
-
-        Text {
-          leftPadding: Style.space(10)
-          topPadding: Style.space(4)
-          bottomPadding: Style.space(4)
-          text: root.picker === "model" ? "Model" : root.picker === "effort" ? "Effort" : "Link"
-          textFormat: Text.PlainText
-          color: root.quietInk
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-        }
-
-        Repeater {
-          model: root.pickerOptions
-
-          // Sized to its text, so the menu takes the widest; the hover and
-          // the check span the menu's width.
-          Item {
-            id: option
-            required property var modelData
-            readonly property bool on: root.pickerCurrent === modelData.id
-            width: optionText.implicitWidth + Style.space(10) * 3 + Style.space(13)
-            height: Style.space(28)
-
-            Rectangle {
-              width: menuColumn.width
-              height: parent.height
-              radius: Style.space(8)
-              color: optionMouse.containsMouse ? root.tint(root.ink, 0.08) : "transparent"
-              Behavior on color { ColorAnimation { duration: 120 } }
-            }
-
-            Text {
-              id: optionText
-              x: Style.space(10)
-              anchors.verticalCenter: parent.verticalCenter
-              text: option.modelData.label
-              textFormat: Text.PlainText
-              color: option.on ? root.ink : root.quietInk
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              font.bold: option.on
-            }
-
-            Icon {
-              visible: option.on
-              x: menuColumn.width - Style.space(10) - size
-              anchors.verticalCenter: parent.verticalCenter
-              d: "M5 12l5 5 9-11"
-              size: Style.space(13)
-              stroke: 2.4
-              color: root.hot
-            }
-
-            MouseArea {
-              id: optionMouse
-              width: menuColumn.width
-              height: parent.height
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.pick(option.modelData.id)
-            }
-          }
-        }
-      }
+      minWidth: root.pickerAnchor ? root.pickerAnchor.width : 0
+      title: root.picker === "model" ? "Model" : root.picker === "effort" ? "Effort" : "Link"
+      options: root.pickerOptions
+      current: root.pickerCurrent
+      ink: root.ink
+      quietInk: root.quietInk
+      hot: root.hot
+      glow: root.pal ? root.pal.limit : root.hot
+      fill: root.pal ? root.pal.raised : root.screenColor
+      onPicked: function(id) { root.pick(id) }
     }
   }
 }
