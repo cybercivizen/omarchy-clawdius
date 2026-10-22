@@ -183,7 +183,6 @@ Rectangle {
             color: (newMouse.containsMouse || newHover.hovered) ? root.pal.fg : root.pal.muted
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
-            font.underline: (newMouse.containsMouse || newHover.hovered)
           }
         }
 

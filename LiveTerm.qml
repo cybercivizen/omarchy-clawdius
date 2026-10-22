@@ -484,6 +484,13 @@ Column {
     onTriggered: root.copiedAt = 0
   }
 
+  property double pathCopiedAt: 0
+  Timer {
+    id: pathCopiedTimer
+    interval: 1200
+    onTriggered: root.pathCopiedAt = 0
+  }
+
   // Click into the view (or a chip): take the keyboard back, and close the menu.
   function focusInput() {
     root.picker = ""
@@ -606,9 +613,17 @@ Column {
       }
 
       // The folder takes what's left beside the status, eliding its middle.
+      // Click to copy the full path; the label says so for a moment.
       InfoChip {
         visible: root.cwdLabel !== ""
-        label: root.cwdLabel
+        label: root.pathCopiedAt > 0 ? "Copied" : root.cwdLabel
+        clickable: true
+        onClicked: {
+          Quickshell.execDetached(["wl-copy", "--", root.cwd])
+          root.pathCopiedAt = Date.now()
+          pathCopiedTimer.restart()
+          root.focusInput()
+        }
         maxWidth: (root.showTitle ? root.width / 2 : root.width - statusRow.width - Style.space(12))
           - (modeChip.visible ? modeChip.width + infoRow.spacing : 0)
       }
