@@ -2,9 +2,8 @@ import QtQuick
 import qs.Commons
 
 // Clawd with a status badge on its shoulder: amber "!" waiting on you, green
-// ✓ done, red ✗ failed, purple z out of usage, and three orange dots while
-// it works. The badge is
-// ringed in the island's color so it reads as sitting on top of the crab.
+// ✓ done, red ✗ failed, purple z out of usage, teal ↑ sit up (posture), and
+// three orange dots while it works. The badge is ringed in the island's color so it reads as sitting on top of the crab.
 Item {
   id: root
 
@@ -14,7 +13,7 @@ Item {
   property color color: pal ? pal.crab : "#D97757"
   property bool sweat: false
   property bool animate: true
-  // "" | "working" | "waiting" | "done" | "failed" | "limited"
+  // "" | "working" | "waiting" | "done" | "failed" | "limited" | "posture"
   property string badge: ""
   // Shown in the waiting badge when more than one thing waits.
   property int count: 0
@@ -69,6 +68,7 @@ Item {
         : root.badge === "done" ? root.pal.done
         : root.badge === "failed" ? root.pal.failed
         : root.badge === "limited" ? root.pal.limit
+        : root.badge === "posture" ? root.pal.posture
         : root.pal.mix(root.pal.card, root.pal.fg, 0.12)
 
       Text {
@@ -79,6 +79,7 @@ Item {
           : root.badge === "done" ? "✓"
           : root.badge === "failed" ? "✗"
           : root.badge === "limited" ? "z"
+          : root.badge === "posture" ? "↑"
           : ""
         textFormat: Text.PlainText
         color: root.pal ? root.pal.onFill(badgeFill.color) : "white"

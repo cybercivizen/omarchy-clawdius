@@ -152,8 +152,9 @@ buffer squashed into the new size.
     that came due while the shell was down rings on start, marked "Was due".
   - **Posture**: a playful sit-up-straight nudge every 20 or 30
     minutes, or a **Custom** wait (5 to 120 minutes, − / +). The crab sits
-    tall, slumps in the last two minutes, and hops in the toast with a line
-    to follow ("Shoulders down, claws loose."). **Nudge me now** rings one
+    tall, slumps in the last two minutes, and stretches in a teal toast
+    (↑ badge) with a line to follow ("Shoulders down, claws loose.") and
+    when the next one's due. **Nudge me now** rings one
     to try it. It's idle-aware: after 2 minutes without input (a playing
     video counts as there) the count pauses and the crab dozes; back after a
     short break it carries on, after 5 minutes or more it starts over ("Fresh
@@ -395,7 +396,8 @@ Drawn in the island (`Toast.qml`), built to read at a glance:
   around it.
 - **Icon** — a little Clawd in the state's pose (`Crab.qml`), the status
   badge on his corner: green ✓ done (hopping), red ✗ failed (gray, slumped),
-  amber ! needs you (waving), purple z out of usage (gray, asleep). On the
+  amber ! needs you (waving), purple z out of usage (gray, asleep), teal ↑
+  for the posture nudge (stretching). On the
   open island the note is a borderless card faintly tinted with that color.
 - **Title** — the status, then the session: `Done · work-e9`, `Failed · …`,
   `Needs your OK · …` (permission / sandbox prompts), `Needs input · …`,
