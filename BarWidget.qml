@@ -1222,11 +1222,11 @@ BarWidget {
     onTriggered: appsFile.setText(JSON.stringify(root.appUsage))
   }
 
-  // ---- Timers, alarms, reminders and the posture check (Corner.qml). The
+  // ---- Timers, alarms and the posture check (Corner.qml). The
   //      list lives in timers.json; every crab shows it, only the leader
   //      rings what's due, so a two-monitor bar doesn't ring twice.
-  property var timers: []           // {id, kind: timer | alarm | remind, label, at, len}
-  property var posture: ({ on: false, everyMin: 30, nextAt: 0 })
+  property var timers: []           // {id, kind: timer | alarm, label, at, len}
+  property var posture: ({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
   property string cornerMode: "limits"
   property int postureRings: 0
 
@@ -1240,7 +1240,7 @@ BarWidget {
       try {
         var d = JSON.parse(text()) || {}
         root.timers = d.timers || []
-        root.posture = Object.assign({ on: false, everyMin: 30, nextAt: 0 }, d.posture || {})
+        root.posture = Object.assign({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.posture || {})
         root.cornerMode = d.mode || "limits"
       } catch (e) { console.warn("clawdius timers parse", e) }
     }
@@ -1265,7 +1265,13 @@ BarWidget {
   function setPosture(patch) {
     var p = Object.assign({}, root.posture, patch)
     // Turning it on, or changing how often, counts from now.
-    if ((patch.on && !root.posture.on) || (patch.everyMin && p.on)) p.nextAt = Date.now() + p.everyMin * 60000
+    if ((patch.on && !root.posture.on) || (patch.everyMin && p.on)) {
+      p.nextAt = Date.now() + p.everyMin * 60000
+      p.awaySince = 0
+      p.pausedLeft = 0
+      p.rested = false
+    }
+    if (patch.on === false) { p.awaySince = 0; p.pausedLeft = 0; p.rested = false }
     root.posture = p
     timersSave.restart()
   }
@@ -1278,14 +1284,17 @@ BarWidget {
   // The leader's check, once a second while anything is set.
   function ringDue() {
     if (!Link.isLeader(root)) return
+    // Left frozen by a shell restart while away: back now, so pick it up.
+    if (root.posture.awaySince > 0 && !idleMonitor.isIdle) root.postureIdle(false)
     var t = Date.now()
     var due = root.timers.filter(function(x) { return x.at <= t })
-    var posturing = root.posture.on && root.posture.nextAt > 0 && root.posture.nextAt <= t
+    var posturing = root.posture.on && !root.posture.awaySince && root.posture.nextAt > 0 && root.posture.nextAt <= t
     if (!due.length && !posturing) return
     if (due.length) root.timers = root.timers.filter(function(x) { return x.at > t })
     if (posturing) {
       var p = Object.assign({}, root.posture)
       p.nextAt = t + p.everyMin * 60000
+      p.rested = false
       root.posture = p
       root.postureRings++
     }
@@ -1296,11 +1305,40 @@ BarWidget {
       var first = due[0]
       var late = t - first.at > 90000
       crab.ring({ kind: "timer", status: Timers.ringName(first.kind), name: first.label,
-        text: late ? "Was due " + Qt.formatDateTime(new Date(first.at), "HH:mm") : first.kind === "remind" ? "You asked to be reminded." : "Time's up.",
+        text: late ? "Was due " + Qt.formatDateTime(new Date(first.at), "HH:mm") : "Time's up.",
         meta: due.length > 1 ? ["+" + (due.length - 1) + " more"] : [], at: t, id: "" })
     } else {
       crab.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(root.postureRings), meta: [], at: t, id: "" })
     }
+  }
+
+  // Away from the keyboard (2 minutes without input, a playing video counts
+  // as there): the nudge count waits, from when you left. Back after a real
+  //  break (5 minutes), it starts over; after a short one it carries on.
+  function postureIdle(idle) {
+    if (!Link.isLeader(root) || !root.posture.on) return
+    var t = Date.now()
+    var p = Object.assign({}, root.posture)
+    if (idle && !p.awaySince) {
+      p.awaySince = t - 120000
+      p.pausedLeft = Math.max(0, p.nextAt - p.awaySince)
+    } else if (!idle && p.awaySince) {
+      var rested = t - p.awaySince >= 300000
+      p.nextAt = t + (rested ? p.everyMin * 60000 : p.pausedLeft)
+      p.rested = rested
+      p.awaySince = 0
+      p.pausedLeft = 0
+    } else return
+    root.posture = p
+    timersSave.restart()
+  }
+
+  IdleMonitor {
+    id: idleMonitor
+    enabled: root.posture.on
+    timeout: 120
+    respectInhibitors: true
+    onIsIdleChanged: root.postureIdle(isIdle)
   }
 
   // A timer or nudge going off: a toast in the island, and a sound.

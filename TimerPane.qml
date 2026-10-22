@@ -4,9 +4,9 @@ import "Icons.js" as Icons
 import "Timers.js" as Timers
 
 // The Timer mode of Home's corner card: what's counting down, and a small
-// setter for the next one. One list holds all three kinds (a timer is "in
-// 10 min", an alarm is "at 14:30", a reminder is a timer with a note); the
-// engine that rings them lives in BarWidget, this only asks for them.
+// setter for the next one. One list holds both kinds (a timer is "in 10
+// min", an alarm is "at 14:30"); the engine that rings them lives in
+// BarWidget, this only asks for them.
 Item {
   id: root
 
@@ -24,7 +24,6 @@ Item {
   property string kind: "timer"
   property int minutes: 10
   property int alarmAt: Timers.defaultAlarm(Date.now())
-  property int note: 0
 
   readonly property var shown: timers.slice().sort(function(a, b) { return a.at - b.at }).slice(0, 3)
 
@@ -37,7 +36,7 @@ Item {
       added("alarm", "Alarm " + Timers.clock(alarmAt), at, at - t)
     } else {
       var len = minutes * 60000
-      added(kind, kind === "remind" ? Timers.reminders[note] : Timers.span(minutes), t + len, len)
+      added("timer", Timers.span(minutes), t + len, len)
     }
     composing = false
   }
@@ -128,7 +127,7 @@ Item {
       }
     }
 
-    // Presets for a timer, the note for a reminder, the wait for an alarm.
+    // Presets for a timer, the wait for an alarm.
     Item {
       width: parent.width
       height: Style.space(26)
@@ -169,36 +168,6 @@ Item {
         }
       }
 
-      Rectangle {
-        visible: root.kind === "remind"
-        anchors.centerIn: parent
-        width: Math.min(parent.width, noteText.implicitWidth + Style.space(28))
-        height: Style.space(24)
-        radius: height / 2
-        color: root.pal.alpha(root.pal.fg, noteMouse.containsMouse ? 0.12 : 0.06)
-
-        Text {
-          id: noteText
-          anchors.centerIn: parent
-          width: parent.width - Style.space(20)
-          horizontalAlignment: Text.AlignHCenter
-          text: Timers.reminders[root.note]
-          textFormat: Text.PlainText
-          elide: Text.ElideRight
-          color: root.pal.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-        }
-
-        MouseArea {
-          id: noteMouse
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.note = (root.note + 1) % Timers.reminders.length
-        }
-      }
-
       Text {
         visible: root.kind === "alarm"
         anchors.centerIn: parent
@@ -219,7 +188,7 @@ Item {
       compact: true
       kind: "primary"
       icon: root.kind === "timer" ? Icons.timer : Icons.bell
-      label: Timers.kinds[root.kind === "timer" ? 0 : root.kind === "alarm" ? 1 : 2].verb
+      label: Timers.kinds[root.kind === "alarm" ? 1 : 0].verb
       onClicked: root.start()
     }
   }

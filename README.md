@@ -144,17 +144,20 @@ buffer squashed into the new size.
   (the three icons at its top right; the choice is remembered):
   - **Limits**: the 5-hour window and the week, with a pace tick; clicking it
     opens **Stats**.
-  - **Timer**: a **Timer** (presets or − / +), an **Alarm** (a clock time,
-    15-minute steps, rings at the next one) or a **Remind** (a wait plus a
-    note picked from a short list; there's no text field in the island).
+  - **Timer**: a **Timer** (presets or − / +), or an **Alarm** (a clock
+    time, 15-minute steps, rings at the next one).
     Running ones list with a draining bar and × to cancel. When one is due,
     the island peeks open with a toast and a chime (setting **Timer sound**).
     They survive a shell restart (`~/.local/state/clawdius/timers.json`); one
     that came due while the shell was down rings on start, marked "Was due".
-  - **Posture**: a playful sit-up-straight nudge every 20 / 30 / 45 / 60
-    minutes. The crab sits tall, slumps in the last two minutes, and hops in
-    the toast with a line to follow ("Shoulders down, claws loose."). **Nudge
-    me now** rings one to try it.
+  - **Posture**: a playful sit-up-straight nudge every 20 or 30
+    minutes, or a **Custom** wait (5 to 120 minutes, − / +). The crab sits
+    tall, slumps in the last two minutes, and hops in the toast with a line
+    to follow ("Shoulders down, claws loose."). **Nudge me now** rings one
+    to try it. It's idle-aware: after 2 minutes without input (a playing
+    video counts as there) the count pauses and the crab dozes; back after a
+    short break it carries on, after 5 minutes or more it starts over ("Fresh
+    start after your break.").
 
   Only the first crab (the leader on a multi-monitor bar) rings, so nothing
   goes off twice.

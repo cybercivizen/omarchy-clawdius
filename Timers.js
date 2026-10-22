@@ -1,17 +1,15 @@
 .pragma library
 
-// Timers, alarms, reminders and the posture check: the sums and the words.
-// A timer is {id, kind: timer | alarm | remind, label, at (ms), len (ms)}.
+// Timers, alarms and the posture check: the sums and the words.
+// A timer is {id, kind: timer | alarm, label, at (ms), len (ms)}.
 
 var kinds = [
   { id: "timer", name: "Timer", verb: "Start", ring: "Timer" },
-  { id: "alarm", name: "Alarm", verb: "Set alarm", ring: "Alarm" },
-  { id: "remind", name: "Remind", verb: "Remind me", ring: "Reminder" }
+  { id: "alarm", name: "Alarm", verb: "Set alarm", ring: "Alarm" }
 ]
 
 var presets = [5, 10, 25, 45]
-var intervals = [20, 30, 45, 60]
-var reminders = ["Stretch", "Drink water", "Rest your eyes", "Stand up", "Check the build"]
+var intervals = [20, 30]
 
 // What the crab says when it's time to sit up, and how often it's heard.
 var postureLines = [
