@@ -213,6 +213,11 @@ buffer squashed into the new size.
   live view; Shift+Enter is a new line, Esc clears it (or closes the island
   when empty). The text behaves like an input: an I-beam over it, click to
   place the caret, drag or double-click to select, Ctrl+C / Ctrl+V.
+  The chip beside the send button picks the model and the effort
+  (`--model`, `--effort`; both kept in prefs.json), e.g. "Opus · High". In
+  Code, the folder by the toggle is a picker too: the Code folder, the last
+  folder Claude worked in, or Open folder… (zenity); it lasts until the shell
+  restarts.
 - **Search** (the nav's search icon, **Alt+Space**, or just start typing on
   Home; Esc there closes the island): with nothing typed,
   a row of apps you've used lately (launches from here, and every window

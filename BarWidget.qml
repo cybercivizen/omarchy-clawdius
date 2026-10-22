@@ -995,6 +995,10 @@ BarWidget {
   property string quickMode: "chat"
   // The model new Chat / Code sessions start on ("" = Claude's default), picked in the chat view.
   property string quickModel: ""
+  // And the effort ("" = Claude's default), picked under the model.
+  property string quickEffort: ""
+  // The folder Code starts in from the chat view ("" = the Code folder); not kept across restarts.
+  property string quickDir: ""
   readonly property bool quickShown: quickActive && liveKeys.field.text !== ""
   // Home holds the keyboard too: typing there goes straight to Search. Only
   // with the pointer on it: opened on its own (a prompt, say) or from the
@@ -1073,7 +1077,10 @@ BarWidget {
     if (!text || startProcess.running) return
     var code = root.quickMode === "code"
     var model = /^[\w.\-\[\]]+$/.test(root.quickModel) ? " --model " + root.quickModel : ""
-    var command = (code ? root.codeCommand : root.chatCommand) + model + " -- " + root.shellQuote(text)
+    var effort = /^(low|medium|high|xhigh|max)$/.test(root.quickEffort) ? " --effort " + root.quickEffort : ""
+    var base = code ? root.codeCommand : root.chatCommand
+    if (code && root.quickDir) base = "cd " + root.shellQuote(root.quickDir) + " && " + base.replace(root.cdPrefix, "")
+    var command = base + model + effort + " -- " + root.shellQuote(text)
     liveKeys.field.text = ""
     root.launchInCard(command, code ? "Code" : "Chat", text.split("\n")[0].slice(0, 60))
   }
@@ -1390,6 +1397,7 @@ BarWidget {
         var prefs = JSON.parse(text()) || {}
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
+        if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
         if (Array.isArray(prefs.recentSearches)) root.recentSearches = prefs.recentSearches.filter(function(r) {
           return r && (r.kind === "terminal" || r.kind === "google") && typeof r.text === "string" && r.text !== ""
         }).slice(0, 8)
@@ -1398,11 +1406,12 @@ BarWidget {
   }
   onQuickModeChanged: prefsSave.restart()
   onQuickModelChanged: prefsSave.restart()
+  onQuickEffortChanged: prefsSave.restart()
   onRecentSearchesChanged: prefsSave.restart()
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ quickMode: root.quickMode, quickModel: root.quickModel, recentSearches: root.recentSearches }))
+    onTriggered: prefsFile.setText(JSON.stringify({ quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, recentSearches: root.recentSearches }))
   }
 
   readonly property bool keysView: root.quickActive || root.searchActive
@@ -1579,8 +1588,11 @@ BarWidget {
   // Code folder) or asks for a new one's name (made there unless it's a full
   // path), then Code starts in it like any other folder. One under a trusted
   // folder (~/Work) runs in the card; elsewhere startFailed's terminal asks.
-  function browseFolder(how) {
+  // forQuick: the chat view's folder choice, so pick it there instead of starting.
+  property bool pickForQuick: false
+  function browseFolder(how, forQuick) {
     if (pickProcess.running) return
+    root.pickForQuick = !!forQuick
     var base = root.commandDir(root.codeCommand) || Quickshell.env("HOME")
     pickProcess.command = ["bash", "-c", [
       'how=$1 base=$2 shown=$3',
@@ -1604,6 +1616,7 @@ BarWidget {
   readonly property string clonePath: decodeURIComponent(String(Qt.resolvedUrl("clone.sh")).replace(/^file:\/\//, ""))
   function cloneRepo() {
     if (pickProcess.running) return
+    root.pickForQuick = false
     var base = root.commandDir(root.codeCommand) || Quickshell.env("HOME")
     pickProcess.command = ["bash", root.clonePath, base, Format.folder(base, Quickshell.env("HOME"))]
     pickProcess.running = true
@@ -1617,6 +1630,13 @@ BarWidget {
         var cwd = text.trim()
         if (!cwd || cwd[0] !== "/") return
         root.pinned = true
+        if (root.pickForQuick) {
+          root.quickDir = cwd
+          root.view = "quick"
+          root.open()
+          liveKeys.prime()
+          return
+        }
         root.open()
         root.startInFolder(cwd)
       }
@@ -2256,8 +2276,14 @@ BarWidget {
                 codeDir: root.commandDir(root.codeCommand)
                 fontSize: root.terminalFontSize
                 model: root.quickModel
+                effort: root.quickEffort
+                dir: root.quickDir
+                recentDir: root.recentFolders.length ? root.recentFolders[0].cwd : ""
                 onPicked: function(which) { root.quickMode = which; liveKeys.prime() }
                 onModelPicked: function(which) { root.quickModel = which }
+                onEffortPicked: function(which) { root.quickEffort = which }
+                onDirPicked: function(dir) { root.quickDir = dir }
+                onBrowseRequested: root.browseFolder("open", true)
                 onSend: root.sendQuick()
                 onFocusRequested: liveKeys.prime()
               }

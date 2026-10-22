@@ -37,11 +37,34 @@ Rectangle {
     for (var i = 0; i < models.length; i++) if (models[i].id === model) return models[i].label
     return model
   }
+  // And its effort (`claude --effort`), "" for the default; the second row under the chip.
+  property string effort: ""
+  readonly property var efforts: [
+    { id: "", label: "Default" },
+    { id: "low", label: "Low" },
+    { id: "medium", label: "Medium" },
+    { id: "high", label: "High" },
+    { id: "xhigh", label: "XHigh" },
+    { id: "max", label: "Max" }
+  ]
+  readonly property string effortLabel: {
+    for (var i = 0; i < efforts.length; i++) if (efforts[i].id === effort) return efforts[i].label
+    return effort
+  }
+  readonly property string chipLabel: effort ? modelLabel + " · " + effortLabel : modelLabel
+  // The folder Code starts in: "" for the Code folder. Its label opens the
+  // choices: the Code folder, the one Claude worked in last, or any.
+  property string dir: ""
+  property string recentDir: ""
+  property bool foldersOpen: false
   // Laid out like this, the field's caret lines up with the drawing.
   readonly property real inputWidth: shown.width
 
   signal picked(string mode)
   signal modelPicked(string model)
+  signal effortPicked(string effort)
+  signal dirPicked(string dir)
+  signal browseRequested()
   signal send()
   // Clicked into the composer: the key window takes the keyboard back.
   signal focusRequested()
@@ -86,16 +109,48 @@ Rectangle {
         }
       }
 
-      Text {
+      // In Code, the folder is a picker; click for the choices below.
+      Item {
         anchors.left: toggle.right
         anchors.leftMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
-        text: root.mode === "code" ? Format.folder(root.codeDir, root.home) + " · auto mode"
-                                   : Format.folder(root.chatDir, root.home) + " · talk only"
-        textFormat: Text.PlainText
-        color: root.pal.muted
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
+        width: dirRow.implicitWidth
+        height: dirRow.implicitHeight
+
+        Row {
+          id: dirRow
+          spacing: Style.space(4)
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.mode === "code" ? Format.folder(root.dir || root.codeDir, root.home) + " · auto mode"
+                                       : Format.folder(root.chatDir, root.home) + " · talk only"
+            textFormat: Text.PlainText
+            color: root.mode === "code" && (root.foldersOpen || dirMouse.containsMouse) ? root.pal.strong : root.pal.muted
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Icon {
+            visible: root.mode === "code"
+            anchors.verticalCenter: parent.verticalCenter
+            d: "M6 9l6 6 6-6"
+            size: Style.space(11)
+            stroke: 2.4
+            rotation: root.foldersOpen ? 180 : 0
+            color: root.pal.muted
+            Behavior on rotation { NumberAnimation { duration: 140 } }
+          }
+        }
+
+        MouseArea {
+          id: dirMouse
+          enabled: root.mode === "code"
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: { root.foldersOpen = !root.foldersOpen; root.modelsOpen = false; root.focusRequested() }
+        }
       }
 
       Text {
@@ -152,9 +207,9 @@ Rectangle {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: root.modelLabel
+            text: root.chipLabel
             textFormat: Text.PlainText
-            color: root.model === "" ? root.pal.muted : root.pal.strong
+            color: root.model === "" && root.effort === "" ? root.pal.muted : root.pal.strong
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
           }
@@ -175,7 +230,7 @@ Rectangle {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: { root.modelsOpen = !root.modelsOpen; root.focusRequested() }
+          onClicked: { root.modelsOpen = !root.modelsOpen; root.foldersOpen = false; root.focusRequested() }
         }
       }
 
@@ -206,7 +261,7 @@ Rectangle {
       }
     }
 
-    // The choices, under the composer while the chip is open.
+    // The choices, under the composer while the chip is open: model, then effort.
     Row {
       visible: root.modelsOpen
       spacing: Style.space(2)
@@ -214,21 +269,70 @@ Rectangle {
 
       Repeater {
         model: root.models
-        ModelOption { which: modelData.id; label: modelData.label }
+        Choice {
+          label: modelData.label
+          selected: root.model === modelData.id
+          onPicked: { root.modelPicked(modelData.id); root.modelsOpen = false; root.focusRequested() }
+        }
+      }
+    }
+
+    Row {
+      visible: root.modelsOpen
+      spacing: Style.space(2)
+      leftPadding: Style.space(4)
+
+      Repeater {
+        model: root.efforts
+        Choice {
+          label: modelData.label
+          selected: root.effort === modelData.id
+          onPicked: { root.effortPicked(modelData.id); root.modelsOpen = false; root.focusRequested() }
+        }
+      }
+    }
+
+    // Where Code starts, while its folder is open.
+    Row {
+      visible: root.foldersOpen && root.mode === "code"
+      spacing: Style.space(2)
+      leftPadding: Style.space(4)
+
+      Choice {
+        label: Format.folder(root.codeDir, root.home)
+        selected: root.dir === ""
+        onPicked: { root.dirPicked(""); root.foldersOpen = false; root.focusRequested() }
+      }
+      Choice {
+        visible: root.recentDir !== "" && root.recentDir !== root.codeDir
+        label: "Last: " + Format.folder(root.recentDir, root.home)
+        selected: root.dir === root.recentDir
+        onPicked: { root.dirPicked(root.recentDir); root.foldersOpen = false; root.focusRequested() }
+      }
+      Choice {
+        visible: root.dir !== "" && root.dir !== root.recentDir
+        label: Format.folder(root.dir, root.home)
+        selected: true
+        onPicked: { root.foldersOpen = false; root.focusRequested() }
+      }
+      Choice {
+        label: "Open folder…"
+        selected: false
+        onPicked: { root.foldersOpen = false; root.browseRequested() }
       }
     }
   }
 
-  component ModelOption: Rectangle {
+  component Choice: Rectangle {
     id: opt
-    property string which: ""
     property string label: ""
-    readonly property bool on: root.model === which
+    property bool selected: false
+    signal picked()
 
     width: optText.implicitWidth + Style.space(12) * 2
     height: Style.space(26)
     radius: height / 2
-    color: on ? root.pal.alpha(root.pal.fg, 0.14) : optMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.06) : "transparent"
+    color: selected ? root.pal.alpha(root.pal.fg, 0.14) : optMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.06) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
 
     Text {
@@ -236,10 +340,10 @@ Rectangle {
       anchors.centerIn: parent
       text: opt.label
       textFormat: Text.PlainText
-      color: opt.on ? root.pal.strong : root.pal.muted
+      color: opt.selected ? root.pal.strong : root.pal.muted
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
-      font.bold: opt.on
+      font.bold: opt.selected
     }
 
     MouseArea {
@@ -247,7 +351,7 @@ Rectangle {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: { root.modelPicked(opt.which); root.modelsOpen = false; root.focusRequested() }
+      onClicked: opt.picked()
     }
   }
 
