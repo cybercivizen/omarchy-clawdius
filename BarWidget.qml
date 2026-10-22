@@ -885,6 +885,19 @@ BarWidget {
     onLoaded: { try { root.asleep = JSON.parse(text()) || {} } catch (e) { root.asleep = {} } }
   }
 
+  // Job id → why the last sweep left it running (live.py writes it); stale
+  // once the sweep has stopped running, or is turned off.
+  property var awakeRecord: ({})
+  readonly property var awake: root.idleStopMinutes > 0 && root.now - (awakeRecord.at || 0) < 180000 ? awakeRecord.jobs || {} : ({})
+
+  FileView {
+    path: root.stateDir + "/awake.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: { try { root.awakeRecord = JSON.parse(text()) || {} } catch (e) { root.awakeRecord = {} } }
+  }
+
   Timer {
     running: root.idleStopMinutes > 0
     interval: 60000
@@ -2393,6 +2406,8 @@ BarWidget {
                     active: card.visible && visible
                     fontFamily: root.fontFamily
                     liveId: root.liveId
+                    awake: root.awake
+                    idleStopMinutes: root.idleStopMinutes
                     onOpened: function(s) { root.openSession(s) }
                     onStopRequested: function(s) { root.stopSession(s) }
                   }

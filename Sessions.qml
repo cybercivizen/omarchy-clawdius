@@ -23,6 +23,9 @@ Column {
   property string fontFamily: Style.font.family
   // The background session open in the detail view, if any.
   property string liveId: ""
+  // Job id → why the last sleep sweep left it running, and when idle ones go.
+  property var awake: ({})
+  property int idleStopMinutes: 30
 
   // A row was clicked.
   signal opened(var session)
@@ -43,6 +46,17 @@ Column {
     if (parts.length) parts[parts.length - 1] += " running"
     if (queued) parts.push(queued + " queued")
     return parts.join(" · ")
+  }
+
+  // Why an idle background session hasn't gone to sleep yet, in a few words.
+  function awakeLine(s) {
+    var why = s.jobId ? awake[s.jobId] : ""
+    if (why === "recent") {
+      var left = Math.ceil(idleStopMinutes - (now - s.since) / 60000)
+      return "sleeps in ~" + Math.max(1, left) + "m"
+    }
+    return { attached: "kept: terminal attached", "background work": "kept: background work",
+      "pending wakeup / monitor / cron": "kept: wakeup or cron pending", protected: "kept: work alongside" }[why] || ""
   }
 
   Text {
@@ -191,6 +205,19 @@ Column {
               compact: true
               label: "■ Stop"
               onClicked: root.stopRequested(sessionRow.s)
+            }
+
+            // Beside Stop: why the sleep sweep hasn't stopped it.
+            Text {
+              anchors.right: stopButton.left
+              anchors.rightMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              visible: stopButton.visible && text !== ""
+              text: stopButton.visible ? root.awakeLine(sessionRow.s) : ""
+              textFormat: Text.PlainText
+              color: root.pal.muted
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
             }
           }
 
