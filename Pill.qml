@@ -73,14 +73,9 @@ Rectangle {
         }
 
         Item {
+          id: spinner
           anchors.fill: parent
-          NumberAnimation on rotation {
-            running: root.busy
-            from: 0
-            to: 360
-            duration: 800
-            loops: Animation.Infinite
-          }
+          Spin { target: spinner; running: root.busy; period: 800 }
 
           Rectangle {
             width: Style.space(4)
@@ -106,13 +101,7 @@ Rectangle {
   }
 
   // Breathing while busy. Starts and ends at full strength.
-  SequentialAnimation on opacity {
-    running: root.busy
-    loops: Animation.Infinite
-    NumberAnimation { to: 0.45; duration: 700; easing.type: Easing.InOutSine }
-    NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
-    onRunningChanged: if (!running) root.opacity = 1
-  }
+  Throb { target: root; running: root.busy; low: 0.45 }
 
   MouseArea {
     id: mouse

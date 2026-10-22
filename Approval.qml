@@ -91,12 +91,7 @@ Column {
       radius: width / 2
       anchors.verticalCenter: parent.verticalCenter
       color: root.pal.needsYou
-      SequentialAnimation on opacity {
-        running: root.visible
-        loops: Animation.Infinite
-        NumberAnimation { to: 0.35; duration: 420; easing.type: Easing.InOutSine }
-        NumberAnimation { to: 1; duration: 420; easing.type: Easing.InOutSine }
-      }
+      Throb { target: dot; running: root.visible; period: 840; steps: 8 }
     }
 
     Text {

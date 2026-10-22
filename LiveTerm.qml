@@ -10,10 +10,11 @@ import qs.Commons
 // goes over in one piece on Enter. The card can't take the keyboard (see
 // KeyWindow.qml), so the real text field lives on that window and this
 // draws its text and caret. When Claude's own prompt isn't the thing
-// on screen (a permission dialog, a question, text already in its box) and
-// ours is empty, keys go straight to the terminal instead, so it can be
-// answered. Text half typed here stays here, so a dialog that pops up
-// mid-sentence can't catch a stray key.
+// on screen (a permission dialog, a question) and ours is empty, keys go
+// straight to the terminal instead, so it can be answered. Text that turns
+// up in Claude's own box (a prompt given back after an interrupt) moves
+// over to ours, so its box never shows. Text half typed here stays here,
+// so a dialog that pops up mid-sentence can't catch a stray key.
 //
 // Destroying this (collapsing the row) only detaches: the session carries on.
 Column {
@@ -63,8 +64,10 @@ Column {
   property string suggestion: ""
   readonly property bool suggesting: alive && promptReady && !rawKeys && suggestion !== ""
     && attachments.length === 0 && inputText === ""
+  // Text in Claude's own box that we didn't put there (live.py): taken over.
+  property string draft: ""
   // (Not before the first frame: a session still starting isn't asking anything.)
-  readonly property bool rawWanted: framed && !promptReady && inputText === ""
+  readonly property bool rawWanted: framed && !promptReady && draft === "" && inputText === ""
   // Only once that has held a moment: Claude draws its prompt box over a
   // frame or two (at start, and after a send), and in between it isn't
   // there, which would flash the amber "Claude is asking" for a split second.
@@ -139,6 +142,74 @@ Column {
     if (view.running) view.write(JSON.stringify(cmd) + "\n")
   }
 
+  // The wheel, in Claude's own lines: a touchpad scrolls one for each line
+  // height swiped, a mouse wheel three a notch. Turning back starts afresh.
+  property real wheelLines: 0
+  function scrollBy(wheel) {
+    var lines = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y / root.lineHeight : wheel.angleDelta.y / 40
+    if (lines * root.wheelLines < 0) root.wheelLines = 0
+    root.wheelLines += lines
+    var steps = root.wheelLines > 0 ? Math.floor(root.wheelLines) : Math.ceil(root.wheelLines)
+    if (steps === 0) return
+    root.wheelLines -= steps
+    root.send({ wheel: steps })
+  }
+
+  // ---- Up / Down: the prompts given in this folder (live.py history), in
+  //      our prompt, never Claude's. Up on the first line goes back, Down on
+  //      the last forward, and past the newest is what was being typed.
+  property var history: []
+  property int historyAt: -1
+  property string historyDraft: ""
+  property bool recalling: false
+
+  Process {
+    id: historyProcess
+    command: ["python3", "-I", root.livePath, "history", root.cwd || "."]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try { root.history = JSON.parse(text) } catch (e) { root.history = [] }
+      }
+    }
+  }
+  function loadHistory() { if (root.cwd && !historyProcess.running) historyProcess.running = true }
+  onCwdChanged: loadHistory()
+
+  function recall(at) {
+    if (at < -1 || at >= root.history.length) return
+    if (root.historyAt === -1) root.historyDraft = input.text
+    root.historyAt = at
+    root.recalling = true
+    input.text = at === -1 ? root.historyDraft : root.history[at]
+    input.cursorPosition = input.text.length
+    root.recalling = false
+  }
+
+  Connections {
+    target: root.input
+    function onTextChanged() { if (!root.recalling) root.historyAt = -1 }
+  }
+
+  // Claude's box held its text a moment (not our own paste on its way to
+  // Enter): ours takes it, and Claude's is emptied.
+  property double submittedAt: 0
+  Timer {
+    id: adoptDelay
+    interval: 600
+    onTriggered: root.adoptDraft()
+  }
+  onDraftChanged: if (draft !== "") adoptDelay.restart(); else adoptDelay.stop()
+  function adoptDraft() {
+    var text = root.draft
+    if (!text || !input || Date.now() - root.submittedAt < 2500) return
+    root.recalling = true
+    input.text = input.text ? text + "\n" + input.text : text
+    input.cursorPosition = input.text.length
+    root.recalling = false
+    root.send({ clear: text.length + 40 })
+  }
+
   function submit() {
     var text = root.inputText
     if (text.trim() === "") {
@@ -147,7 +218,10 @@ Column {
     }
     // After an [Image #n] in Claude's box, the text needs a space before it.
     root.send({ submit: (root.attachments.length ? " " : "") + text })
+    root.submittedAt = Date.now()
     input.text = ""
+    root.historyAt = -1
+    root.history = [text].concat(root.history.filter(function(h) { return h !== text }))
   }
 
   // Keys in our prompt. Returns true when handled (not typed locally).
@@ -174,7 +248,6 @@ Column {
       else if (empty) root.send({ keys: ["Enter"] })
       return true
     }
-    if (event.key === Qt.Key_Escape) { root.send({ keys: ["Escape"] }); return true }
     if (event.key === Qt.Key_Backtab) { root.send({ keys: ["BTab"] }); return true }
     // An image on the clipboard goes to Claude as an attachment (live.py);
     // text still pastes here as usual.
@@ -192,8 +265,14 @@ Column {
       input.cursorPosition = input.text.length
       return true
     }
-    // History, scrolling, completion: the terminal's, while ours is empty.
-    if (empty && [Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Tab].indexOf(event.key) >= 0) {
+    if (plain && (event.key === Qt.Key_Up || event.key === Qt.Key_Down)) {
+      var caret = input.cursorRectangle
+      if (event.key === Qt.Key_Up && caret.y < caret.height / 2) { root.recall(root.historyAt + 1); return true }
+      if (event.key === Qt.Key_Down && caret.y + caret.height * 1.5 > input.contentHeight) { root.recall(root.historyAt - 1); return true }
+      return false
+    }
+    // Scrolling, completion: the terminal's, while ours is empty.
+    if (empty && [Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Tab].indexOf(event.key) >= 0) {
       root.send(root.keyFor(event))
       return true
     }
@@ -247,6 +326,7 @@ Column {
         root.promptReady = frame.prompt === true
         root.attachments = frame.attachments || []
         root.suggestion = frame.suggestion || ""
+        root.draft = frame.draft || ""
       }
     }
     onExited: root.alive = false
@@ -254,6 +334,7 @@ Column {
 
   // Start once the width is known, so the first frame comes out the right size.
   Component.onCompleted: {
+    loadHistory()
     if (keyWindow) keyWindow.handler = root.promptKey
     Qt.callLater(function() { root.started = true })
   }
@@ -305,7 +386,7 @@ Column {
   // Another session picked: restart the viewer on it.
   onJobIdChanged: if (started) {
     started = false; page = ""; framed = false; screenModel = ""; screenMode = ""; screenEffort = ""; scrolled = false; unread = 0
-    promptReady = false; attachments = []; suggestion = ""
+    promptReady = false; attachments = []; suggestion = ""; draft = ""; historyAt = -1
     Qt.callLater(function() { root.started = true })
   }
 
@@ -398,17 +479,13 @@ Column {
       spacing: Style.space(7)
 
       Rectangle {
+        id: liveDot
         anchors.verticalCenter: parent.verticalCenter
         width: Style.space(7)
         height: width
         radius: width / 2
         color: root.jobId === "" ? root.hot : root.alive ? (root.pal ? root.pal.done : root.hot) : root.quietInk
-        SequentialAnimation on opacity {
-          running: root.alive && root.visible
-          loops: Animation.Infinite
-          NumberAnimation { to: 0.35; duration: 900; easing.type: Easing.InOutSine }
-          NumberAnimation { to: 1; duration: 900; easing.type: Easing.InOutSine }
-        }
+        Throb { target: liveDot; running: root.alive && root.visible; period: 1800; steps: 12 }
       }
 
       Text {
@@ -440,7 +517,7 @@ Column {
       anchors.fill: parent
       cursorShape: Qt.IBeamCursor
       onClicked: root.focusInput()
-      onWheel: function(wheel) { root.send({ keys: [wheel.angleDelta.y > 0 ? "PPage" : "NPage"] }) }
+      onWheel: function(wheel) { root.scrollBy(wheel) }
     }
 
     // The conversation: grows with it, up to `rows` lines.
@@ -452,8 +529,10 @@ Column {
       // Where the height is headed: the text is placed against this, not the
       // animated height, or every new line would bounce it up and back down.
       // Always the full `rows`: a short conversation, a new session or one
-      // scrolled back never moves the card.
-      readonly property real targetHeight: root.lineHeight * root.rows
+      // scrolled back never moves the card. Less what the composer has grown
+      // by, exactly: rounding to whole lines made the card shrink a bit whenever the
+      // composer grew by a fraction of one.
+      readonly property real targetHeight: Math.max(root.lineHeight * 4, root.lineHeight * root.rows - root.composerGrowth)
       height: targetHeight
       clip: true
 
@@ -593,6 +672,20 @@ Column {
     }
   }
 
+  // How much taller than one line the composer is (a long message, images).
+  readonly property real composerGrowth: Math.max(0, composer.height - Math.max(metrics.lineSpacing, Style.space(28)) - Style.space(10) * 2)
+  // Past this many lines, the message scrolls inside the composer.
+  property int inputLines: 6
+  property real inputScroll: 0
+
+  function keepCaretShown() {
+    if (!input) return
+    var c = input.cursorRectangle
+    var s = Math.min(root.inputScroll, c.y)
+    s = Math.max(s, c.y + c.height - inputView.height)
+    root.inputScroll = Math.max(0, Math.min(s, shown.implicitHeight - inputView.height))
+  }
+
   // The composer: our prompt in its own rounded box under the terminal,
   // with a send button. Amber while Claude's asking something and keys go
   // straight to the terminal.
@@ -654,7 +747,7 @@ Column {
 
       Item {
         width: parent.width
-        height: Math.max(shown.implicitHeight, metrics.lineSpacing, Style.space(28))
+        height: Math.max(inputView.height, metrics.lineSpacing, Style.space(28))
 
         Text {
           id: caret
@@ -673,12 +766,21 @@ Column {
           anchors.leftMargin: metrics.averageCharacterWidth
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          height: shown.implicitHeight
+          readonly property real lineStep: shown.lineCount > 0 ? shown.implicitHeight / shown.lineCount : metrics.lineSpacing
+          height: Math.min(shown.implicitHeight, lineStep * root.inputLines)
+          clip: true
+          onHeightChanged: root.keepCaretShown()
+
+          Connections {
+            target: root.input
+            function onCursorRectangleChanged() { root.keepCaretShown() }
+          }
 
           // The field's text, and its selection: the field (KeyWindow) is
           // laid out the same, so positions carry over both ways.
           TextEdit {
             id: shown
+            y: -root.inputScroll
             width: parent.width
             text: root.inputText
             textFormat: TextEdit.PlainText
@@ -693,6 +795,7 @@ Column {
             font.family: "monospace"
             font.pixelSize: root.fontSize
             onTextChanged: mirrorSelection()
+            onImplicitHeightChanged: root.keepCaretShown()
             function mirrorSelection() {
               if (root.input) shown.select(root.input.selectionStart, root.input.selectionEnd)
             }
@@ -711,7 +814,11 @@ Column {
             anchors.margins: -Style.space(4)
             cursorShape: Qt.IBeamCursor
             property int anchorAt: 0
-            function at(mouse) { return shown.positionAt(mouse.x - Style.space(4), mouse.y - Style.space(4)) }
+            function at(mouse) { return shown.positionAt(mouse.x - Style.space(4), mouse.y - Style.space(4) + root.inputScroll) }
+            onWheel: function(wheel) {
+              var dy = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y : wheel.angleDelta.y / 120 * inputView.lineStep * 3
+              root.inputScroll = Math.max(0, Math.min(root.inputScroll - dy, shown.implicitHeight - inputView.height))
+            }
             onPressed: function(mouse) {
               root.focusInput()
               if (!root.input) return
@@ -728,11 +835,25 @@ Column {
             }
           }
 
+          // Scrollbar, once the message overflows the box.
+          Rectangle {
+            id: inputBar
+            readonly property real overflow: shown.implicitHeight - inputView.height
+            visible: overflow > 1
+            z: 3
+            anchors.right: parent.right
+            width: Math.max(3, Style.spaceReal(3))
+            radius: width / 2
+            height: Math.max(Style.space(16), inputView.height * inputView.height / shown.implicitHeight)
+            y: overflow > 0 ? (inputView.height - height) * root.inputScroll / overflow : 0
+            color: root.tint(root.ink, 0.35)
+          }
+
           Rectangle {
             id: cursorBlock
             visible: root.alive && root.focused && !root.rawKeys
             x: root.input ? root.input.cursorRectangle.x : 0
-            y: root.input ? root.input.cursorRectangle.y : 0
+            y: root.input ? root.input.cursorRectangle.y - root.inputScroll : 0
             width: Math.max(2, Style.spaceReal(2))
             height: root.input ? root.input.cursorRectangle.height : metrics.lineSpacing
             radius: width / 2
@@ -889,7 +1010,7 @@ Column {
         }
       }
 
-      Hint { key: "Esc"; label: "interrupt"; clickable: true; onClicked: { root.send({ keys: ["Escape"] }); root.focusInput() } }
+      Hint { key: "Ctrl C"; label: "interrupt"; clickable: true; onClicked: { root.send({ keys: ["Escape"] }); root.focusInput() } }
       Hint { key: "⇧Tab"; label: "mode"; clickable: true; onClicked: { root.send({ keys: ["BTab"] }); root.focusInput() } }
       Hint { key: "⇧ Enter"; label: "new line" }
       // Room for it beside the model and effort only on a wide card.
