@@ -208,8 +208,8 @@ buffer squashed into the new size.
   The working moment on Home shows the context percentage too.
 - **Chat** (the nav's chat icon, Home's New chat, or **Super+Alt+C**): a
   composer with Clawd peeking up from the island's bottom-left edge. In Code, the
-  permission mode (auto, plan, accept edits, ask) is a picker beside the folder,
-  kept in prefs.json; picking Opus Plan sets it to plan. Chat or
+  permission mode (auto, plan, accept edits, ask) sits beside the folder; a click
+  cycles to the next one. It's kept in prefs.json; picking Opus Plan sets it to plan. Chat or
   Code, whichever you used last (`~/.local/state/clawdius/prefs.json`;
   Tab or a click switches): Enter starts that session with the message as
   its first prompt (`claude --bg -- '<message>'`) and goes straight to its
