@@ -191,7 +191,9 @@ Rectangle {
         anchors.left: toggle.right
         anchors.leftMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
-        width: dirRow.implicitWidth
+        // Never under the hint on the right: a long folder elides its middle.
+        readonly property real room: parent.width - toggle.width - Style.space(10) - hint.width - Style.space(12)
+        width: Math.min(dirRow.implicitWidth, room)
         height: Style.space(26)
 
         Row {
@@ -201,6 +203,8 @@ Rectangle {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(implicitWidth, dirLabel.room - (root.mode === "code" ? Style.space(15) : 0))
+            elide: Text.ElideMiddle
             text: Format.folder(root.startDir, root.home) + (root.mode === "code" ? " · auto mode" : " · talk only")
             textFormat: Text.PlainText
             color: root.mode === "code" && (root.picker === "folder" || dirMouse.containsMouse) ? root.pal.strong : root.pal.muted
@@ -231,6 +235,7 @@ Rectangle {
       }
 
       Text {
+        id: hint
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         text: root.compact && root.text === "" ? "Tab switch · Esc close" : "Tab switch · Esc clear"

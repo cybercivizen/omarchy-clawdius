@@ -5,7 +5,7 @@ import qs.Commons
 // whatever is under it, so nothing moves. Its owner places it: rising from
 // the chip in the live view, dropping from it in the chat view. An option
 // with `special` (Opus Plan) sits on a drifting Shimmer; one with a `tone`
-// (effort's levels) gets a dot and its text in that color, a `hint` sits
+// (effort's levels) gets its text in that color, a `hint` sits
 // muted beside the label.
 Rectangle {
   id: root
@@ -103,19 +103,9 @@ Rectangle {
           Behavior on color { ColorAnimation { duration: 120 } }
         }
 
-        Rectangle {
-          visible: option.toned
-          x: Style.space(10)
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(7)
-          height: width
-          radius: width / 2
-          color: option.toned ? option.modelData.tone : "transparent"
-        }
-
         Text {
           id: optionText
-          x: option.toned ? Style.space(10) + Style.space(7) + Style.space(8) : Style.space(10)
+          x: Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
           text: option.modelData.label
           textFormat: Text.PlainText

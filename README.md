@@ -229,7 +229,7 @@ buffer squashed into the new size.
   crab-to-purple sweep (`Shimmer.qml`) that drifts in steps while the menu is
   open. On a model chip it shows still and drifts only while pointed at or
   open. Effort levels run cool to hot (`Colors.effort`: teal, green, amber,
-  orange, red), as a dot and text in the menu and on the effort chip. The
+  orange, red), as text in the menu and on the effort chip. The
   menus' titles are small spaced-out caps over a hairline, like the island's
   other section labels, so they don't read as a choice.
 - **Search** (the nav's search icon, **Alt+Space**, or just start typing on
