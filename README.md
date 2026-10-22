@@ -343,7 +343,9 @@ session's folder when inside it, quoted when they have spaces, as Claude's own
 `@` completion would type them.
 The **model** and **effort** chips under the composer are clickable while
 Claude's prompt is up and both prompts are empty: the choices (Opus, Sonnet,
-Haiku, Fable, Opus Plan; Low … Max) open under the composer, and a pick sends
+Haiku, Fable, Opus Plan; Low … Max) open in a small menu rising from the chip
+over the terminal (the paperclip's too; nothing moves, a click elsewhere
+closes it), and a pick sends
 `/model <alias>` or `/effort <level>` to the session. Claude Code saves either
 as your default for new sessions too. The model chip shows the model of the
 latest reply, not the banner's (that one is the start's). Sessions on

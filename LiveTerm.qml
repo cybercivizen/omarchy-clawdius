@@ -146,9 +146,13 @@ Column {
     : []
   readonly property string pickerCurrent: picker === "model" ? currentModel : picker === "effort" ? currentEffort : ""
 
-  function togglePicker(which) {
-    root.picker = root.picker === which ? "" : which
-    root.focusInput()
+  // What the open menu rises from: the chip or the paperclip.
+  property Item pickerAnchor: null
+
+  function togglePicker(which, anchor) {
+    var opening = root.picker !== which
+    root.focusInput()   // closes the one open
+    if (opening) { root.pickerAnchor = anchor; root.picker = which }
   }
 
   function pick(id) {
@@ -452,8 +456,9 @@ Column {
     onTriggered: root.copiedAt = 0
   }
 
-  // Click into the view (or a chip): take the keyboard back.
+  // Click into the view (or a chip): take the keyboard back, and close the menu.
   function focusInput() {
+    root.picker = ""
     root.grabbed()
     if (keyWindow) keyWindow.prime()
   }
@@ -1027,7 +1032,7 @@ Column {
         enabled: root.alive && !root.picking
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: root.togglePicker("attach")
+        onClicked: root.togglePicker("attach", attachButton)
       }
     }
 
@@ -1064,56 +1069,10 @@ Column {
     }
   }
 
-  // The open chip's (or the paperclip's) choices, on the right under the composer.
-  Item {
-    visible: root.picker !== ""
-    width: parent.width
-    height: pickerRow.implicitHeight
-
-    Row {
-      id: pickerRow
-      anchors.right: parent.right
-      spacing: Style.space(2)
-
-      Repeater {
-        model: root.pickerOptions
-
-        Rectangle {
-          id: option
-          required property var modelData
-          readonly property bool on: root.pickerCurrent === modelData.id
-          width: optionText.implicitWidth + Style.space(12) * 2
-          height: Style.space(26)
-          radius: height / 2
-          color: on ? root.tint(root.ink, 0.14) : optionMouse.containsMouse ? root.tint(root.ink, 0.06) : "transparent"
-          Behavior on color { ColorAnimation { duration: 120 } }
-
-          Text {
-            id: optionText
-            anchors.centerIn: parent
-            text: option.modelData.label
-            textFormat: Text.PlainText
-            color: option.on ? root.ink : root.quietInk
-            font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
-            font.bold: option.on
-          }
-
-          MouseArea {
-            id: optionMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.pick(option.modelData.id)
-          }
-        }
-      }
-    }
-  }
-
   // Key hints on the left (the key in a small outlined box, then what it
   // does; Esc and ⇧Tab can be clicked), model and effort on the right.
   Item {
+    id: footer
     width: parent.width
     height: Math.max(hintsRow.implicitHeight, modelRow.implicitHeight)
 
@@ -1125,18 +1084,20 @@ Column {
 
       // Click for the choices: /model and /effort, sent to the session.
       InfoChip {
+        id: modelChip
         visible: root.modelLabel !== "" || root.canCommand
         label: root.modelLabel || "Model"
         clickable: root.canCommand
         open: root.picker === "model"
-        onClicked: root.togglePicker("model")
+        onClicked: root.togglePicker("model", modelChip)
       }
       InfoChip {
+        id: effortChip
         visible: root.effortLabel !== "" || root.canCommand
         label: root.effortLabel || "Effort"
         clickable: root.canCommand
         open: root.picker === "effort"
-        onClicked: root.togglePicker("effort")
+        onClicked: root.togglePicker("effort", effortChip)
       }
     }
 
@@ -1206,6 +1167,100 @@ Column {
       Hint { visible: root.width > Style.space(700); key: "Ctrl V"; label: "image" }
       Hint { visible: root.showWindowChips; key: "↗"; label: "Open in terminal"; clickable: true; onClicked: root.openTerminal() }
       Hint { visible: root.showWindowChips; key: "—"; label: "Collapse"; clickable: true; onClicked: root.collapse() }
+    }
+
+    // The open chip's (or the paperclip's) choices: a menu rising from it,
+    // over the composer and the terminal, so nothing under it moves.
+    Rectangle {
+      id: pickerMenu
+      readonly property real pad: Style.space(6)
+      // The anchor's top-right corner, here.
+      readonly property point at: root.picker !== "" && root.pickerAnchor
+        ? root.pickerAnchor.mapToItem(footer, root.pickerAnchor.width, 0) : Qt.point(0, 0)
+      visible: root.picker !== ""
+      z: 10
+      x: Math.max(0, at.x - width)
+      y: at.y - height - Style.space(6)
+      width: Math.max(menuColumn.implicitWidth, root.pickerAnchor ? root.pickerAnchor.width : 0) + pad * 2
+      height: menuColumn.implicitHeight + pad * 2
+      radius: Style.space(12)
+      color: root.pal ? root.pal.raised : root.screenColor
+      border.width: 1
+      border.color: root.tint(root.ink, 0.12)
+
+      // A click on the padding stays in the menu.
+      MouseArea { anchors.fill: parent }
+
+      Column {
+        id: menuColumn
+        x: pickerMenu.pad
+        y: pickerMenu.pad
+        width: parent.width - pickerMenu.pad * 2
+
+        Text {
+          leftPadding: Style.space(10)
+          topPadding: Style.space(4)
+          bottomPadding: Style.space(4)
+          text: root.picker === "model" ? "Model" : root.picker === "effort" ? "Effort" : "Link"
+          textFormat: Text.PlainText
+          color: root.quietInk
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Repeater {
+          model: root.pickerOptions
+
+          // Sized to its text, so the menu takes the widest; the hover and
+          // the check span the menu's width.
+          Item {
+            id: option
+            required property var modelData
+            readonly property bool on: root.pickerCurrent === modelData.id
+            width: optionText.implicitWidth + Style.space(10) * 3 + Style.space(13)
+            height: Style.space(28)
+
+            Rectangle {
+              width: menuColumn.width
+              height: parent.height
+              radius: Style.space(8)
+              color: optionMouse.containsMouse ? root.tint(root.ink, 0.08) : "transparent"
+              Behavior on color { ColorAnimation { duration: 120 } }
+            }
+
+            Text {
+              id: optionText
+              x: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              text: option.modelData.label
+              textFormat: Text.PlainText
+              color: option.on ? root.ink : root.quietInk
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              font.bold: option.on
+            }
+
+            Icon {
+              visible: option.on
+              x: menuColumn.width - Style.space(10) - size
+              anchors.verticalCenter: parent.verticalCenter
+              d: "M5 12l5 5 9-11"
+              size: Style.space(13)
+              stroke: 2.4
+              color: root.hot
+            }
+
+            MouseArea {
+              id: optionMouse
+              width: menuColumn.width
+              height: parent.height
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.pick(option.modelData.id)
+            }
+          }
+        }
+      }
     }
   }
 }
