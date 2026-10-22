@@ -588,8 +588,8 @@ BarWidget {
 
   // ---- The hover zone: the clock and crab are small targets, so a wider
   //      stretch of the bar's middle opens the island too. A HoverHandler is
-  //      passive, and the zone sits beneath the bar's widgets so they keep
-  //      their own hover and clicks.
+  //      passive and non-blocking: the bar's widgets under it keep their own
+  //      hover and clicks.
   readonly property real hoverZoneWidth: Math.max(0, Number(setting("hoverZoneWidth", 560)))
   property bool zoneHovered: false
 
@@ -625,9 +625,10 @@ BarWidget {
     x: parent ? (parent.width - width) / 2 : 0
     width: Style.space(root.hoverZoneWidth)
     height: parent ? parent.height : 0
-    z: -1   // under the modules, so their own hover (the tray drawer) wins
+    z: 100
 
     HoverHandler {
+      blocking: false   // let the modules under it (the tray drawer) get their hover
       onHoveredChanged: root.updateZone(this)
       onPointChanged: root.updateZone(this)
     }
