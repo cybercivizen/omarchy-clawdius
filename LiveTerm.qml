@@ -201,6 +201,20 @@ Column {
     input.cursorPosition = at + add.length
   }
   readonly property string home: Quickshell.env("HOME") || ""
+  // The @path links typed into the composer (as mention() writes them), for
+  // drawing them as chips: where each starts and ends, and its full path.
+  readonly property var links: {
+    var found = [], re = /(^|\s)(@"[^"]+"|@\S+)/g, m
+    while ((m = re.exec(inputText)) !== null) {
+      var start = m.index + m[1].length, ref = m[2]
+      found.push({ start: start, end: start + ref.length, path: fullPath(ref.slice(1).replace(/^"|"$/g, "")) })
+    }
+    return found
+  }
+  function fullPath(path) {
+    var full = path === "." ? cwd : path.charAt(0) === "/" || !cwd ? path : cwd + "/" + path
+    return home && full.indexOf(home) === 0 ? "~" + full.slice(home.length) : full
+  }
   readonly property string cwdLabel: home && cwd.indexOf(home) === 0 ? "~" + cwd.slice(home.length) : cwd
   property bool started: false
 
@@ -789,6 +803,10 @@ Column {
     }
   }
 
+  // The linked chip under the pointer, and the full path to show for it.
+  property string tipLink: ""
+  property Item tipSeg: null
+
   // How much taller than one line the composer is (a long message, images).
   readonly property real composerGrowth: Math.max(0, composer.height - Math.max(metrics.lineSpacing, Style.space(28)) - Style.space(10) * 2)
   // Past this many lines, the message scrolls inside the composer.
@@ -823,6 +841,33 @@ Column {
       anchors.fill: parent
       cursorShape: Qt.IBeamCursor
       onClicked: root.focusInput()
+    }
+
+    // The full path of the link chip under the pointer.
+    Rectangle {
+      visible: root.tipLink !== "" && root.tipSeg !== null
+      readonly property point at: root.tipSeg ? root.tipSeg.mapToItem(composer, 0, 0) : Qt.point(0, 0)
+      x: Math.max(0, Math.min(at.x, composer.width - width))
+      y: at.y - height - Style.space(6)
+      width: Math.min(tipText.implicitWidth + Style.space(14), composer.width)
+      height: tipText.implicitHeight + Style.space(8)
+      radius: Style.space(8)
+      z: 20
+      color: root.pal ? root.pal.raised : "black"
+      border.width: 1
+      border.color: root.pal ? root.pal.line : "transparent"
+
+      Text {
+        id: tipText
+        anchors.centerIn: parent
+        width: parent.width - Style.space(14)
+        text: root.tipLink
+        textFormat: Text.PlainText
+        elide: Text.ElideMiddle
+        color: root.ink
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
     }
 
     Column {
@@ -949,6 +994,56 @@ Column {
               if (!root.input) return
               root.input.cursorPosition = at(mouse)
               root.input.selectWord()
+            }
+          }
+
+          // Linked files and folders as chips, inline: a wash behind the @path
+          // (the text stays put, so the field's positions still carry over);
+          // hover for the full path. Clicks go on to the area below.
+          Repeater {
+            model: root.links
+
+            Item {
+              id: link
+              required property var modelData
+              readonly property real charW: metrics.averageCharacterWidth
+              readonly property var first: { shown.text; shown.width; shown.contentHeight; return shown.positionToRectangle(modelData.start) }
+              readonly property var last: { shown.text; shown.width; shown.contentHeight; return shown.positionToRectangle(modelData.end - 1) }
+              readonly property bool wraps: last.y > first.y + 1
+
+              component Segment: Rectangle {
+                id: seg
+                height: link.first.height
+                radius: Style.space(6)
+                color: root.tint(root.hot, seg.hovered ? 0.26 : 0.16)
+                border.width: 1
+                border.color: root.tint(root.hot, 0.4)
+                readonly property bool hovered: segMouse.containsMouse
+
+                MouseArea {
+                  id: segMouse
+                  anchors.fill: parent
+                  acceptedButtons: Qt.NoButton
+                  hoverEnabled: true
+                  onContainsMouseChanged: {
+                    if (containsMouse) { root.tipLink = link.modelData.path; root.tipSeg = seg }
+                    else if (root.tipSeg === seg) { root.tipLink = ""; root.tipSeg = null }
+                  }
+                }
+              }
+
+              Segment {
+                x: link.first.x - Style.space(2)
+                y: link.first.y - root.inputScroll
+                width: (link.wraps ? shown.width : link.last.x + link.charW) - link.first.x + Style.space(4)
+              }
+
+              Segment {
+                visible: link.wraps
+                x: -Style.space(2)
+                y: link.last.y - root.inputScroll
+                width: link.last.x + link.charW + Style.space(4)
+              }
             }
           }
 

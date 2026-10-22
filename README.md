@@ -362,6 +362,9 @@ chooser closes; the key window lets go of the keyboard meanwhile; the chat
 view's paperclip and the + menu's Open folder… do the same) whose picks land in the prompt as `@path`, relative to the
 session's folder when inside it, quoted when they have spaces, as Claude's own
 `@` completion would type them.
+In the live composer each `@path` is drawn as a chip inline with the text (a
+wash behind it; the text itself doesn't move), and hovering one shows the full
+path above it.
 The **model** and **effort** chips under the composer are clickable while
 Claude's prompt is up and both prompts are empty: the choices (Opus, Sonnet,
 Haiku, Fable, Opus Plan; Low … Max) open in a small menu rising from the chip
