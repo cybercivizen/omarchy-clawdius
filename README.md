@@ -105,7 +105,7 @@ It sweats (a drop runs down its side) once the 5-hour limit is 90% spent.
 Near-black, hung straight off the bar,
 with an icon nav: **Home**, **Chat** (a new chat), **Sessions**, **Search**
 (the icon stretches into a search bar), the status ("1 needs you · 2
-working"), and **+** for a new session from any view. Opened by hovering,
+working"), a gear for **Settings**, and **+** for a new session from any view. Opened by hovering,
 the nav also shows the two shortcuts (hidden when the status leaves no room).
 The island opens from anywhere in the middle 560 px of the bar
 (`hoverZoneWidth`), not only the clock and crab: a passive `HoverHandler` on
@@ -133,8 +133,8 @@ buffer squashed into the new size.
   the tool call that's out with its command or path under it, or
   "Thinking…" between calls; under the list, Claude's latest words this
   turn in quotes.
-  With nothing running: **New chat**, into the chat view. (Earlier sessions
-  are under Sessions → Recent.)
+  With nothing running: today's **rep** (see Daily reps below) and **New
+  chat**, into the chat view. (Earlier sessions are under Sessions → Recent.)
   Other running sessions sit on a **rail** of small crabs on the right, each
   with a bubble on its corner saying how long ago it last moved (since its
   turn started while it works or waits, since it went idle otherwise).
@@ -265,6 +265,34 @@ buffer squashed into the new size.
 - **Stats** — Claude usage, replacing the old `cybercivizen.agents` bar icon:
   plan, 5-hour and weekly limits (orange when ahead of the pace tick, red at
   90%), today's tokens / prompts / sessions, tokens per model, last 7 days.
+- **Settings** (the gear): settings that live in the island rather than in
+  `shell.json`, one section per feature (`Settings.qml`). For now, **Daily
+  reps**: each language's on/off switch, its level (− / +, 1–10), and its
+  state: ready, not set up (**Set up**), or the toolchain it still needs,
+  with the install command.
+
+#### Daily reps
+
+One small exercise a day, written by hand, to keep in practice when Claude
+writes most of the code. `gym.py` takes them from Exercism's open tracks
+(JavaScript and Rust for now): turning a language on in Settings clones its
+track (`~/.local/share/clawdius/tracks`; JavaScript also installs jest once,
+about 120 MB, under `~/Work/gym/javascript`). The languages that are on take
+turns, a day each. The rep is the unsolved exercise nearest the language's
+level, never one skipped in the last 30 days; two passes at a level move it up.
+
+On Home's idle moment: the exercise's name, Exercism's one-line blurb, its
+difficulty and the streak. **Start** copies the stub, the tests (every one of
+them, Exercism skips all but the first) and the instructions to
+`~/Work/gym/<lang>/<slug>`, never the example solution, and opens the stub in
+the default editor (`omarchy-launch-editor`). **Check** runs the tests
+(`cargo test`, jest) and shows how many pass, with the end of the output.
+All passing counts the day: a ✓, the streak (days in a row), and **Review
+with Claude**, a session in the live view that can read but not edit
+(`--disallowedTools Edit,Write,…`). It's asked to teach rather than fix, and
+to compare with Exercism's own solution after its review. **Easier** is a
+level down, **Skip** another one at the same level. State is
+`~/.local/state/clawdius/gym.json`; only `gym.py` writes it.
 
 Colors come from the theme's ink and paper (`Colors.qml`), so Solitude and
 Solitude Light both read: orange `#D97757` (`#C15F3C` on light) means Claude
@@ -300,6 +328,7 @@ and call its `hover(window, hovered)`.
 | Card | `FrostCard.qml`, a reworked `PopupCard` | `island: true`: square corners on the bar, 30 px on the free ones; opens by growing out of the bar (a sliver widens, drops to full height, then the content fades in) and folds back into it on close; see-through enough that Hyprland frosts it (`blur_popups` on the `omarchy-bar` layer rule); animates height between views |
 | Approvals | `approvals.py` (`PermissionRequest` hook) + `Approval.qml` | Allow / Always / Deny from the card; the terminal dialog stays up alongside |
 | Resume | `resumable.py` + `Resume.qml` | Past sessions, with whether resuming hits the prompt cache |
+| Reps | `gym.py` + `RepCard.qml` (Home's idle moment), `Settings.qml` | Exercism tracks, human-written tests, offline once cloned; one writer for `gym.json`, every crab watches it |
 
 ### Background sessions & live terminal
 

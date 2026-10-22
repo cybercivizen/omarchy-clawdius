@@ -16,14 +16,15 @@ import "Timers.js" as Timers
 //
 //   Home      one moment at a time, the most pressing (Moment.qml): a
 //             permission prompt to answer, a finished turn, the session
-//             you're watching and its steps, or, with nothing running, the
-//             launchers and sessions to pick up again. Other running
+//             you're watching and its steps, or, with nothing running,
+//             today's rep (RepCard.qml, gym.py) and New chat. Other running
 //             sessions sit on a rail of small crabs; the Limits glance
 //             beside it opens Stats.
 //   Chat      a new chat: type, Enter starts Chat or Code with it (QuickChat).
 //   Sessions  Live · Recent · Folders.
 //   Search    the nav's search bar: apps, sums, `/ ` a terminal command, `/g ` Google.
 //   Detail    one background session up close, its terminal live.
+//   Settings  the gear: the daily reps' languages and levels (Settings.qml).
 //
 // + starts a new session from any view. Click the crab to pin the island.
 // Super+Alt+C pulls it down on the chat view, Alt+Space on search.
@@ -360,7 +361,8 @@ BarWidget {
 
   Connections {
     target: root
-    function onIslandOpenChanged() { if (root.islandOpen) root.refreshUsage(60000) }
+    // Opening also picks today's rep when the day has turned.
+    function onIslandOpenChanged() { if (root.islandOpen) { root.refreshUsage(60000); root.runGym(["today"], "") } }
   }
 
   Timer {
@@ -451,7 +453,9 @@ BarWidget {
         appsLeader: Link.isLeader(root), zone: root.zoneHovered,
         toast: root.toast ? root.toast.kind : "", toastShown: root.toastShown, peeking: root.peeking, otherPanel: root.otherPanel,
         keysFocused: liveKeys.field.activeFocus,
-        idleStopMinutes: root.idleStopMinutes, idleKeepRunning: root.idleKeepRunning, asleep: root.asleepCount })
+        idleStopMinutes: root.idleStopMinutes, idleKeepRunning: root.idleKeepRunning, asleep: root.asleepCount,
+        gym: root.gym ? { today: root.gym.today ? root.gym.today.lang + "/" + root.gym.today.slug : "", streak: root.gym.streakNow } : null,
+        gymBusy: root.gymBusy })
     }
     // Same path the clock's HoverHandler takes, for testing without a pointer.
     function hoverClock(on: bool): void { Link.clockHover(root.barWindow, on) }
@@ -462,8 +466,10 @@ BarWidget {
       if (index === 1) root.view = "stats"
       else { root.view = "sessions"; root.sessionsTab = index === 4 ? "folders" : index >= 2 ? "recent" : "live" }
     }
-    // home | quick | sessions | search | stats | detail
+    // home | quick | sessions | search | stats | detail | settings
     function setView(name: string): void { root.view = name }
+    // A rep card button: start | open | check | easier | skip | review | settings.
+    function rep(action: string): void { root.repAction(action) }
     // Home's corner card: limits | timer | posture.
     function setCorner(mode: string): void { root.pickCorner(mode) }
     // Show a background session live, by its job id ("" hides it).
@@ -1403,6 +1409,85 @@ BarWidget {
     onTriggered: prefsFile.setText(JSON.stringify({ quickMode: root.quickMode, quickModel: root.quickModel, recentSearches: root.recentSearches }))
   }
 
+  // ---- Daily reps (gym.py): today's exercise on Home's idle moment, the
+  //      languages in Settings. gym.py is the only writer of gym.json; every
+  //      crab watches it. Its actions run one at a time.
+  readonly property string gymPath: decodeURIComponent(String(Qt.resolvedUrl("gym.py")).replace(/^file:\/\//, ""))
+  property var gym: null
+  property var gymQueue: []
+  // The action running ("" when none) and its language, for the spinners.
+  property string gymBusy: ""
+  property string gymBusyLang: ""
+
+  FileView {
+    path: root.stateDir + "/gym.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: { try { root.gym = JSON.parse(text()) } catch (e) { console.warn("clawdius gym parse", e) } }
+  }
+
+  function runGym(args, lang) {
+    // Opening the island twice needn't check the day twice.
+    if (args[0] === "today" && (root.gymBusy === "today" || root.gymQueue.some(function(q) { return q.args[0] === "today" }))) return
+    root.gymQueue = root.gymQueue.concat([{ args: args, lang: lang }])
+    root.nextGym()
+  }
+
+  function nextGym() {
+    if (gymProcess.running || !root.gymQueue.length) return
+    var job = root.gymQueue[0]
+    root.gymQueue = root.gymQueue.slice(1)
+    root.gymBusy = job.args[0]
+    root.gymBusyLang = job.lang
+    gymProcess.command = ["python3", "-I", root.gymPath].concat(job.args)
+    gymProcess.running = true
+  }
+
+  Process {
+    id: gymProcess
+    stdout: StdioCollector { id: gymOut }
+    stderr: StdioCollector { id: gymErr }
+    onExited: function(code) {
+      var action = root.gymBusy
+      root.gymBusy = ""
+      root.gymBusyLang = ""
+      if (code !== 0) {
+        root.startNotice = gymErr.text.trim().split("\n").pop() || "gym.py " + action + " failed"
+        noticeClear.restart()
+      } else if (action === "start") {
+        var file = gymOut.text.trim().split("\n").pop()
+        if (file) root.launch("omarchy-launch-editor " + root.shellQuote(file))
+      }
+      root.nextGym()
+    }
+  }
+
+  // The rep card's buttons.
+  function repAction(action) {
+    var rep = root.gym ? root.gym.today : null
+    if (action === "settings") root.view = "settings"
+    else if (action === "open" && rep && rep.file) root.launch("omarchy-launch-editor " + root.shellQuote(rep.file))
+    else if (action === "review" && rep && rep.dir) root.reviewRep(rep)
+    else if (["start", "check", "easier", "skip"].indexOf(action) >= 0) root.runGym([action], rep ? rep.lang : "")
+  }
+
+  // Claude looks over the passed rep in the live terminal, read only. A new
+  // rep folder isn't trusted yet: answerTrust saves that, then starts it.
+  function reviewRep(rep) {
+    var lang = root.gym.info && root.gym.info[rep.lang] ? root.gym.info[rep.lang].name : rep.lang
+    var prompt = "Review my solution to the Exercism exercise \"" + rep.name + "\" in " + lang
+      + " (this folder; the task is in .docs/). I wrote it by hand to get my skills back, so teach rather than fix:"
+      + " what's idiomatic and what isn't, edge cases the tests miss, and what a senior " + lang + " developer would change."
+      + " Short snippets at most, never a whole rewrite."
+      + (rep.example ? " After your own review, compare it with Exercism's reference solution at " + rep.example + "." : "")
+    var command = "cd " + root.shellQuote(rep.dir) + " && {live} launch"
+      + (rep.example ? " --add-dir " + root.shellQuote(rep.example.replace(/\/[^\/]*\/[^\/]*$/, "")) : "")
+      + " --disallowedTools Edit,Write,MultiEdit,NotebookEdit -- " + root.shellQuote(prompt)
+    root.trustAsk = { dir: rep.dir, command: command, label: "Review", title: "Review: " + rep.name }
+    root.answerTrust("yes")
+  }
+
   readonly property bool keysView: root.quickActive || root.searchActive
   // RestoreNone: the live terminal's own bindings (LiveTerm) set these too,
   // and a binding let go puts back whatever it found, which can be the other
@@ -1447,7 +1532,7 @@ BarWidget {
     if (liveId && liveId !== pendingLiveId && !feedSessions.some(function(s) { return s.jobId === liveId })) liveId = ""
   }
 
-  // ---- Views: home | quick (new chat) | sessions | search | stats | detail.
+  // ---- Views: home | quick (new chat) | sessions | search | stats | detail | settings.
   //      Opening goes back to Home, unless a live terminal is up or it was
   //      summoned onto a view.
   property string view: "home"
@@ -2188,6 +2273,12 @@ BarWidget {
             }
 
             NavButton {
+              icon: Icons.gear
+              current: root.view === "settings"
+              onClicked: root.view = "settings"
+            }
+
+            NavButton {
               id: plusButton
               icon: Icons.plus
               current: root.newMenuOpen
@@ -2312,6 +2403,9 @@ BarWidget {
                   requests: root.requests
                   sessionCount: root.sessions.length
                   usage: root.usage
+                  gym: root.gym
+                  repBusy: root.gymBusy === "today" ? "" : root.gymBusy
+                  onRep: function(action) { root.repAction(action) }
                   onAnswered: function(request, choice, answers) { root.answerRequest(request, choice, answers) }
                   onDismissed: root.finished = null
                   onOpened: function(s) { root.openSession(s) }
@@ -2464,6 +2558,28 @@ BarWidget {
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.bodySmall
                   }
+                }
+              }
+
+              // ---- Settings: the gear's view
+              IslandCard {
+                visible: root.view === "settings"
+                width: parent.width
+                height: visible ? settingsView.implicitHeight + Style.space(22) * 2 : 0
+
+                Settings {
+                  id: settingsView
+                  x: Style.space(24)
+                  y: Style.space(22)
+                  width: parent.width - Style.space(48)
+                  pal: theme
+                  fontFamily: root.fontFamily
+                  gym: root.gym
+                  busy: root.gymBusy === "today" ? "" : root.gymBusy
+                  busyLang: root.gymBusyLang
+                  onLangToggled: function(lang, on) { root.runGym(["set", lang, on ? "on" : "off"], lang) }
+                  onLevelSet: function(lang, level) { root.runGym(["level", lang, String(level)], lang) }
+                  onSetupAsked: function(lang) { root.runGym(["setup", lang], lang) }
                 }
               }
 

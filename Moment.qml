@@ -17,7 +17,7 @@ import "Icons.js" as Icons
 //   failed    the same, for one that didn't work out
 //   limited   the same, for one stopped by the usage limit: when it resets
 //   working   the session being watched: its steps, time and tokens
-//   idle      nothing running: start a new chat
+//   idle      nothing running: today's rep (RepCard), or start a new chat
 Rectangle {
   id: root
 
@@ -40,6 +40,9 @@ Rectangle {
   property int sessionCount: 0
   // The usage record (Omarchy's collector), for when a hit limit resets.
   property var usage: null
+  // gym.json (gym.py), for today's rep in the idle moment; null: no reps yet.
+  property var gym: null
+  property string repBusy: ""
 
   // answers: AskUserQuestion's, question → chosen label(s).
   signal answered(var request, string choice, var answers)
@@ -51,6 +54,8 @@ Rectangle {
   signal newChat()
   signal pinned(var session)
   signal moreSessions()
+  // RepCard's: start | open | check | easier | skip | review | settings
+  signal rep(string action)
 
   readonly property string kind: moment ? moment.kind : "idle"
   readonly property var s: moment && moment.session ? moment.session : null
@@ -506,7 +511,26 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(14)
 
+      RepCard {
+        visible: !!root.gym
+        width: parent.width
+        pal: root.pal
+        fontFamily: root.fontFamily
+        gym: root.gym
+        now: root.now
+        busy: root.repBusy
+        onStarted: root.rep("start")
+        onOpened: root.rep("open")
+        onChecked: root.rep("check")
+        onEasier: root.rep("easier")
+        onSkipped: root.rep("skip")
+        onReviewed: root.rep("review")
+        onSettingsOpened: root.rep("settings")
+        onNewChat: root.newChat()
+      }
+
       Column {
+        visible: !root.gym
         width: parent.width
         spacing: Style.space(5)
 
@@ -536,6 +560,7 @@ Rectangle {
 
       // Into the chat view (QuickChat): type, Chat or Code, Enter.
       Pill {
+        visible: !root.gym
         pal: root.pal
         fontFamily: root.fontFamily
         kind: "primary"

@@ -132,3 +132,13 @@ renders, but nobody has clicked or typed through it yet.
 - [ ] Ring when the Claude limits reset: a bell on a Limits row, or "Alert
       me" on the out-of-usage moment, sets an alarm for the reset time.
 - [ ] The running timer's time left beside the crab on the bar.
+
+- [x] Daily reps: one hand-written Exercism exercise a day (JavaScript,
+      Rust) on Home's idle moment, with Check, a streak and a read-only
+      Claude review; a gear in the nav opens Settings for the languages and
+      levels. (gym.py run end to end on JavaScript; the cards and Settings
+      seen rendered in a harness. Not hand-tested in the real island yet.)
+- [ ] Coach chat: a chat mode where Claude explains and hints but can't
+      edit files, for side projects written by hand.
+- [ ] Claude-generated "real-world" reps alongside Exercism's, checked
+      against Claude's own solution before they're handed out.
