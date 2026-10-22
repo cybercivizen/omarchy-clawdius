@@ -46,6 +46,18 @@ Rectangle {
     return e === "xhigh" ? "Extra high" : e ? e.charAt(0).toUpperCase() + e.slice(1) : "Default"
   }
   readonly property var efforts: ["", "low", "medium", "high", "xhigh", "max"].map(function(e) { return { id: e, label: effortName(e), tone: pal.effort(e) } })
+  // Code's permission mode (`claude --permission-mode`), picked beside the folder.
+  property string permission: "auto"
+  readonly property var permissions: [
+    { id: "auto", label: "Auto mode" },
+    { id: "plan", label: "Plan mode" },
+    { id: "acceptEdits", label: "Accept edits" },
+    { id: "default", label: "Ask before edits" }
+  ]
+  readonly property string permissionLabel: {
+    for (var i = 0; i < permissions.length; i++) if (permissions[i].id === permission) return permissions[i].label
+    return permission
+  }
   // The folder Code starts in: "" for the Code folder. Its label opens the
   // choices: the Code folder, the one Claude worked in last, or any.
   property string dir: ""
@@ -54,7 +66,7 @@ Rectangle {
   // Laid out like this, the field's caret lines up with the drawing.
   readonly property real inputWidth: shown.width
 
-  // The open menu: "model", "effort", "folder", "attach" or "". It drops
+  // The open menu: "model", "effort", "mode", "folder", "attach" or "". It drops
   // from its chip into `menuLayer` (the card's float layer, so it can hang
   // past the island's bottom instead of stretching it); menuItem is it there.
   property string picker: ""
@@ -62,12 +74,13 @@ Rectangle {
   property Item menuLayer: null
   readonly property Item menuItem: menu
   onVisibleChanged: if (!visible) picker = ""
-  onModeChanged: if (picker === "folder") picker = ""
+  onModeChanged: if (picker === "folder" || picker === "mode") picker = ""
 
   signal picked(string mode)
   signal modelPicked(string model)
   signal effortPicked(string effort)
   signal dirPicked(string dir)
+  signal permissionPicked(string permission)
   signal send()
   // Clicked into the composer: the key window takes the keyboard back.
   signal focusRequested()
@@ -87,6 +100,7 @@ Rectangle {
     root.picker = ""
     if (which === "model") root.modelPicked(id)
     else if (which === "effort") root.effortPicked(id)
+    else if (which === "mode") root.permissionPicked(id)
     else if (which === "folder") { if (id === "browse") { root.browse("dir"); return } root.dirPicked(id) }
     else if (which === "attach") { root.browse(id); return }
     root.focusRequested()
@@ -95,6 +109,7 @@ Rectangle {
   readonly property var pickerOptions: {
     if (picker === "model") return models
     if (picker === "effort") return efforts
+    if (picker === "mode") return permissions
     if (picker === "attach") return [{ id: "files", label: "Files…" }, { id: "folder", label: "Folder…" }]
     if (picker !== "folder") return []
     var out = [{ id: "", label: Format.folder(codeDir, home), hint: "Code folder" }]
@@ -192,7 +207,7 @@ Rectangle {
         anchors.leftMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
         // Never under the hint on the right: a long folder elides its middle.
-        readonly property real room: parent.width - toggle.width - Style.space(10) - hint.width - Style.space(12)
+        readonly property real room: parent.width - toggle.width - Style.space(10) - hint.width - Style.space(12) - modeLabel.width
         width: Math.min(dirRow.implicitWidth, room)
         height: Style.space(26)
 
@@ -205,7 +220,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: Math.min(implicitWidth, dirLabel.room - (root.mode === "code" ? Style.space(15) : 0))
             elide: Text.ElideMiddle
-            text: Format.folder(root.startDir, root.home) + (root.mode === "code" ? " · auto mode" : " · talk only")
+            text: Format.folder(root.startDir, root.home) + (root.mode === "code" ? "" : " · talk only")
             textFormat: Text.PlainText
             color: root.mode === "code" && (root.picker === "folder" || dirMouse.containsMouse) ? root.pal.strong : root.pal.muted
             font.family: root.fontFamily
@@ -231,6 +246,49 @@ Rectangle {
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: root.togglePicker("folder", dirLabel)
+        }
+      }
+
+      // In Code, the permission mode is a picker too.
+      Item {
+        id: modeLabel
+        visible: root.mode === "code"
+        anchors.left: dirLabel.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: visible ? modeRow.implicitWidth : 0
+        height: Style.space(26)
+
+        Row {
+          id: modeRow
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(4)
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: " · " + root.permissionLabel
+            textFormat: Text.PlainText
+            color: root.picker === "mode" || modeMouse.containsMouse ? root.pal.strong : root.pal.muted
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Icon {
+            anchors.verticalCenter: parent.verticalCenter
+            d: "M6 9l6 6 6-6"
+            size: Style.space(11)
+            stroke: 2.4
+            rotation: root.picker === "mode" ? 180 : 0
+            color: root.pal.muted
+            Behavior on rotation { NumberAnimation { duration: 140 } }
+          }
+        }
+
+        MouseArea {
+          id: modeMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.togglePicker("mode", modeLabel)
         }
       }
 
@@ -358,16 +416,16 @@ Rectangle {
     id: menu
     parent: root.menuLayer || root
     readonly property point at: root.picker !== "" && root.pickerAnchor
-      ? root.pickerAnchor.mapToItem(parent, root.picker === "folder" ? 0 : root.pickerAnchor.width, root.pickerAnchor.height)
+      ? root.pickerAnchor.mapToItem(parent, root.picker === "folder" || root.picker === "mode" ? 0 : root.pickerAnchor.width, root.pickerAnchor.height)
       : Qt.point(0, 0)
     visible: root.picker !== "" && root.visible
     z: 20
-    x: root.picker === "folder" ? at.x : Math.max(0, at.x - width)
+    x: root.picker === "folder" || root.picker === "mode" ? at.x : Math.max(0, at.x - width)
     y: at.y + Style.space(6)
     minWidth: root.pickerAnchor ? root.pickerAnchor.width : 0
-    title: root.picker === "model" ? "Model" : root.picker === "effort" ? "Effort" : root.picker === "folder" ? "Start in" : "Link"
+    title: root.picker === "model" ? "Model" : root.picker === "effort" ? "Effort" : root.picker === "mode" ? "Mode" : root.picker === "folder" ? "Start in" : "Link"
     options: root.pickerOptions
-    current: root.picker === "model" ? root.model : root.picker === "effort" ? root.effort : root.picker === "folder" ? root.dir : "-"
+    current: root.picker === "model" ? root.model : root.picker === "effort" ? root.effort : root.picker === "mode" ? root.permission : root.picker === "folder" ? root.dir : "-"
     ink: root.pal.fg
     quietInk: root.pal.muted
     hot: root.pal.crab

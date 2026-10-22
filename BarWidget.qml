@@ -998,6 +998,8 @@ BarWidget {
   property string quickModel: ""
   // And the effort ("" = Claude's default), from the chip beside it.
   property string quickEffort: ""
+  // Code's permission mode from the chat view; Opus Plan picks plan.
+  property string quickPermission: "auto"
   // The folder Code starts in from the chat view ("" = the Code folder); not kept across restarts.
   property string quickDir: ""
   readonly property bool quickShown: quickActive && liveKeys.field.text !== ""
@@ -1080,6 +1082,7 @@ BarWidget {
     var model = /^[\w.\-\[\]]+$/.test(root.quickModel) ? " --model " + root.quickModel : ""
     var effort = /^(low|medium|high|xhigh|max)$/.test(root.quickEffort) ? " --effort " + root.quickEffort : ""
     var base = code ? root.codeCommand : root.chatCommand
+    if (code) base = /--permission-mode\s+\S+/.test(base) ? base.replace(/--permission-mode\s+\S+/, "--permission-mode " + root.quickPermission) : base + " --permission-mode " + root.quickPermission
     if (code && root.quickDir) base = "cd " + root.shellQuote(root.quickDir) + " && " + base.replace(root.cdPrefix, "")
     var command = base + model + effort + " -- " + root.shellQuote(text)
     liveKeys.field.text = ""
@@ -1399,6 +1402,7 @@ BarWidget {
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
+        if (/^(auto|plan|acceptEdits|default)$/.test(prefs.quickPermission)) root.quickPermission = prefs.quickPermission
         if (Array.isArray(prefs.recentSearches)) root.recentSearches = prefs.recentSearches.filter(function(r) {
           return r && (r.kind === "terminal" || r.kind === "google") && typeof r.text === "string" && r.text !== ""
         }).slice(0, 8)
@@ -1408,11 +1412,12 @@ BarWidget {
   onQuickModeChanged: prefsSave.restart()
   onQuickModelChanged: prefsSave.restart()
   onQuickEffortChanged: prefsSave.restart()
+  onQuickPermissionChanged: prefsSave.restart()
   onRecentSearchesChanged: prefsSave.restart()
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, recentSearches: root.recentSearches }))
+    onTriggered: prefsFile.setText(JSON.stringify({ quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
   }
 
   readonly property bool keysView: root.quickActive || root.searchActive
@@ -2276,7 +2281,9 @@ BarWidget {
                 recentDir: root.recentFolders.length ? root.recentFolders[0].cwd : ""
                 menuLayer: card.floatLayer
                 onPicked: function(which) { root.quickMode = which; liveKeys.prime() }
-                onModelPicked: function(which) { root.quickModel = which }
+                permission: root.quickPermission
+                onModelPicked: function(which) { root.quickModel = which; if (which === "opusplan") root.quickPermission = "plan" }
+                onPermissionPicked: function(which) { root.quickPermission = which }
                 onEffortPicked: function(which) { root.quickEffort = which }
                 onDirPicked: function(dir) { root.quickDir = dir }
                 onSend: root.sendQuick()
