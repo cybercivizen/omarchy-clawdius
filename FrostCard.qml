@@ -312,7 +312,9 @@ PopupWindow {
   Item {
     id: floatHolder
     anchors.fill: parent
-    visible: !root.tucked
+    // Only while a float is up: otherwise this full-window layer sits over
+    // the card and its own hover handler keeps the card's controls from hovering.
+    visible: !root.tucked && root.floatMask !== null && root.floatMask.visible
     opacity: surface.opacity
 
     // Only the mask's parts reach it, so this is the pointer on the float.
