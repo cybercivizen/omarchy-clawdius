@@ -129,6 +129,7 @@ renders, but nobody has clicked or typed through it yet.
       20m / 30m / Custom (5 to 120 min); Posture pauses while you're away
       and restarts after a 5 minute break. (Not hand-tested; see the
       verification notes in the PR.)
-- [ ] Ring when the Claude limits reset: a bell on a Limits row, or "Alert
+- [x] Ring when the Claude limits reset: a bell on a Limits row, or "Alert
       me" on the out-of-usage moment, sets an alarm for the reset time.
+      ("Ring at …" on the out-of-usage moment only; no Limits-row bell.)
 - [ ] The running timer's time left beside the crab on the bar.
