@@ -46,6 +46,8 @@ QtObject {
   readonly property color failed: light ? "#CF222E" : "#D1242F"
   // Out of usage: a session stopped by the limit, not by anything it did.
   readonly property color limit: light ? "#8250DF" : "#A371F7"
+  // The posture nudge: calm, not a session's status.
+  readonly property color posture: light ? "#0E7C86" : "#3CBFC0"
 
   // The island: near-black (Solitude's darker background) holding cards one
   // step lighter; the peek and menus sit one step above those.

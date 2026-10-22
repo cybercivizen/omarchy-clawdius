@@ -45,6 +45,7 @@ function rects(pose) {
 //   listening  eyes up, then back: waiting on you to say something (chat)
 //   searching  claws sweep up one after the other: looking around (search)
 //   found      the right claw points, then dips: this one (search)
+//   stretch    both claws reach up and hold, then ease down (posture nudge)
 var MOODS = {
   idle:     [{}],
   typing:   [{ armL: 1 }, {}, { armR: 1 }, {}],
@@ -55,11 +56,12 @@ var MOODS = {
   sleep:    [{ eyes: "shut" }],
   listening: [{ eyes: "up" }, { eyes: "up" }, {}, {}],
   searching: [{ armR: -2 }, { armR: -2, armL: -1 }, { armL: -2 }, { armR: -1, armL: -2 }],
-  found:    [{ armR: -3 }, { armR: -3 }, { armR: -2 }]
+  found:    [{ armR: -3 }, { armR: -3 }, { armR: -2 }],
+  stretch:  [{ armL: -3, armR: -3, eyes: "up" }, { armL: -3, armR: -3, eyes: "up" }, { armL: -2, armR: -2 }, {}]
 }
 
 // Milliseconds per pose, for moods that move.
-var TEMPO = { typing: 150, thinking: 700, waiting: 240, done: 180, listening: 900, searching: 420, found: 360 }
+var TEMPO = { typing: 150, thinking: 700, waiting: 240, done: 180, listening: 900, searching: 420, found: 360, stretch: 500 }
 
 function steps(mood) { return (MOODS[mood] || MOODS.idle).length }
 

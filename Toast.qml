@@ -4,7 +4,7 @@ import "Icons.js" as Icons
 
 // A notification from the feed, drawn in the island: a little Clawd in the
 // state's pose with its badge on his corner (green ✓ done, red ✗ failed,
-// amber ! needs you, purple z out of usage), what happened and to which
+// amber ! needs you, purple z out of usage, teal ↑ sit up), what happened and to which
 // session, the point underneath, and a little context on the right.
 //
 // The island shows it two ways. Closed, it opens just far enough for this
@@ -32,7 +32,7 @@ Rectangle {
     : kind === "failed" ? pal.failed
     : kind === "limited" ? pal.limit
     : kind === "timer" ? pal.crab
-    : kind === "posture" ? pal.done
+    : kind === "posture" ? pal.posture
     : pal.needsYou
   readonly property color toneText: !pal ? "transparent" : kind === "waiting" || kind === "input" ? pal.needsYouText : tone
   readonly property string meta: toast && toast.meta ? toast.meta.join("  ·  ") : ""
@@ -65,10 +65,10 @@ Rectangle {
       pal: root.pal
       unit: Style.spaceReal(3)
       badgeSize: Style.space(15)
-      mood: root.kind === "done" || root.kind === "posture" ? "done" : root.kind === "failed" ? "failed"
+      mood: root.kind === "done" ? "done" : root.kind === "posture" ? "stretch" : root.kind === "failed" ? "failed"
         : root.kind === "limited" ? "sleep" : "waiting"
       color: !root.pal ? "#D97757" : root.kind === "failed" || root.kind === "limited" ? root.pal.idleCrab : root.pal.crab
-      badge: root.kind === "input" ? "waiting" : root.kind === "timer" || root.kind === "posture" ? "" : root.kind
+      badge: root.kind === "input" ? "waiting" : root.kind === "timer" ? "" : root.kind
       // Ringed in whatever's behind it: the island while peeking, else the card.
       ring: !root.pal ? "black" : root.framed ? root.color : root.pal.island
       fontFamily: root.fontFamily

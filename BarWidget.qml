@@ -1308,7 +1308,7 @@ BarWidget {
         text: late ? "Was due " + Qt.formatDateTime(new Date(first.at), "HH:mm") : "Time's up.",
         meta: due.length > 1 ? ["+" + (due.length - 1) + " more"] : [], at: t, id: "" })
     } else {
-      crab.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(root.postureRings), meta: [], at: t, id: "" })
+      crab.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(root.postureRings), meta: ["next in " + Timers.span(root.posture.everyMin)], at: t, id: "" })
     }
   }
 
@@ -2339,7 +2339,7 @@ BarWidget {
                   onTimerAdded: function(kind, label, at, len) { root.addTimer(kind, label, at, len) }
                   onTimerCancelled: function(id) { root.cancelTimer(id) }
                   onPostureEdited: function(patch) { root.setPosture(patch) }
-                  onNudged: root.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(++root.postureRings), meta: [], at: Date.now(), id: "" })
+                  onNudged: root.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(++root.postureRings), meta: ["next in " + Timers.span(root.posture.everyMin)], at: Date.now(), id: "" })
                 }
               }
 
