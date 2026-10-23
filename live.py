@@ -551,8 +551,12 @@ def trim(raws, rows, cursor, scrolled=False):
     rules = [i for i, text in enumerate(plain) if RULE.match(text.strip())]
     if len(rules) >= 2:
         top, bottom = rules[-2], rules[-1]
+        # The ❯ opens the box's first line. A question dialog has ❯ on its
+        # selected option ("❯ 4. typed answer") or under a rule ("❯ Chat about
+        # this"), which isn't a prompt: its text must not become the draft.
+        first = plain[top + 1].lstrip() if top + 1 < bottom else ""
         if bottom - top <= 12 and len(plain) - bottom <= 6 \
-                and any(plain[k].lstrip().startswith("❯") for k in range(top + 1, bottom)):
+                and first.startswith("❯") and not re.match(r"❯\s*\d+\.", first):
             mode = "default"
             for text in plain[bottom + 1:]:
                 m = re.search(r"([a-z][a-z ]*?) on \(shift\+tab", text)
