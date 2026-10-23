@@ -23,6 +23,8 @@ Rectangle {
   property int terminalFontSize: 13
   // A Chat session shows as a conversation (ChatView) rather than the terminal.
   property bool chatStyle: false
+  // Started in the Chat folder (the header says "Chat"), whichever way it is shown.
+  property bool chatSession: false
   property string pendingPrompt: ""
   // Prompts held by the approval hook (BarWidget.requests): this session's
   // first one is answered here, over the terminal, rather than with its keys.
@@ -46,6 +48,7 @@ Rectangle {
   signal openLink(string url)
   signal collapse()
   signal toggleChat()
+  signal answerInTerminal()
   signal answered(var request, string choice, var answers)
 
   readonly property var s: session || ({})
@@ -127,7 +130,7 @@ Rectangle {
 
       Text {
         width: parent.width
-        text: (root.chatStyle ? "Chat" : "Claude Code") + " · bg" + (root.s.waiting ? " · needs you" : root.s.busy ? " · " + Format.clock(root.now, root.s.turnStart) : "")
+        text: (root.chatSession ? "Chat" : "Claude Code") + " · bg" + (root.s.waiting ? " · needs you" : root.s.busy ? " · " + Format.clock(root.now, root.s.turnStart) : "")
         textFormat: Text.PlainText
         elide: Text.ElideRight
         color: root.s.waiting ? root.pal.needsYouText : root.pal.muted
@@ -505,7 +508,7 @@ Rectangle {
       pendingText: root.pendingPrompt
       active: root.active
       onGrabbed: root.grabbed()
-      onShowTerminal: root.toggleChat()
+      onShowTerminal: root.answerInTerminal()
       onOpenLink: url => root.openLink(url)
     }
   }

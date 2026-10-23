@@ -466,16 +466,19 @@ draws at the card's size while it's open.
 
 #### Chat as a conversation
 
-A session started in the Chat folder opens in the detail view as a
-conversation (`ChatView.qml`) instead of the terminal: your messages in
+Every session opens in the detail view as a conversation
+(`ChatView.qml`) instead of the terminal: your messages in
 tinted bubbles on the right, Claude's on the left (markdown, with its links
 as chips under the bubble), each with a small speech tail, a muted line for
 each tool it used, and three stepped dots while it works. Your message shows
-the moment you send it. Message text is selectable (a drag copies it),,
-Ctrl+V attaches a clipboard image, and the paperclip links files or a folder as `@path`, as in the terminal. The button beside "Open in terminal" flips a session between
-conversation and terminal (kept until the card reloads); Code sessions open
-as the terminal. When Claude asks something only the terminal can answer (a
-permission dialog), an amber bar offers "Answer in terminal".
+the moment you send it. Message text is selectable (a drag copies it),
+Ctrl+V attaches a clipboard image, and the paperclip links files or a folder as `@path`, as in the terminal.
+A quiet line under the composer names the model, effort and mode
+(`Opus 5.5 · High effort · Auto mode`); click the mode to cycle it, like ⇧Tab.
+The button beside "Open in terminal" flips between conversation and terminal,
+and the choice is kept (`detailView` in `prefs.json`). When Claude asks
+something only the terminal can answer (a permission dialog), an amber bar
+offers "Answer in terminal", which shows the terminal for that session only.
 
 `live.py chat JOB` feeds it: the same hidden tmux pane as `view` (it takes
 the replies and sees the dialog), but what goes out is read from the

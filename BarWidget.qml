@@ -1017,20 +1017,27 @@ BarWidget {
     root.autoOpened = false
   }
 
-  // Chat sessions (started in the Chat folder) open as a conversation, Code
-  // ones as the terminal; the Detail view's button flips either, per session
-  // until the card is reloaded.
+  // Every session opens as a conversation unless the terminal was chosen last
+  // (the Detail view's button, kept in prefs.json). "Answer in terminal" shows
+  // the terminal for that session only.
+  property bool detailTerminal: false
   property var chatOverride: ({})
   readonly property bool detailChat: {
     var o = chatOverride[root.liveId || "starting"]
-    if (o !== undefined) return o
+    return o !== undefined ? o : !root.detailTerminal
+  }
+  readonly property bool detailIsChatFolder: {
     var s = root.liveSession || root.pendingSession
     var dir = s ? String(s.workdir || s.cwd || "").replace(/(.)\/+$/, "$1") : ""
     return dir !== "" && dir === root.commandDir(root.chatCommand)
   }
   function toggleDetailChat() {
+    root.chatOverride = ({})
+    root.detailTerminal = root.detailChat
+  }
+  function answerInTerminal() {
     var next = Object.assign({}, root.chatOverride)
-    next[root.liveId || "starting"] = !root.detailChat
+    next[root.liveId || "starting"] = false
     root.chatOverride = next
   }
 
@@ -1580,6 +1587,7 @@ BarWidget {
       try {
         var prefs = JSON.parse(text()) || {}
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
+        root.detailTerminal = prefs.detailView === "terminal"
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
         if (/^(auto|plan|acceptEdits|default)$/.test(prefs.quickPermission)) root.quickPermission = prefs.quickPermission
@@ -1589,6 +1597,7 @@ BarWidget {
       } catch (e) {}
     }
   }
+  onDetailTerminalChanged: prefsSave.restart()
   onQuickModeChanged: prefsSave.restart()
   onQuickModelChanged: prefsSave.restart()
   onQuickEffortChanged: prefsSave.restart()
@@ -1597,7 +1606,7 @@ BarWidget {
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
+    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
   }
 
   // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
@@ -2835,6 +2844,7 @@ BarWidget {
                   keyWindow: liveKeys
                   terminalFontSize: root.terminalFontSize
                   chatStyle: root.detailChat
+                  chatSession: root.detailIsChatFolder
                   pendingPrompt: root.startingLabel !== "" ? root.pendingPrompt : ""
                   now: root.now
                   active: root.islandOpen || (card.visible && !root.peeking)
@@ -2842,6 +2852,7 @@ BarWidget {
                   requests: root.requests
                   onAnswered: function(request, choice, answers) { root.answerRequest(request, choice, answers, true) }
                   onToggleChat: root.toggleDetailChat()
+                  onAnswerInTerminal: root.answerInTerminal()
                   onOpenTerminal: if (root.liveSession) root.focusSession(root.liveSession)
                   onOpenEditor: dir => {
                     root.close()
