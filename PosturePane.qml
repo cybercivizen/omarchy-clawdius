@@ -47,7 +47,7 @@ Item {
     readonly property real span: Math.max(1, (info.everyMin || 1) * 60000)
 
     width: parent.width
-    height: Style.space(36)
+    height: Style.space(32)
 
     Text {
       id: titleText
@@ -149,6 +149,8 @@ Item {
           : root.rested ? "Fresh start after your break."
           : root.line
         textFormat: Text.PlainText
+        wrapMode: Text.Wrap
+        maximumLineCount: 2
         elide: Text.ElideRight
         color: root.pal.muted
         font.family: root.fontFamily

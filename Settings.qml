@@ -91,41 +91,81 @@ Column {
       font.pixelSize: Style.font.caption
     }
 
-    Setting {
-      name: "Sit up"
+    // A nudge's wait: the chips, or Custom with − / + (5 to 180 minutes).
+    component Wait: Column {
+      id: wait
+      property string key: ""
+      property string name: ""
+      property var choices: []
+      property var info: ({})
+      property bool custom: false
+      readonly property bool customShown: custom || choices.indexOf(info.everyMin) < 0
+      width: parent.width
+      spacing: Style.space(6)
 
-      Repeater {
-        model: Timers.intervals
+      Setting {
+        name: wait.name
+
+        Repeater {
+          model: wait.choices
+
+          Pill {
+            required property int modelData
+            pal: root.pal
+            dense: true
+            fontFamily: root.fontFamily
+            kind: !wait.customShown && wait.info.everyMin === modelData ? "primary" : "secondary"
+            label: modelData + " min"
+            onClicked: { wait.custom = false; root.nudgeSet(wait.key, modelData) }
+          }
+        }
 
         Pill {
-          required property int modelData
           pal: root.pal
           dense: true
           fontFamily: root.fontFamily
-          kind: root.posture.everyMin === modelData ? "primary" : "secondary"
-          label: modelData + " min"
-          onClicked: root.nudgeSet("posture", modelData)
+          kind: wait.customShown ? "primary" : "secondary"
+          label: "Custom"
+          onClicked: wait.custom = true
+        }
+      }
+
+      Item {
+        visible: wait.customShown
+        width: parent.width
+        height: Style.space(24)
+
+        Pill {
+          pal: root.pal
+          dense: true
+          iconOnly: true
+          icon: Icons.minus
+          onClicked: root.nudgeSet(wait.key, Math.max(5, Timers.step(wait.info.everyMin, -1)))
+        }
+
+        Text {
+          anchors.centerIn: parent
+          text: "every " + Timers.span(wait.info.everyMin)
+          textFormat: Text.PlainText
+          color: root.pal.strong
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: true
+        }
+
+        Pill {
+          anchors.right: parent.right
+          pal: root.pal
+          dense: true
+          iconOnly: true
+          icon: Icons.plus
+          onClicked: root.nudgeSet(wait.key, Math.min(180, Timers.step(wait.info.everyMin, 1)))
         }
       }
     }
 
-    Setting {
-      name: "Walk"
-
-      Repeater {
-        model: Timers.walkIntervals
-
-        Pill {
-          required property int modelData
-          pal: root.pal
-          dense: true
-          fontFamily: root.fontFamily
-          kind: root.walk.everyMin === modelData ? "primary" : "secondary"
-          label: modelData + " min"
-          onClicked: root.nudgeSet("walk", modelData)
-        }
-      }
-    }
+    Wait { key: "posture"; name: "Sit up"; choices: Timers.intervals; info: root.posture }
+    Wait { key: "walk"; name: "Walk"; choices: Timers.walkIntervals; info: root.walk }
   }
 
   // ---- Anti-rot
