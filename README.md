@@ -141,8 +141,11 @@ buffer squashed into the new size.
   The three icons at the card's top left pick what it is (remembered):
   **Agents** (all of the above), **Today**, and **Anti-rot** (today's
   challenge, see below). Anything that needs you (a prompt, a question, a
-  finished or failed turn, a limit) shows Agents until it's dealt with, then
+  failed turn, a limit) shows Agents until it's dealt with, then
   the pick comes back.
+  While anything is working and another mode is up, the Agents icon wears a
+  small pulsing orange dot, or a steady green one once a turn has finished (a
+  finish doesn't take the card over; the other things above do).
   **Today** is the calendar and the weather that used to be bar widgets: a
   month grid with ISO week numbers (‹ ›, the scroll wheel, or a click on the
   month to come back to this one), and beside it the weather now and for the
