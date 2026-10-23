@@ -588,7 +588,16 @@ Item {
   }
   onStartedChanged: if (!started) arrivedLive = false
 
+  // An opaque base under the pill, so the text behind it doesn't show through.
+  Rectangle {
+    visible: jump.visible
+    anchors.fill: jump
+    radius: height / 2
+    color: root.pal.card
+  }
+
   Pill {
+    id: jump
     visible: !root.stick && messages.count > 0
     anchors.horizontalCenter: list.horizontalCenter
     anchors.bottom: list.bottom
