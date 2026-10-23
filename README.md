@@ -522,7 +522,9 @@ and options, and the answer goes back as an allow whose `updatedInput` adds
 Agent SDK answers it. `ExitPlanMode` shows the plan: Approve plan allows it,
 Keep planning denies it with a note to ask what to change. Options show
 their full text, and the plan is formatted Markdown in a scrolling box
-(the island grows taller for it). Test:
+(the island grows taller for it). In a session's live view the same card covers the terminal while
+that session has a prompt waiting; Terminal there hands it back to Claude's
+own dialog, shown in place. Test:
 `approvals.py answer <id> answer '{"Which database?": "Postgres"}'`. Test it without Claude: start `approvals.py watch`, pipe a payload into
 `approvals.py hook`, then `approvals.py answer <id> allow`.
 

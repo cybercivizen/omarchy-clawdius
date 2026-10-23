@@ -24,6 +24,14 @@ Rectangle {
   // A Chat session shows as a conversation (ChatView) rather than the terminal.
   property bool chatStyle: false
   property string pendingPrompt: ""
+  // Prompts held by the approval hook (BarWidget.requests): this session's
+  // first one is answered here, over the terminal, rather than with its keys.
+  property var requests: []
+  readonly property var ask: {
+    for (var i = 0; i < requests.length; i++)
+      if (requests[i].sessionId === s.id) return requests[i]
+    return null
+  }
   property double now: Date.now()
   property bool active: true
   // The pointer is busy in the terminal (selecting): don't drag-scroll.
@@ -38,6 +46,7 @@ Rectangle {
   signal openLink(string url)
   signal collapse()
   signal toggleChat()
+  signal answered(var request, string choice, var answers)
 
   readonly property var s: session || ({})
   readonly property bool lively: !!s.busy || !!s.waiting
@@ -52,7 +61,8 @@ Rectangle {
   // that a fresh session's terminal looks like a slot.
   implicitHeight: Math.max(Style.space(400),
                            side.y + side.implicitHeight + Style.space(24) + actions.implicitHeight + Style.space(22),
-                           term.implicitHeight + Style.space(18) * 2)
+                           term.implicitHeight + Style.space(18) * 2,
+                           root.ask ? approval.implicitHeight + Style.space(18) * 2 : 0)
 
   Column {
     id: side
@@ -452,6 +462,31 @@ Rectangle {
     width: root.width - x - Style.space(18)
 
     sourceComponent: root.chatStyle ? chatComponent : termComponent
+  }
+
+  // The prompt over the terminal (which stays attached underneath): the
+  // same card as on Home. "Terminal" hands it back to Claude's own dialog.
+  Rectangle {
+    visible: !!root.ask
+    x: term.x
+    y: term.y
+    z: 5
+    width: term.width
+    height: Math.max(term.height, approval.implicitHeight + Style.space(18) * 2)
+    radius: Style.space(18)
+    color: root.pal.card
+
+    Approval {
+      id: approval
+      x: Style.space(18)
+      anchors.verticalCenter: parent.verticalCenter
+      width: parent.width - Style.space(18) * 2
+      pal: root.pal
+      fontFamily: root.fontFamily
+      request: root.ask
+      sessionName: root.s.name || ""
+      onAnswered: function(choice, answers) { root.answered(root.ask, choice, answers) }
+    }
   }
 
   Component {

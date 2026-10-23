@@ -100,6 +100,8 @@ BarWidget {
       if (sessions[i].jobId === liveId) return sessions[i]
     return pendingSession && pendingSession.jobId === liveId ? pendingSession : null
   }
+  // The live session has a prompt waiting: its card (Detail) is taller for a plan.
+  readonly property bool liveAsk: !!liveSession && requests.some(function(r) { return r.sessionId === liveSession.id && r.tool === "ExitPlanMode" })
   readonly property int hiddenIdle: Math.max(0, sessions.length - activeSessions.length - idleSessions.length)
 
   // ---- Moods. The crab shows the most pressing thing going on:
@@ -704,7 +706,7 @@ BarWidget {
   }
 
   // answers: a question's, question → label(s).
-  function answerRequest(r, choice, answers) {
+  function answerRequest(r, choice, answers, inPlace) {
     var ids = root.answeredIds
     ids[r.id] = true
     root.answeredIds = ids
@@ -713,7 +715,7 @@ BarWidget {
     Quickshell.execDetached(argv)
     // Answered here, so take it off the card now rather than on the next poll.
     root.applyRequests(JSON.stringify({ requests: root.requests }))
-    if (choice === "terminal") {
+    if (choice === "terminal" && !inPlace) {
       for (var i = 0; i < sessions.length; i++)
         if (sessions[i].id === r.sessionId) { root.focusSession(sessions[i]); break }
     }
@@ -2144,7 +2146,7 @@ BarWidget {
     maxContentWidth: card.fittedContentWidth(Style.space(948))
     // The nav keeps its height; the view under it takes what the island has
     // left and scrolls. The + menu can reach past a short view.
-    readonly property real cap: Style.space(root.tallView || (root.view === "home" && momentCard.tall) ? 900 : 680)
+    readonly property real cap: Style.space(root.tallView || (root.view === "home" && momentCard.tall) || (root.view === "detail" && root.liveAsk) ? 900 : 680)
     contentHeight: root.peeking ? card.fittedContentHeight(toastBanner.implicitHeight)
       : card.fittedContentHeight(Math.max(toastSlot.height + nav.height + content.spacing + body.implicitHeight,
                                           root.newMenuOpen ? newMenu.y + newMenu.height + Style.space(8) : 0), cap)
@@ -2836,6 +2838,8 @@ BarWidget {
                   now: root.now
                   active: root.islandOpen || (card.visible && !root.peeking)
                   onGrabbed: root.autoOpened = false
+                  requests: root.requests
+                  onAnswered: function(request, choice, answers) { root.answerRequest(request, choice, answers, true) }
                   onToggleChat: root.toggleDetailChat()
                   onOpenTerminal: if (root.liveSession) root.focusSession(root.liveSession)
                   onOpenEditor: dir => {
