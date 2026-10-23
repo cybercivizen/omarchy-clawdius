@@ -7,7 +7,13 @@
   gym.py easier | skip          another rep for today: a level down, or the same level
   gym.py set LANG on|off        a language in or out of the rotation (on sets it up)
   gym.py level LANG N           its level, 1-10 (Exercism's difficulty)
-  gym.py setup LANG             clone its track (JavaScript: install jest once)
+  gym.py setup LANG             clone its track (TypeScript: install jest once)
+  gym.py add TRACK [NAME NEEDS TEST]
+                                add an Exercism track; a preset (python, go, ruby, elixir)
+                                needs only the name. NEEDS is a comma-separated list of
+                                tools, TEST the shell command run in a rep's folder
+                                (its exit code is the result unless the output is parsed)
+  gym.py remove TRACK           take an added track out again
   gym.py editor NAME|default    the editor reps open in (default: Omarchy's)
 
 Everything lands in $XDG_STATE_HOME/clawdius/gym.json, which the widget
@@ -37,15 +43,38 @@ START_LEVEL = 2
 PASSES_TO_LEVEL_UP = 2
 SKIP_DAYS = 30
 TEST_TIMEOUT = 180
-# The JavaScript reps share one jest install: these, at the versions the
+# The TypeScript reps share one jest install: these, at the versions the
 # track's exercises ask for.
-JEST_DEPS = ("@exercism/babel-preset-javascript", "@jest/globals", "babel-jest", "core-js", "expect", "jest")
+JEST_DEPS = ("@exercism/babel-preset-typescript", "@jest/globals", "@types/node", "babel-jest", "core-js",
+             "expect", "jest", "typescript")
 
 LANGS = {
-    "javascript": {"name": "JavaScript", "needs": ["node", "npm"],
-                   "install": "sudo pacman -S nodejs npm"},
+    "typescript": {"name": "TypeScript", "needs": ["node", "npm"],
+                   "install": "sudo pacman -S nodejs npm", "parser": "jest"},
     "rust": {"name": "Rust", "needs": ["cargo"],
-             "install": "sudo pacman -S rustup && rustup default stable"},
+             "install": "sudo pacman -S rustup && rustup default stable", "parser": "cargo"},
+}
+
+# Tracks Settings offers to add. "parser" reads the test output for a count;
+# without one the command's exit code is the result.
+PRESETS = {
+    "python": {"name": "Python", "needs": ["python3"], "install": "sudo pacman -S python python-pytest",
+               "test": "python3 -m pytest", "parser": "pytest"},
+    "go": {"name": "Go", "needs": ["go"], "install": "sudo pacman -S go",
+           "test": "go test -v ./...", "parser": "go"},
+    "ruby": {"name": "Ruby", "needs": ["ruby"], "install": "sudo pacman -S ruby",
+             "test": "ruby *_test.rb", "parser": "minitest"},
+    "elixir": {"name": "Elixir", "needs": ["mix"], "install": "sudo pacman -S elixir",
+               "test": "mix test", "parser": "mix"},
+}
+
+# Exercism tracks ship their tests with all but the first skipped: what turns
+# that off, per track.
+UNSKIPS = {
+    "typescript": (r"\bx(it|test|describe)\(", r"\1("),
+    "rust": (r"^[ \t]*#\[ignore\][ \t]*\n", ""),
+    "ruby": (r"^[ \t]*skip\b.*\n", ""),
+    "elixir": (r"^[ \t]*@tag :pending[ \t]*\n", ""),
 }
 
 
@@ -67,12 +96,17 @@ def read_json(path, fallback):
 
 def load():
     state = read_json(STATE, {})
+    state.setdefault("custom", {})
+    LANGS.update(state["custom"])
     state.setdefault("langs", {})
     state.setdefault("today", None)
     state.setdefault("done", [])
     state.setdefault("skipped", {})
     state.setdefault("streak", {"count": 0, "last": ""})
     state.setdefault("editor", "")
+    # A language that's gone (JavaScript became TypeScript) can't be worked on.
+    if state.get("today") and state["today"].get("lang") not in LANGS:
+        state["today"] = None
     for lang in LANGS:
         state["langs"].setdefault(lang, {"on": False, "level": START_LEVEL, "passes": 0})
     return state
@@ -81,14 +115,16 @@ def load():
 def info(lang):
     missing = [tool for tool in LANGS[lang]["needs"] if not shutil.which(tool)]
     cloned = os.path.isfile(os.path.join(track_dir(lang), "config.json"))
-    installed = lang != "javascript" or os.path.isdir(os.path.join(REPS, "javascript", "node_modules"))
+    installed = lang != "typescript" or os.path.isdir(os.path.join(REPS, "typescript", "node_modules"))
     return {"name": LANGS[lang]["name"], "missing": missing, "install": LANGS[lang]["install"],
-            "setUp": cloned and installed, "ready": not missing and cloned and installed}
+            "setUp": cloned and installed, "ready": not missing and cloned and installed,
+            "custom": lang not in ("typescript", "rust")}
 
 
 def save(state):
     # What the widget shows but can't work out itself, refreshed on every save.
     state["info"] = {lang: info(lang) for lang in LANGS}
+    state["presets"] = {k: v["name"] for k, v in PRESETS.items() if k not in LANGS}
     last = state["streak"].get("last", "")
     alive = last in (today_str(), (date.today() - timedelta(days=1)).isoformat())
     state["streakNow"] = state["streak"].get("count", 0) if alive else 0
@@ -167,10 +203,8 @@ def ensure_today(state):
 def unskip(lang, path):
     with open(path) as f:
         text = f.read()
-    if lang == "javascript":
-        text = re.sub(r"\bxtest\(", "test(", text)
-    elif lang == "rust":
-        text = re.sub(r"^[ \t]*#\[ignore\][ \t]*\n", "", text, flags=re.M)
+    if lang in UNSKIPS:
+        text = re.sub(UNSKIPS[lang][0], UNSKIPS[lang][1], text, flags=re.M)
     with open(path, "w") as f:
         f.write(text)
 
@@ -209,21 +243,43 @@ def tail(text, n=12):
 def run_tests(lang, folder):
     """(passed, total, output) for the rep in folder."""
     env = dict(os.environ, FORCE_COLOR="0", NO_COLOR="1", CARGO_TERM_COLOR="never")
-    if lang == "rust":
-        p = subprocess.run(["cargo", "test"], cwd=folder, env=env, capture_output=True, text=True, timeout=TEST_TIMEOUT)
-        out = p.stdout + p.stderr
-        passed = failed = 0
+    parser = LANGS[lang].get("parser")
+    if parser == "jest":
+        jest = os.path.join(REPS, lang, "node_modules", ".bin", "jest")
+        with tempfile.NamedTemporaryFile(suffix=".json") as report:
+            p = subprocess.run([jest, "--ci", "--json", "--outputFile", report.name], cwd=folder, env=env,
+                               capture_output=True, text=True, timeout=TEST_TIMEOUT)
+            result = read_json(report.name, {})
+        out = re.sub(r"^Test results written to.*$", "", p.stdout + p.stderr, flags=re.M)
+        return result.get("numPassedTests", 0), result.get("numTotalTests", 0), out
+    command = "cargo test" if parser == "cargo" else LANGS[lang]["test"]
+    p = subprocess.run(command, shell=True, cwd=folder, env=env, capture_output=True, text=True, timeout=TEST_TIMEOUT)
+    out = p.stdout + p.stderr
+    passed = failed = 0
+    if parser == "cargo":
         for m in re.finditer(r"test result: \w+\. (\d+) passed; (\d+) failed", out):
             passed += int(m.group(1))
             failed += int(m.group(2))
-        return passed, passed + failed, out
-    jest = os.path.join(REPS, "javascript", "node_modules", ".bin", "jest")
-    with tempfile.NamedTemporaryFile(suffix=".json") as report:
-        p = subprocess.run([jest, "--ci", "--json", "--outputFile", report.name], cwd=folder, env=env,
-                           capture_output=True, text=True, timeout=TEST_TIMEOUT)
-        result = read_json(report.name, {})
-    out = re.sub(r"^Test results written to.*$", "", p.stdout + p.stderr, flags=re.M)
-    return result.get("numPassedTests", 0), result.get("numTotalTests", 0), out
+    elif parser == "pytest":
+        passed = sum(int(n) for n in re.findall(r"(\d+) passed", out))
+        failed = sum(int(n) for n in re.findall(r"(\d+) (?:failed|error)", out))
+    elif parser == "go":
+        passed = len(re.findall(r"^\s*--- PASS", out, flags=re.M))
+        failed = len(re.findall(r"^\s*--- FAIL", out, flags=re.M))
+    elif parser == "minitest":
+        m = re.search(r"(\d+) runs, \d+ assertions, (\d+) failures, (\d+) errors", out)
+        if m:
+            failed = int(m.group(2)) + int(m.group(3))
+            passed = int(m.group(1)) - failed
+    elif parser == "mix":
+        m = re.search(r"(\d+) tests?, (\d+) failures?", out)
+        if m:
+            failed = int(m.group(2))
+            passed = int(m.group(1)) - failed
+    if passed + failed == 0:
+        # Nothing to count: the whole run is one test (a build error is a fail).
+        passed, failed = (1, 0) if p.returncode == 0 else (0, 1)
+    return passed, passed + failed, out
 
 
 def check(state):
@@ -263,8 +319,8 @@ def setup(lang):
         if p.returncode != 0:
             sys.stderr.write("couldn't get the %s track: %s\n" % (LANGS[lang]["name"], p.stderr.strip()))
             return 1
-    if lang == "javascript":
-        root = os.path.join(REPS, "javascript")
+    if lang == "typescript":
+        root = os.path.join(REPS, "typescript")
         if not os.path.isdir(os.path.join(root, "node_modules")):
             sample = read_json(os.path.join(track, "exercises", "practice", "two-fer", "package.json"), {})
             deps = {k: v for k, v in sample.get("devDependencies", {}).items() if k in JEST_DEPS}
@@ -280,20 +336,42 @@ def setup(lang):
     return 0
 
 
+def add(state, track, rest):
+    """Register an Exercism track and turn it on. 2 for a bad call, 1 if the
+    track can't be fetched (then it isn't kept)."""
+    if track in PRESETS and not rest:
+        entry = dict(PRESETS[track])
+    elif len(rest) == 3 and rest[2].strip():
+        entry = {"name": rest[0], "needs": [t for t in rest[1].split(",") if t.strip()],
+                 "install": "install " + (rest[1] or "its toolchain"), "test": rest[2]}
+    else:
+        sys.stderr.write(__doc__)
+        return 2
+    state["custom"][track] = entry
+    LANGS[track] = entry
+    state["langs"][track] = {"on": True, "level": START_LEVEL, "passes": 0}
+    code = 0 if info(track)["missing"] else setup(track)
+    if code:
+        del state["custom"][track], state["langs"][track], LANGS[track]
+        return code
+    ensure_today(state)
+    return 0
+
+
 def main(args):
     if not args:
         sys.stderr.write(__doc__)
         return 2
     cmd = args[0]
     lang = args[1] if len(args) > 1 else ""
-    if cmd in ("set", "level", "setup") and lang not in LANGS:
-        sys.stderr.write("unknown language %r (%s)\n" % (lang, ", ".join(LANGS)))
-        return 2
     os.makedirs(STATE_DIR, exist_ok=True)
     with open(os.path.join(STATE_DIR, "gym.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = load()
         code = 0
+        if cmd in ("set", "level", "setup", "remove") and lang not in LANGS:
+            sys.stderr.write("unknown language %r (%s)\n" % (lang, ", ".join(LANGS)))
+            return 2
         if cmd == "today":
             ensure_today(state)
         elif cmd == "start":
@@ -324,6 +402,15 @@ def main(args):
                 pick(state, lang)
         elif cmd == "editor" and len(args) == 2 and (lang == "default" or re.fullmatch(r"[\w.+-]+", lang)):
             state["editor"] = "" if lang == "default" else lang
+        elif cmd == "add" and re.fullmatch(r"[a-z0-9][a-z0-9-]*", lang) and lang not in LANGS:
+            code = add(state, lang, args[2:])
+            if code == 2:
+                return 2
+        elif cmd == "remove" and lang in state["custom"]:
+            del state["custom"][lang]
+            del LANGS[lang]
+            state["langs"].pop(lang, None)
+            ensure_today(state)
         elif cmd == "setup":
             code = setup(lang)
             ensure_today(state)

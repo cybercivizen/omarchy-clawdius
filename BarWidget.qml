@@ -2589,6 +2589,8 @@ BarWidget {
                   onLangToggled: function(lang, on) { root.runGym(["set", lang, on ? "on" : "off"], lang) }
                   onLevelSet: function(lang, level) { root.runGym(["level", lang, String(level)], lang) }
                   onSetupAsked: function(lang) { root.runGym(["setup", lang], lang) }
+                  onLangAdded: function(track) { root.runGym(["add", track], track) }
+                  onLangRemoved: function(lang) { root.runGym(["remove", lang], lang) }
                   onEditorSet: function(editor) { root.runGym(["editor", editor || "default"], "") }
                 }
               }

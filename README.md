@@ -276,9 +276,12 @@ buffer squashed into the new size.
 
 One small exercise a day, written by hand, to keep in practice when Claude
 writes most of the code. `gym.py` takes them from Exercism's open tracks
-(JavaScript and Rust for now): turning a language on in Settings clones its
-track (`~/.local/share/clawdius/tracks`; JavaScript also installs jest once,
-about 120 MB, under `~/Work/gym/javascript`). The languages that are on take
+(TypeScript and Rust to start; Settings adds Python, Go, Ruby or Elixir with
+one click, and `gym.py add TRACK NAME TOOLS "TEST COMMAND"` any other track,
+whose result is the command's exit code): turning a language on in Settings
+clones its track (`~/.local/share/clawdius/tracks`; TypeScript also installs
+jest once, under `~/Work/gym/typescript`). Exercism has tracks for languages,
+not frameworks. The languages that are on take
 turns, a day each. The rep is the unsolved exercise nearest the language's
 level, never one skipped in the last 30 days; two passes at a level move it up.
 

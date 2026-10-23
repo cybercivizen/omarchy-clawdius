@@ -6,7 +6,8 @@ import "Icons.js" as Icons
 // One section per feature, stacked; a new setting is a new section here.
 //
 //   Daily reps  which languages are in the rotation, and each one's level
-//               (gym.py keeps both in gym.json), and the editor reps open in.
+//               (gym.py keeps both in gym.json), languages to add, and the
+//               editor reps open in.
 Column {
   id: root
 
@@ -22,6 +23,8 @@ Column {
   signal levelSet(string lang, int level)
   signal setupAsked(string lang)
   signal editorSet(string editor)
+  signal langAdded(string track)
+  signal langRemoved(string lang)
 
   // [label, command]; "" is Omarchy's default editor.
   readonly property var editors: [["Default", ""], ["Neovim", "nvim"], ["Helix", "hx"], ["Nano", "nano"], ["VS Code", "code"], ["Zed", "zeditor"]]
@@ -29,6 +32,7 @@ Column {
 
   readonly property var info: gym && gym.info ? gym.info : ({})
   readonly property var langs: gym && gym.langs ? gym.langs : ({})
+  readonly property var presets: gym && gym.presets ? gym.presets : ({})
   readonly property int streak: gym ? gym.streakNow || 0 : 0
 
   spacing: Style.space(16)
@@ -125,6 +129,17 @@ Column {
           spacing: Style.space(10)
 
           Pill {
+            visible: !!langRow.about.custom
+            anchors.verticalCenter: parent.verticalCenter
+            pal: root.pal
+            compact: true
+            iconOnly: true
+            icon: Icons.close
+            tooltip: "Remove"
+            onClicked: root.langRemoved(langRow.modelData)
+          }
+
+          Pill {
             visible: !langRow.missing && !langRow.about.setUp && langRow.prefs.on
             anchors.verticalCenter: parent.verticalCenter
             pal: root.pal
@@ -202,6 +217,48 @@ Column {
           }
         }
       }
+    }
+
+    Flow {
+      visible: presetList.count > 0
+      width: parent.width
+      spacing: Style.space(6)
+
+      Text {
+        height: Style.space(30)
+        verticalAlignment: Text.AlignVCenter
+        text: "Add"
+        textFormat: Text.PlainText
+        color: root.pal.muted
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Repeater {
+        id: presetList
+        model: Object.keys(root.presets).sort()
+
+        Pill {
+          required property string modelData
+          pal: root.pal
+          compact: true
+          fontFamily: root.fontFamily
+          icon: Icons.plus
+          label: root.presets[modelData]
+          busy: root.busy === "add" && root.busyLang === modelData
+          onClicked: root.langAdded(modelData)
+        }
+      }
+    }
+
+    Text {
+      width: parent.width
+      text: "Any other Exercism track: gym.py add TRACK NAME TOOLS \"TEST COMMAND\""
+      textFormat: Text.PlainText
+      elide: Text.ElideRight
+      color: root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
     }
 
     Caption { text: "EDITOR" }
