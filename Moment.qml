@@ -40,6 +40,8 @@ Rectangle {
   property int sessionCount: 0
   // The usage record (Omarchy's collector), for when a hit limit resets.
   property var usage: null
+  // The corner card's timers and alarms, to tell a reset alarm is set.
+  property var timers: []
 
   // answers: AskUserQuestion's, question → chosen label(s).
   signal answered(var request, string choice, var answers)
@@ -51,6 +53,8 @@ Rectangle {
   signal newChat()
   signal pinned(var session)
   signal moreSessions()
+  // An alarm for when the spent limit resets.
+  signal alarmRequested(double at, string label)
 
   readonly property string kind: moment ? moment.kind : "idle"
   readonly property var s: moment && moment.session ? moment.session : null
@@ -323,6 +327,15 @@ Rectangle {
           fontFamily: root.fontFamily
           label: "Open"
           onClicked: root.opened(root.s)
+        }
+        // Rings like any alarm (timers.json, the leader's toast).
+        Pill {
+          readonly property bool set: root.timers.some(function(t) { return t.kind === "alarm" && t.at === limited.resetsAt })
+          visible: limited.resetsAt > root.now
+          pal: root.pal
+          fontFamily: root.fontFamily
+          label: set ? "✓ Will ring" : "Ring at " + Qt.formatTime(new Date(limited.resetsAt), "h:mm ap")
+          onClicked: if (!set) root.alarmRequested(limited.resetsAt, "Usage is back")
         }
         Pill {
           pal: root.pal

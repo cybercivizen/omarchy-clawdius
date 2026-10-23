@@ -118,12 +118,14 @@ only the drawn island morphs between sizes: resizing the Wayland popup showed on
 buffer squashed into the new size.
 
 - **Home** shows one *moment* at a time, the most pressing first: a
-  permission prompt (Deny / Always / Allow, or Terminal), one of Claude's
+  permission prompt (Deny / Always / Allow, or Terminal; a line under the
+  buttons says what Always saves and where), one of Claude's
   questions (its options to click; several questions or a multi-pick send
   together) or a plan to approve (the plan, Keep planning / Approve plan), a
   session blocked on you some other way, a turn that just finished or failed
   (until OK, or 30s), one stopped by the **usage limit** (purple: the crab
-  asleep with z's, when the spent limit resets and a bar filling toward it),
+  asleep with z's, when the spent limit resets and a bar filling toward it;
+  **Ring at …** sets an alarm for the reset, like the corner card's),
   the session being watched, or nothing running. Each has a big crab with a
   status badge (amber `!`, green ✓, red ✗, purple z, orange dots while working) and a
   faint glow in the state's color. The watched session shows its last three
@@ -403,7 +405,11 @@ marks them *asleep*, and clicking one there (or in Resume) resumes it in the
 card. The status line counts what went to sleep in the last 12 hours.
 `$XDG_STATE_HOME/clawdius/asleep.json` records them; try the rule with
 `live.py sweep --dry-run`. Hovering an idle background row in Tasks shows
-**■ Stop** to end one now. `idleStopMinutes: 0` turns the sweep off.
+**■ Stop** to end one now, and beside it why the sweep left it running
+("kept: terminal attached", "kept: background work", "kept: wakeup or cron
+pending", "kept: work alongside", or "sleeps in ~12m"); each sweep writes
+those to `$XDG_STATE_HOME/clawdius/awake.json`. `idleStopMinutes: 0` turns
+the sweep off.
 
 ### Approvals
 
