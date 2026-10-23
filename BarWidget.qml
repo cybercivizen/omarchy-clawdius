@@ -1456,8 +1456,8 @@ BarWidget {
         root.startNotice = gymErr.text.trim().split("\n").pop() || "gym.py " + action + " failed"
         noticeClear.restart()
       } else if (action === "start") {
-        var file = gymOut.text.trim().split("\n").pop()
-        if (file) root.openRep(file)
+        var lines = gymOut.text.split("\n")
+        if (lines[0]) root.openRep(lines[0], lines[1])
       }
       root.nextGym()
     }
@@ -1465,18 +1465,21 @@ BarWidget {
 
   // Open a rep file in the editor chosen in Settings, else Omarchy's default.
   // Terminal editors get a window of their own, as omarchy-launch-editor does.
-  function openRep(file) {
+  // The task's instructions open beside the solution: the card only has the blurb.
+  function openRep(file, docs) {
+    var files = (docs ? root.shellQuote(docs) + " " : "") + root.shellQuote(file)
     var editor = root.gym && root.gym.editor ? root.gym.editor : ""
-    if (!editor) { root.launch("omarchy-launch-editor " + root.shellQuote(file)); return }
+    if (!editor) { root.launch("omarchy-launch-editor " + files); return }
     var tui = ["nvim", "vim", "nano", "micro", "hx", "helix"].indexOf(editor) >= 0
-    root.launch((tui ? "omarchy-launch-tui " : "setsid uwsm-app -- ") + editor + " -- " + root.shellQuote(file))
+    var split = docs && (editor === "nvim" || editor === "vim") ? " -O" : ""
+    root.launch((tui ? "omarchy-launch-tui " : "setsid uwsm-app -- ") + editor + split + " -- " + files)
   }
 
   // The rep card's buttons.
   function repAction(action) {
     var rep = root.gym ? root.gym.today : null
     if (action === "settings") root.view = "settings"
-    else if (action === "open" && rep && rep.file) root.openRep(rep.file)
+    else if (action === "open" && rep && rep.file) root.openRep(rep.file, rep.docs || (rep.dir ? rep.dir + "/.docs/instructions.md" : ""))
     else if (action === "review" && rep && rep.dir) root.reviewRep(rep)
     else if (["start", "check", "easier", "skip"].indexOf(action) >= 0) root.runGym([action], rep ? rep.lang : "")
   }

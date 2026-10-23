@@ -288,8 +288,9 @@ level, never one skipped in the last 30 days; two passes at a level move it up.
 On Home's idle moment: the exercise's name, Exercism's one-line blurb, its
 difficulty and the streak. **Start** copies the stub, the tests (every one of
 them, Exercism skips all but the first) and the instructions to
-`~/Work/gym/<lang>/<slug>`, never the example solution, and opens the stub in
-the default editor (`omarchy-launch-editor`). **Check** runs the tests
+`~/Work/gym/<lang>/<slug>`, never the example solution, and opens the
+instructions (`.docs/instructions.md`, the actual task) and the stub in the
+chosen editor (side by side in Neovim/Vim; default `omarchy-launch-editor`). **Check** runs the tests
 (`cargo test`, jest) and shows how many pass, with the end of the output.
 All passing counts the day: a ✓, the streak (days in a row), and **Review
 with Claude**, a session in the live view that can read but not edit

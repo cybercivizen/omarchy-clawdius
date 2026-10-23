@@ -224,11 +224,14 @@ def start(state):
         for test in files.get("test", []):
             unskip(lang, os.path.join(dest, test))
     solution = [f for f in files.get("solution", []) if not f.endswith(".toml")]
+    docs = os.path.join(dest, ".docs", "instructions.md")
     t["dir"] = dest
+    t["docs"] = docs if os.path.isfile(docs) else ""
     t["file"] = os.path.join(dest, solution[0]) if solution else dest
     t["startedAt"] = t.get("startedAt") or int(time.time() * 1000)
     save(state)
     print(t["file"])
+    print(t["docs"])
     return 0
 
 
