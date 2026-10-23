@@ -3,8 +3,8 @@ import qs.Commons
 import "Icons.js" as Icons
 
 // Home's right-hand card, with a switcher up top: Limits (the Claude usage
-// glance), Timer (timers, alarms, reminders) and Posture (the crab's
-// sit-up-straight nudge). The mode is remembered; the engine behind the
+// glance), Timer (timers, alarms, reminders), Posture (the crab's
+// sit-up-straight nudge) and Anti-rot (today's challenges and progress). The mode is remembered; the engine behind the
 // timers and the nudge is in BarWidget.
 Rectangle {
   id: root
@@ -15,7 +15,10 @@ Rectangle {
   property var record: null
   property var timers: []
   property var posture: ({ on: false, everyMin: 30, nextAt: 0 })
-  // limits | timer | posture
+  // antirot.json, as antirot.py writes it, and the action running.
+  property var antirot: null
+  property string antirotBusy: ""
+  // limits | timer | posture | antirot
   property string mode: "limits"
 
   signal modePicked(string mode)
@@ -24,11 +27,13 @@ Rectangle {
   signal timerCancelled(string id)
   signal postureEdited(var patch)
   signal nudged()
+  signal challenge(string action)
 
   readonly property var modes: [
     { id: "limits", name: "LIMITS", icon: Icons.limits },
     { id: "timer", name: "TIMER", icon: Icons.timer },
-    { id: "posture", name: "POSTURE", icon: Icons.posture }
+    { id: "posture", name: "POSTURE", icon: Icons.posture },
+    { id: "antirot", name: "ANTI-ROT", icon: Icons.code }
   ]
   readonly property real pad: Style.space(18)
 
@@ -47,7 +52,7 @@ Rectangle {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      text: root.mode === "timer" ? "TIMER" : root.mode === "posture" ? "POSTURE" : "LIMITS"
+      text: root.mode === "timer" ? "TIMER" : root.mode === "posture" ? "POSTURE" : root.mode === "antirot" ? "ANTI-ROT" : "LIMITS"
       textFormat: Text.PlainText
       color: root.pal.muted
       font.family: root.fontFamily
@@ -96,7 +101,7 @@ Rectangle {
     x: root.pad
     y: root.pad + header.height + Style.space(14)
     width: parent.width - root.pad * 2
-    implicitHeight: root.mode === "timer" ? timerPane.implicitHeight : root.mode === "posture" ? posturePane.implicitHeight : glance.implicitHeight
+    implicitHeight: root.mode === "timer" ? timerPane.implicitHeight : root.mode === "posture" ? posturePane.implicitHeight : root.mode === "antirot" ? antirotPane.implicitHeight : glance.implicitHeight
 
     Glance {
       id: glance
@@ -131,6 +136,17 @@ Rectangle {
       now: root.now
       onEdited: function(patch) { root.postureEdited(patch) }
       onNudged: root.nudged()
+    }
+
+    AntirotPane {
+      id: antirotPane
+      visible: root.mode === "antirot"
+      width: parent.width
+      pal: root.pal
+      fontFamily: root.fontFamily
+      antirot: root.antirot
+      busy: root.antirotBusy
+      onChallenge: function(action) { root.challenge(action) }
     }
   }
 }

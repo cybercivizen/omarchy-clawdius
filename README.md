@@ -134,7 +134,7 @@ buffer squashed into the new size.
   the tool call that's out with its command or path under it, or
   "Thinking…" between calls; under the list, Claude's latest words this
   turn in quotes.
-  With nothing running: today's **rep** (see Daily reps below) and **New
+  With nothing running: today's **challenge** (see Anti-rot below) and **New
   chat**, into the chat view. (Earlier sessions are under Sessions → Recent.)
   Other running sessions sit on a **rail** of small crabs on the right, each
   with a bubble on its corner saying how long ago it last moved (since its
@@ -288,38 +288,53 @@ buffer squashed into the new size.
   plan, 5-hour and weekly limits (orange when ahead of the pace tick, red at
   90%), today's tokens / prompts / sessions, tokens per model, last 7 days.
 - **Settings** (the gear): settings that live in the island rather than in
-  `shell.json`, one section per feature (`Settings.qml`). For now, **Daily
-  reps**: each language's on/off switch, its level (− / +, 1–10), and its
+  `shell.json`, one section per feature (`Settings.qml`). For now, **Anti-rot**:
+  challenges a day (1–3), each language's on/off switch, its level (− / +, 1–10), and its
   state: ready, not set up (**Set up**), or the toolchain it still needs,
-  with the install command. Below them, the **editor** reps open in
+  with the install command. Below them, the **editor** challenges open in
   (Omarchy's default, Neovim, Helix, Nano, VS Code or Zed).
 
-#### Daily reps
+#### Anti-rot
 
-One small exercise a day, written by hand, to keep in practice when Claude
-writes most of the code. `gym.py` takes them from Exercism's open tracks
+Small exercises, written by hand, to keep in practice when Claude writes
+most of the code. `antirot.py` takes them from Exercism's open tracks
 (TypeScript and Rust to start; Settings adds Python, Go, Ruby or Elixir with
-one click, and `gym.py add TRACK NAME TOOLS "TEST COMMAND"` any other track,
+one click, and `antirot.py add TRACK NAME TOOLS "TEST COMMAND"` any other track,
 whose result is the command's exit code): turning a language on in Settings
 clones its track (`~/.local/share/clawdius/tracks`; TypeScript also installs
-jest once, under `~/Work/gym/typescript`). Exercism has tracks for languages,
-not frameworks. The languages that are on take
-turns, a day each. The rep is the unsolved exercise nearest the language's
-level, never one skipped in the last 30 days; two passes at a level move it up.
+jest once, under `~/Work/antirot/typescript`). Exercism has tracks for languages,
+not frameworks. The languages that are on take turns. The challenge is the
+unsolved exercise nearest the language's level, never one skipped in the last
+30 days; two passes at a level move it up.
+
+**How often** is set in Settings: 1, 2 or 3 challenges a day. The streak
+counts days the quota was met. Past the quota, or any time a challenge is
+passed, **Next** / **Another one** chains one more.
 
 On Home's idle moment: the exercise's name, Exercism's one-line blurb, its
-difficulty and the streak. **Start** copies the stub, the tests (every one of
-them, Exercism skips all but the first) and the instructions to
-`~/Work/gym/<lang>/<slug>`, never the example solution, and opens the
-instructions (`.docs/instructions.md`, the actual task) and the stub in the
-chosen editor (side by side in Neovim/Vim; default `omarchy-launch-editor`). **Check** runs the tests
-(`cargo test`, jest) and shows how many pass, with the end of the output.
-All passing counts the day: a ✓, the streak (days in a row), and **Review
-with Claude**, a session in the live view that can read but not edit
-(`--disallowedTools Edit,Write,…`). It's asked to teach rather than fix, and
-to compare with Exercism's own solution after its review. **Easier** is a
-level down, **Skip** another one at the same level. State is
-`~/.local/state/clawdius/gym.json`; only `gym.py` writes it.
+difficulty, where the day's quota stands and the streak. **Start** copies the
+stub, the tests (every one of them, Exercism skips all but the first) and the
+instructions to `~/Work/antirot/<lang>/<slug>`, never the example solution,
+and opens the instructions (`.docs/instructions.md`, the actual task) and the
+stub in the chosen editor (side by side in Neovim/Vim; default
+`omarchy-launch-editor`). **Check** runs the tests (`cargo test`, jest) and
+shows how many pass, with the end of the output. All passing counts toward
+the day: a ✓, the streak, **Next**, and **Review with Claude**, a session in
+the live view that can read but not edit (`--disallowedTools Edit,Write,…`).
+It's asked to teach rather than fix, and to compare with Exercism's own
+solution after its review. **Easier** is a level down, **Skip** another one
+at the same level.
+
+The corner card's fourth mode (the `</>` icon, beside Limits, Timer and
+Posture) is the same thing at a glance, and works while Claude is busy and
+Home shows the session: today's dots against the quota, the streak, each
+language's level with its progress to the next, the last three done and the
+total, and the button that moves the current challenge on (Start, Check,
+Next).
+
+State is `~/.local/state/clawdius/antirot.json`; only `antirot.py` writes it.
+Earlier installs (Daily reps, `gym.json`, `~/Work/gym`) are moved over on the
+first run.
 
 Colors come from the theme's ink and paper (`Colors.qml`), so Solitude and
 Solitude Light both read: orange `#D97757` (`#C15F3C` on light) means Claude
@@ -346,7 +361,7 @@ and call its `hover(window, hovered)`.
 |---|---|---|
 | UI | Omarchy shell plugin (Quickshell / QML), `BarWidget.qml` | Lives in the same process as the bar, inherits theme, hot-reloads on save |
 | Sprite | `Sprite.js` + `Clawd.qml`, rectangles on an 18×10 grid | Clawd decoded from the CLI's `▐▛███▜▌` block art; crisp at any scale |
-| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
+| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml`, `AntirotPane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
 | Parts | `Crab.qml` (Clawd + badge), `Pill.qml`, `Steps.qml`, `Chip.qml`, `Icon.qml` + `Icons.js` (SVG line icons via QtQuick.Shapes), `Format.js` | Shared by the views |
 | Colors | `Colors.qml` | Theme-aware palette; the `color` setting overrides the orange |
 | Data | `feed.py` (Python stdlib), spawned by the widget, JSON lines on stdout | Zero config; polls cheap mtimes once a second |
@@ -355,7 +370,7 @@ and call its `hover(window, hovered)`.
 | Card | `FrostCard.qml`, a reworked `PopupCard` | `island: true`: square corners on the bar, 30 px on the free ones; opens by growing out of the bar (a sliver widens, drops to full height, then the content fades in) and folds back into it on close; see-through enough that Hyprland frosts it (`blur_popups` on the `omarchy-bar` layer rule); animates height between views |
 | Approvals | `approvals.py` (`PermissionRequest` hook) + `Approval.qml` | Allow / Always / Deny from the card; the terminal dialog stays up alongside |
 | Resume | `resumable.py` + `Resume.qml` | Past sessions, with whether resuming hits the prompt cache |
-| Reps | `gym.py` + `RepCard.qml` (Home's idle moment), `Settings.qml` | Exercism tracks, human-written tests, offline once cloned; one writer for `gym.json`, every crab watches it |
+| Anti-rot | `antirot.py` + `ChallengeCard.qml` (Home's idle moment) + `AntirotPane.qml` (corner card), `Settings.qml` | Exercism tracks, human-written tests, offline once cloned; one writer for `antirot.json`, every crab watches it |
 
 ### Background sessions & live terminal
 

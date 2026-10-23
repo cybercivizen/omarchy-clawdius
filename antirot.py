@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
-"""Daily reps: one small exercise a day, written by hand, from Exercism's tracks.
+"""Anti-rot: small exercises written by hand, from Exercism's tracks, a few a day.
 
-  gym.py today                  pick today's rep if there isn't one (and refresh the info)
-  gym.py start                  copy today's rep into its folder; prints the file to open
-  gym.py check                  run its tests; all passing counts the day
-  gym.py easier | skip          another rep for today: a level down, or the same level
-  gym.py set LANG on|off        a language in or out of the rotation (on sets it up)
-  gym.py level LANG N           its level, 1-10 (Exercism's difficulty)
-  gym.py setup LANG             clone its track (TypeScript: install jest once)
-  gym.py add TRACK [NAME NEEDS TEST]
+  antirot.py today                  pick today's challenge if there isn't one (and refresh the info)
+  antirot.py start                  copy today's challenge into its folder; prints the file to open
+  antirot.py check                  run its tests; all passing counts the day
+  antirot.py easier | skip          another one for today: a level down, or the same level
+  antirot.py next                   chain another challenge once today's is passed
+  antirot.py often N                challenges a day, 1-3 (the streak counts days the quota was met)
+  antirot.py set LANG on|off        a language in or out of the rotation (on sets it up)
+  antirot.py level LANG N           its level, 1-10 (Exercism's difficulty)
+  antirot.py setup LANG             clone its track (TypeScript: install jest once)
+  antirot.py add TRACK [NAME NEEDS TEST]
                                 add an Exercism track; a preset (python, go, ruby, elixir)
                                 needs only the name. NEEDS is a comma-separated list of
                                 tools, TEST the shell command run in a rep's folder
                                 (its exit code is the result unless the output is parsed)
-  gym.py remove TRACK           take an added track out again
-  gym.py editor NAME|default    the editor reps open in (default: Omarchy's)
+  antirot.py remove TRACK           take an added track out again
+  antirot.py editor NAME|default    the editor reps open in (default: Omarchy's)
 
-Everything lands in $XDG_STATE_HOME/clawdius/gym.json, which the widget
+Everything lands in $XDG_STATE_HOME/clawdius/antirot.json, which the widget
 watches; nothing else writes it. Tracks are shallow clones of
-github.com/exercism/<lang> under $XDG_DATA_HOME/clawdius/tracks, reps go to
-~/Work/gym/<lang>/<slug> ($CLAWDIUS_GYM_ROOT moves it). A rep is the
+github.com/exercism/<lang> under $XDG_DATA_HOME/clawdius/tracks, challenges go to
+~/Work/antirot/<lang>/<slug> ($CLAWDIUS_ANTIROT_ROOT moves it). A rep is the
 exercise's stub, tests and instructions, never its example solution, and
 every test runs (Exercism skips all but the first).
 """
@@ -36,11 +38,14 @@ import time
 from datetime import date, timedelta
 
 STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "clawdius")
-STATE = os.path.join(STATE_DIR, "gym.json")
+STATE = os.path.join(STATE_DIR, "antirot.json")
 TRACKS = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "clawdius", "tracks")
-REPS = os.path.expanduser(os.environ.get("CLAWDIUS_GYM_ROOT") or "~/Work/gym")
+REPS = os.path.expanduser(os.environ.get("CLAWDIUS_ANTIROT_ROOT") or "~/Work/antirot")
+OLD_STATE = os.path.join(STATE_DIR, "gym.json")
+OLD_REPS = os.path.expanduser("~/Work/gym")
 START_LEVEL = 2
 PASSES_TO_LEVEL_UP = 2
+MAX_PER_DAY = 3
 SKIP_DAYS = 30
 TEST_TIMEOUT = 180
 # The TypeScript reps share one jest install: these, at the versions the
@@ -94,7 +99,24 @@ def read_json(path, fallback):
         return fallback
 
 
+def migrate():
+    """Daily reps kept its state and folder under gym: move them over once."""
+    if not os.path.exists(STATE) and os.path.exists(OLD_STATE):
+        os.replace(OLD_STATE, STATE)
+    if not os.path.exists(REPS) and os.path.isdir(OLD_REPS) and "CLAWDIUS_ANTIROT_ROOT" not in os.environ:
+        shutil.move(OLD_REPS, REPS)
+        state = read_json(STATE, {})
+        t = state.get("today")
+        if t:
+            for key in ("dir", "file", "docs"):
+                if t.get(key, "").startswith(OLD_REPS):
+                    t[key] = REPS + t[key][len(OLD_REPS):]
+            with open(STATE, "w") as f:
+                json.dump(state, f, indent=1)
+
+
 def load():
+    migrate()
     state = read_json(STATE, {})
     state.setdefault("custom", {})
     LANGS.update(state["custom"])
@@ -104,6 +126,7 @@ def load():
     state.setdefault("skipped", {})
     state.setdefault("streak", {"count": 0, "last": ""})
     state.setdefault("editor", "")
+    state.setdefault("perDay", 1)
     # A language that's gone (JavaScript became TypeScript) can't be worked on.
     if state.get("today") and state["today"].get("lang") not in LANGS:
         state["today"] = None
@@ -129,8 +152,12 @@ def save(state):
     alive = last in (today_str(), (date.today() - timedelta(days=1)).isoformat())
     state["streakNow"] = state["streak"].get("count", 0) if alive else 0
     state["reps"] = REPS
+    state["doneToday"] = done_today(state)
+    state["passesToLevel"] = PASSES_TO_LEVEL_UP
+    state["stats"] = {"total": len(state["done"]),
+                      "recent": [dict(d, name=d.get("name") or d["slug"]) for d in state["done"][-3:][::-1]]}
     os.makedirs(STATE_DIR, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=STATE_DIR, prefix=".gym-")
+    fd, tmp = tempfile.mkstemp(dir=STATE_DIR, prefix=".antirot-")
     with os.fdopen(fd, "w") as f:
         json.dump(state, f, indent=1)
     os.replace(tmp, STATE)
@@ -155,6 +182,10 @@ def rotation(state):
     return sorted(l for l in LANGS if state["langs"][l]["on"] and info(l)["ready"])
 
 
+def done_today(state):
+    return sum(1 for d in state["done"] if d["date"] == today_str())
+
+
 def pick(state, lang=None):
     """Today's rep: the language rotates by day, the exercise is the unsolved,
     not lately skipped one nearest the language's level. The same day always
@@ -164,7 +195,7 @@ def pick(state, lang=None):
         if not langs:
             state["today"] = None
             return
-        lang = langs[date.today().toordinal() % len(langs)]
+        lang = langs[(date.today().toordinal() * MAX_PER_DAY + done_today(state)) % len(langs)]
     level = state["langs"][lang]["level"]
     done = {d["slug"] for d in state["done"] if d["lang"] == lang}
     cutoff = (date.today() - timedelta(days=SKIP_DAYS)).isoformat()
@@ -175,7 +206,7 @@ def pick(state, lang=None):
     if not pool:
         state["today"] = None
         return
-    salt = today_str() + str(len(state["skipped"]))
+    salt = today_str() + str(len(state["skipped"])) + str(done_today(state))
 
     def rank(e):
         tie = hashlib.md5((salt + e["slug"]).encode()).hexdigest()
@@ -212,7 +243,7 @@ def unskip(lang, path):
 def start(state):
     t = state["today"]
     if not t:
-        sys.stderr.write("no rep today: turn a language on in Settings\n")
+        sys.stderr.write("no challenge today: turn a language on in Settings\n")
         return 1
     lang, slug = t["lang"], t["slug"]
     dest = os.path.join(REPS, lang, slug)
@@ -288,7 +319,7 @@ def run_tests(lang, folder):
 def check(state):
     t = state["today"]
     if not t or not t.get("dir"):
-        sys.stderr.write("start today's rep first\n")
+        sys.stderr.write("start today's challenge first\n")
         return 1
     try:
         passed, total, out = run_tests(t["lang"], t["dir"])
@@ -297,14 +328,14 @@ def check(state):
     t["check"] = {"passed": passed, "total": total, "at": int(time.time() * 1000), "tail": tail(out)}
     if total and passed == total and not t.get("passedAt"):
         t["passedAt"] = t["check"]["at"]
-        state["done"].append({"date": today_str(), "lang": t["lang"], "slug": t["slug"]})
+        state["done"].append({"date": today_str(), "lang": t["lang"], "slug": t["slug"], "name": t.get("name", "")})
         lang = state["langs"][t["lang"]]
         lang["passes"] = lang.get("passes", 0) + 1
         if lang["passes"] >= PASSES_TO_LEVEL_UP and lang["level"] < 10:
             lang["level"] += 1
             lang["passes"] = 0
         streak = state["streak"]
-        if streak.get("last") != today_str():
+        if done_today(state) >= state["perDay"] and streak.get("last") != today_str():
             yesterday = (date.today() - timedelta(days=1)).isoformat()
             streak["count"] = streak.get("count", 0) + 1 if streak.get("last") == yesterday else 1
             streak["last"] = today_str()
@@ -368,7 +399,7 @@ def main(args):
     cmd = args[0]
     lang = args[1] if len(args) > 1 else ""
     os.makedirs(STATE_DIR, exist_ok=True)
-    with open(os.path.join(STATE_DIR, "gym.lock"), "w") as lock:
+    with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = load()
         code = 0
@@ -392,6 +423,13 @@ def main(args):
                 else:
                     state["skipped"][t["lang"] + "/" + t["slug"]] = today_str()
                 pick(state, t["lang"])
+        elif cmd == "next":
+            t = state["today"]
+            if t and t.get("passedAt"):
+                # The pass moved the language and the tie-break on.
+                pick(state)
+        elif cmd == "often" and len(args) == 2 and lang.isdigit():
+            state["perDay"] = max(1, min(MAX_PER_DAY, int(lang)))
         elif cmd == "set" and len(args) == 3 and args[2] in ("on", "off"):
             state["langs"][lang]["on"] = args[2] == "on"
             if args[2] == "on" and not info(lang)["missing"]:

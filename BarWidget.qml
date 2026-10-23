@@ -17,7 +17,7 @@ import "Timers.js" as Timers
 //   Home      one moment at a time, the most pressing (Moment.qml): a
 //             permission prompt to answer, a finished turn, the session
 //             you're watching and its steps, or, with nothing running,
-//             today's rep (RepCard.qml, gym.py) and New chat. Other running
+//             today's rep (ChallengeCard.qml, antirot.py) and New chat. Other running
 //             sessions sit on a rail of small crabs; the Limits glance
 //             beside it opens Stats.
 //   Chat      a new chat: type, Enter starts Chat or Code with it (QuickChat).
@@ -364,7 +364,7 @@ BarWidget {
   Connections {
     target: root
     // Opening also picks today's rep when the day has turned.
-    function onIslandOpenChanged() { if (root.islandOpen) { root.refreshUsage(60000); root.runGym(["today"], "") } }
+    function onIslandOpenChanged() { if (root.islandOpen) { root.refreshUsage(60000); root.runAntirot(["today"], "") } }
   }
 
   Timer {
@@ -456,8 +456,8 @@ BarWidget {
         toast: root.toast ? root.toast.kind : "", toastShown: root.toastShown, peeking: root.peeking, otherPanel: root.otherPanel,
         keysFocused: liveKeys.field.activeFocus,
         idleStopMinutes: root.idleStopMinutes, idleKeepRunning: root.idleKeepRunning, asleep: root.asleepCount,
-        gym: root.gym ? { today: root.gym.today ? root.gym.today.lang + "/" + root.gym.today.slug : "", streak: root.gym.streakNow } : null,
-        gymBusy: root.gymBusy })
+        antirot: root.antirot ? { today: root.antirot.today ? root.antirot.today.lang + "/" + root.antirot.today.slug : "", streak: root.antirot.streakNow } : null,
+        antirotBusy: root.antirotBusy })
     }
     // Same path the clock's HoverHandler takes, for testing without a pointer.
     function hoverClock(on: bool): void { Link.clockHover(root.barWindow, on) }
@@ -470,8 +470,8 @@ BarWidget {
     }
     // home | quick | sessions | search | stats | detail | settings
     function setView(name: string): void { root.view = name }
-    // A rep card button: start | open | check | easier | skip | review | settings.
-    function rep(action: string): void { root.repAction(action) }
+    // A rep card button: start | open | check | easier | skip | next | review | settings.
+    function challenge(action: string): void { root.challengeAction(action) }
     // Home's corner card: limits | timer | posture.
     function setCorner(mode: string): void { root.pickCorner(mode) }
     // Show a background session live, by its job id ("" hides it).
@@ -1450,66 +1450,66 @@ BarWidget {
     onTriggered: prefsFile.setText(JSON.stringify({ quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
   }
 
-  // ---- Daily reps (gym.py): today's exercise on Home's idle moment, the
-  //      languages in Settings. gym.py is the only writer of gym.json; every
+  // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
+  //      languages in Settings. antirot.py is the only writer of antirot.json; every
   //      crab watches it. Its actions run one at a time.
-  readonly property string gymPath: decodeURIComponent(String(Qt.resolvedUrl("gym.py")).replace(/^file:\/\//, ""))
-  property var gym: null
-  property var gymQueue: []
+  readonly property string antirotPath: decodeURIComponent(String(Qt.resolvedUrl("antirot.py")).replace(/^file:\/\//, ""))
+  property var antirot: null
+  property var antirotQueue: []
   // The action running ("" when none) and its language, for the spinners.
-  property string gymBusy: ""
-  property string gymBusyLang: ""
+  property string antirotBusy: ""
+  property string antirotBusyLang: ""
 
   FileView {
-    path: root.stateDir + "/gym.json"
+    path: root.stateDir + "/antirot.json"
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: { try { root.gym = JSON.parse(text()) } catch (e) { console.warn("clawdius gym parse", e) } }
+    onLoaded: { try { root.antirot = JSON.parse(text()) } catch (e) { console.warn("clawdius antirot parse", e) } }
   }
 
-  function runGym(args, lang) {
+  function runAntirot(args, lang) {
     // Opening the island twice needn't check the day twice.
-    if (args[0] === "today" && (root.gymBusy === "today" || root.gymQueue.some(function(q) { return q.args[0] === "today" }))) return
-    root.gymQueue = root.gymQueue.concat([{ args: args, lang: lang }])
-    root.nextGym()
+    if (args[0] === "today" && (root.antirotBusy === "today" || root.antirotQueue.some(function(q) { return q.args[0] === "today" }))) return
+    root.antirotQueue = root.antirotQueue.concat([{ args: args, lang: lang }])
+    root.nextAntirot()
   }
 
-  function nextGym() {
-    if (gymProcess.running || !root.gymQueue.length) return
-    var job = root.gymQueue[0]
-    root.gymQueue = root.gymQueue.slice(1)
-    root.gymBusy = job.args[0]
-    root.gymBusyLang = job.lang
-    gymProcess.command = ["python3", "-I", root.gymPath].concat(job.args)
-    gymProcess.running = true
+  function nextAntirot() {
+    if (antirotProcess.running || !root.antirotQueue.length) return
+    var job = root.antirotQueue[0]
+    root.antirotQueue = root.antirotQueue.slice(1)
+    root.antirotBusy = job.args[0]
+    root.antirotBusyLang = job.lang
+    antirotProcess.command = ["python3", "-I", root.antirotPath].concat(job.args)
+    antirotProcess.running = true
   }
 
   Process {
-    id: gymProcess
-    stdout: StdioCollector { id: gymOut }
-    stderr: StdioCollector { id: gymErr }
+    id: antirotProcess
+    stdout: StdioCollector { id: antirotOut }
+    stderr: StdioCollector { id: antirotErr }
     onExited: function(code) {
-      var action = root.gymBusy
-      root.gymBusy = ""
-      root.gymBusyLang = ""
+      var action = root.antirotBusy
+      root.antirotBusy = ""
+      root.antirotBusyLang = ""
       if (code !== 0) {
-        root.startNotice = gymErr.text.trim().split("\n").pop() || "gym.py " + action + " failed"
+        root.startNotice = antirotErr.text.trim().split("\n").pop() || "antirot.py " + action + " failed"
         noticeClear.restart()
       } else if (action === "start") {
-        var lines = gymOut.text.split("\n")
-        if (lines[0]) root.openRep(lines[0], lines[1])
+        var lines = antirotOut.text.split("\n")
+        if (lines[0]) root.openChallenge(lines[0], lines[1])
       }
-      root.nextGym()
+      root.nextAntirot()
     }
   }
 
   // Open a rep file in the editor chosen in Settings, else Omarchy's default.
   // Terminal editors get a window of their own, as omarchy-launch-editor does.
   // The task's instructions open beside the solution: the card only has the blurb.
-  function openRep(file, docs) {
+  function openChallenge(file, docs) {
     var files = (docs ? root.shellQuote(docs) + " " : "") + root.shellQuote(file)
-    var editor = root.gym && root.gym.editor ? root.gym.editor : ""
+    var editor = root.antirot && root.antirot.editor ? root.antirot.editor : ""
     if (!editor) { root.launch("omarchy-launch-editor " + files); return }
     var tui = ["nvim", "vim", "nano", "micro", "hx", "helix"].indexOf(editor) >= 0
     var split = docs && (editor === "nvim" || editor === "vim") ? " -O" : ""
@@ -1517,18 +1517,18 @@ BarWidget {
   }
 
   // The rep card's buttons.
-  function repAction(action) {
-    var rep = root.gym ? root.gym.today : null
+  function challengeAction(action) {
+    var rep = root.antirot ? root.antirot.today : null
     if (action === "settings") root.view = "settings"
-    else if (action === "open" && rep && rep.file) root.openRep(rep.file, rep.docs || (rep.dir ? rep.dir + "/.docs/instructions.md" : ""))
-    else if (action === "review" && rep && rep.dir) root.reviewRep(rep)
-    else if (["start", "check", "easier", "skip"].indexOf(action) >= 0) root.runGym([action], rep ? rep.lang : "")
+    else if (action === "open" && rep && rep.file) root.openChallenge(rep.file, rep.docs || (rep.dir ? rep.dir + "/.docs/instructions.md" : ""))
+    else if (action === "review" && rep && rep.dir) root.reviewChallenge(rep)
+    else if (["start", "check", "easier", "skip", "next"].indexOf(action) >= 0) root.runAntirot([action], rep ? rep.lang : "")
   }
 
   // Claude looks over the passed rep in the live terminal, read only. A new
   // rep folder isn't trusted yet: answerTrust saves that, then starts it.
-  function reviewRep(rep) {
-    var lang = root.gym.info && root.gym.info[rep.lang] ? root.gym.info[rep.lang].name : rep.lang
+  function reviewChallenge(rep) {
+    var lang = root.antirot.info && root.antirot.info[rep.lang] ? root.antirot.info[rep.lang].name : rep.lang
     var prompt = "Review my solution to the Exercism exercise \"" + rep.name + "\" in " + lang
       + " (this folder; the task is in .docs/). I wrote it by hand to get my skills back, so teach rather than fix:"
       + " what's idiomatic and what isn't, edge cases the tests miss, and what a senior " + lang + " developer would change."
@@ -2469,9 +2469,9 @@ BarWidget {
                   requests: root.requests
                   sessionCount: root.sessions.length
                   usage: root.usage
-                  gym: root.gym
-                  repBusy: root.gymBusy === "today" ? "" : root.gymBusy
-                  onRep: function(action) { root.repAction(action) }
+                  antirot: root.antirot
+                  challengeBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
+                  onChallenge: function(action) { root.challengeAction(action) }
                   onAnswered: function(request, choice, answers) { root.answerRequest(request, choice, answers) }
                   onDismissed: root.finished = null
                   onOpened: function(s) { root.openSession(s) }
@@ -2494,6 +2494,9 @@ BarWidget {
                   mode: root.cornerMode
                   timers: root.timers
                   posture: root.posture
+                  antirot: root.antirot
+                  antirotBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
+                  onChallenge: function(action) { root.challengeAction(action) }
                   onModePicked: function(mode) { root.pickCorner(mode) }
                   onStatsOpened: root.view = "stats"
                   onTimerAdded: function(kind, label, at, len) { root.addTimer(kind, label, at, len) }
@@ -2640,15 +2643,16 @@ BarWidget {
                   width: parent.width - Style.space(48)
                   pal: theme
                   fontFamily: root.fontFamily
-                  gym: root.gym
-                  busy: root.gymBusy === "today" ? "" : root.gymBusy
-                  busyLang: root.gymBusyLang
-                  onLangToggled: function(lang, on) { root.runGym(["set", lang, on ? "on" : "off"], lang) }
-                  onLevelSet: function(lang, level) { root.runGym(["level", lang, String(level)], lang) }
-                  onSetupAsked: function(lang) { root.runGym(["setup", lang], lang) }
-                  onLangAdded: function(track) { root.runGym(["add", track], track) }
-                  onLangRemoved: function(lang) { root.runGym(["remove", lang], lang) }
-                  onEditorSet: function(editor) { root.runGym(["editor", editor || "default"], "") }
+                  antirot: root.antirot
+                  busy: root.antirotBusy === "today" ? "" : root.antirotBusy
+                  busyLang: root.antirotBusyLang
+                  onLangToggled: function(lang, on) { root.runAntirot(["set", lang, on ? "on" : "off"], lang) }
+                  onLevelSet: function(lang, level) { root.runAntirot(["level", lang, String(level)], lang) }
+                  onSetupAsked: function(lang) { root.runAntirot(["setup", lang], lang) }
+                  onLangAdded: function(track) { root.runAntirot(["add", track], track) }
+                  onLangRemoved: function(lang) { root.runAntirot(["remove", lang], lang) }
+                  onEditorSet: function(editor) { root.runAntirot(["editor", editor || "default"], "") }
+                  onOftenSet: function(n) { root.runAntirot(["often", String(n)], "") }
                 }
               }
 

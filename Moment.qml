@@ -17,7 +17,7 @@ import "Icons.js" as Icons
 //   failed    the same, for one that didn't work out
 //   limited   the same, for one stopped by the usage limit: when it resets
 //   working   the session being watched: its steps, time and tokens
-//   idle      nothing running: today's rep (RepCard), or start a new chat
+//   idle      nothing running: today's rep (ChallengeCard), or start a new chat
 Rectangle {
   id: root
 
@@ -40,9 +40,9 @@ Rectangle {
   property int sessionCount: 0
   // The usage record (Omarchy's collector), for when a hit limit resets.
   property var usage: null
-  // gym.json (gym.py), for today's rep in the idle moment; null: no reps yet.
-  property var gym: null
-  property string repBusy: ""
+  // antirot.json (antirot.py), for today's rep in the idle moment; null: no reps yet.
+  property var antirot: null
+  property string challengeBusy: ""
 
   // answers: AskUserQuestion's, question → chosen label(s).
   signal answered(var request, string choice, var answers)
@@ -54,8 +54,8 @@ Rectangle {
   signal newChat()
   signal pinned(var session)
   signal moreSessions()
-  // RepCard's: start | open | check | easier | skip | review | settings
-  signal rep(string action)
+  // ChallengeCard's: start | open | check | easier | skip | next | review | settings
+  signal challenge(string action)
 
   readonly property string kind: moment ? moment.kind : "idle"
   readonly property var s: moment && moment.session ? moment.session : null
@@ -511,26 +511,27 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(14)
 
-      RepCard {
-        visible: !!root.gym
+      ChallengeCard {
+        visible: !!root.antirot
         width: parent.width
         pal: root.pal
         fontFamily: root.fontFamily
-        gym: root.gym
+        antirot: root.antirot
         now: root.now
-        busy: root.repBusy
-        onStarted: root.rep("start")
-        onOpened: root.rep("open")
-        onChecked: root.rep("check")
-        onEasier: root.rep("easier")
-        onSkipped: root.rep("skip")
-        onReviewed: root.rep("review")
-        onSettingsOpened: root.rep("settings")
+        busy: root.challengeBusy
+        onStarted: root.challenge("start")
+        onOpened: root.challenge("open")
+        onChecked: root.challenge("check")
+        onEasier: root.challenge("easier")
+        onSkipped: root.challenge("skip")
+        onNexted: root.challenge("next")
+        onReviewed: root.challenge("review")
+        onSettingsOpened: root.challenge("settings")
         onNewChat: root.newChat()
       }
 
       Column {
-        visible: !root.gym
+        visible: !root.antirot
         width: parent.width
         spacing: Style.space(5)
 
@@ -560,7 +561,7 @@ Rectangle {
 
       // Into the chat view (QuickChat): type, Chat or Code, Enter.
       Pill {
-        visible: !root.gym
+        visible: !root.antirot
         pal: root.pal
         fontFamily: root.fontFamily
         kind: "primary"

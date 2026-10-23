@@ -3,10 +3,10 @@ import qs.Commons
 import "Format.js" as Format
 import "Icons.js" as Icons
 
-// Today's rep, in Home's idle moment: one small exercise to write by hand
-// (gym.py picks it from an Exercism track). Start copies it out and opens
-// your editor; Check runs its tests; a pass counts the day toward the
-// streak, and Claude can review it (read only). With no language on, or
+// Today's challenge, in Home's idle moment: a small exercise to write by hand
+// (antirot.py picks it from an Exercism track). Start copies it out and opens
+// your editor; Check runs its tests; passes fill the day's quota (Settings)
+// toward the streak, Next chains another, and Claude can review it (read only). With no language on, or
 // one that still needs its toolchain, it says so and points at Settings.
 // New chat stays at the end of the buttons.
 Column {
@@ -14,10 +14,10 @@ Column {
 
   property QtObject pal
   property string fontFamily: Style.font.family
-  // gym.json, as gym.py writes it.
-  property var gym: null
+  // antirot.json, as antirot.py writes it.
+  property var antirot: null
   property double now: Date.now()
-  // The gym.py action running: "" | start | check | easier | skip | set | setup
+  // The antirot.py action running: "" | start | check | easier | skip | next | set | setup
   property string busy: ""
 
   signal started()
@@ -25,14 +25,15 @@ Column {
   signal checked()
   signal easier()
   signal skipped()
+  signal nexted()
   signal reviewed()
   signal settingsOpened()
   signal newChat()
 
-  readonly property var rep: gym ? gym.today : null
-  readonly property var info: gym && gym.info ? gym.info : ({})
+  readonly property var rep: antirot ? antirot.today : null
+  readonly property var info: antirot && antirot.info ? antirot.info : ({})
   readonly property var langsOn: {
-    var langs = gym && gym.langs ? gym.langs : {}
+    var langs = antirot && antirot.langs ? antirot.langs : {}
     return Object.keys(langs).filter(function(l) { return langs[l].on })
   }
   // On, but its toolchain is missing: the first one, for the hint.
@@ -46,7 +47,12 @@ Column {
   readonly property bool inProgress: !!rep && !!rep.startedAt && !rep.passedAt
   readonly property bool passed: !!rep && !!rep.passedAt
   readonly property var check: rep ? rep.check : null
-  readonly property int streak: gym ? gym.streakNow || 0 : 0
+  readonly property int perDay: antirot ? antirot.perDay || 1 : 1
+  readonly property int doneToday: antirot ? antirot.doneToday || 0 : 0
+  // Where the day's quota stands; a chained one past it is a bonus.
+  readonly property string counter: passed ? doneToday + " OF " + perDay + " DONE"
+    : doneToday >= perDay ? "BONUS" : (doneToday + 1) + " OF " + perDay + " TODAY"
+  readonly property int streak: antirot ? antirot.streakNow || 0 : 0
 
   function langName(lang) { return info[lang] ? info[lang].name : lang }
 
@@ -59,7 +65,7 @@ Column {
     Text {
       visible: !!root.rep
       width: parent.width
-      text: root.rep ? ("TODAY'S REP · " + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level).toUpperCase() : ""
+      text: root.rep ? ("ANTI-ROT · " + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level + " · " + root.counter).toUpperCase() : ""
       textFormat: Text.PlainText
       elide: Text.ElideRight
       color: root.pal.muted
@@ -73,8 +79,8 @@ Column {
       text: root.rep ? root.rep.name
         : root.busy === "set" || root.busy === "setup" ? "Setting up…"
         : root.blocked ? root.langName(root.blocked) + " needs " + root.info[root.blocked].missing.join(", ") + "."
-        : root.langsOn.length ? "No rep today."
-        : "Daily reps are off."
+        : root.langsOn.length ? "No challenge today."
+        : "Anti-rot is off."
       textFormat: Text.PlainText
       elide: Text.ElideRight
       color: root.pal.strong
@@ -89,7 +95,7 @@ Column {
         : root.busy === "set" || root.busy === "setup" ? "Getting the exercises. The first time takes a minute."
         : root.blocked ? "Install it, then open the island again: " + root.info[root.blocked].install
         : root.langsOn.length ? "Set up a language in Settings to get one."
-        : "One small exercise a day, written by hand. Pick a language in Settings."
+        : "Small exercises, written by hand. Pick a language in Settings."
       visible: text !== ""
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
@@ -211,6 +217,17 @@ Column {
       onClicked: root.skipped()
     }
 
+    // Chain another: the main action while the day's quota isn't met.
+    Pill {
+      visible: root.passed
+      pal: root.pal
+      fontFamily: root.fontFamily
+      kind: root.doneToday < root.perDay ? "primary" : "secondary"
+      label: root.doneToday < root.perDay ? "Next" : "Another one"
+      busy: root.busy === "next"
+      onClicked: root.nexted()
+    }
+
     Pill {
       visible: root.passed
       pal: root.pal
@@ -225,7 +242,7 @@ Column {
     Pill {
       pal: root.pal
       fontFamily: root.fontFamily
-      kind: !root.rep || root.passed ? "primary" : "quiet"
+      kind: !root.rep ? "primary" : "quiet"
       icon: Icons.chat
       label: "New chat"
       onClicked: root.newChat()

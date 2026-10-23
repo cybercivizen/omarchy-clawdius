@@ -5,17 +5,17 @@ import "Icons.js" as Icons
 // The gear's view: settings that live in the island rather than shell.json.
 // One section per feature, stacked; a new setting is a new section here.
 //
-//   Daily reps  which languages are in the rotation, and each one's level
-//               (gym.py keeps both in gym.json), languages to add, and the
-//               editor reps open in.
+//   Anti-rot    how many challenges a day, which languages are in the rotation,
+//               and each one's level (antirot.py keeps them in antirot.json),
+//               languages to add, and the editor challenges open in.
 Column {
   id: root
 
   property QtObject pal
   property string fontFamily: Style.font.family
-  // gym.json, as gym.py writes it.
-  property var gym: null
-  // The gym.py action running ("set", "level", "setup"…) and its language.
+  // antirot.json, as antirot.py writes it.
+  property var antirot: null
+  // The antirot.py action running ("set", "level", "setup"…) and its language.
   property string busy: ""
   property string busyLang: ""
 
@@ -23,17 +23,19 @@ Column {
   signal levelSet(string lang, int level)
   signal setupAsked(string lang)
   signal editorSet(string editor)
+  signal oftenSet(int perDay)
   signal langAdded(string track)
   signal langRemoved(string lang)
 
   // [label, command]; "" is Omarchy's default editor.
   readonly property var editors: [["Default", ""], ["Neovim", "nvim"], ["Helix", "hx"], ["Nano", "nano"], ["VS Code", "code"], ["Zed", "zeditor"]]
-  readonly property string editor: gym && gym.editor ? gym.editor : ""
+  readonly property string editor: antirot && antirot.editor ? antirot.editor : ""
 
-  readonly property var info: gym && gym.info ? gym.info : ({})
-  readonly property var langs: gym && gym.langs ? gym.langs : ({})
-  readonly property var presets: gym && gym.presets ? gym.presets : ({})
-  readonly property int streak: gym ? gym.streakNow || 0 : 0
+  readonly property var info: antirot && antirot.info ? antirot.info : ({})
+  readonly property var langs: antirot && antirot.langs ? antirot.langs : ({})
+  readonly property var presets: antirot && antirot.presets ? antirot.presets : ({})
+  readonly property int perDay: antirot ? antirot.perDay || 1 : 1
+  readonly property int streak: antirot ? antirot.streakNow || 0 : 0
 
   spacing: Style.space(16)
 
@@ -45,22 +47,44 @@ Column {
     font.letterSpacing: 0.8
   }
 
-  // ---- Daily reps
+  // ---- Anti-rot
   Column {
     width: parent.width
     spacing: Style.space(10)
 
-    Caption { text: "DAILY REPS" }
+    Caption { text: "ANTI-ROT" }
 
     Text {
       width: parent.width
-      text: "One small exercise a day from Exercism, written by hand. The languages on here take turns; a level goes up after two passes."
+      text: "Small exercises from Exercism, written by hand. The languages on here take turns; a level goes up after two passes."
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
       color: root.pal.muted
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
+
+    Caption { text: "CHALLENGES A DAY" }
+
+    Row {
+      spacing: Style.space(6)
+
+      Repeater {
+        model: [1, 2, 3]
+
+        Pill {
+          required property int modelData
+          pal: root.pal
+          compact: true
+          fontFamily: root.fontFamily
+          kind: root.perDay === modelData ? "primary" : "secondary"
+          label: String(modelData)
+          onClicked: root.oftenSet(modelData)
+        }
+      }
+    }
+
+    Caption { text: "LANGUAGES" }
 
     Repeater {
       model: Object.keys(root.info).sort()
@@ -253,7 +277,7 @@ Column {
 
     Text {
       width: parent.width
-      text: "Any other Exercism track: gym.py add TRACK NAME TOOLS \"TEST COMMAND\""
+      text: "Any other Exercism track: antirot.py add TRACK NAME TOOLS \"TEST COMMAND\""
       textFormat: Text.PlainText
       elide: Text.ElideRight
       color: root.pal.muted
@@ -284,7 +308,7 @@ Column {
 
     Text {
       width: parent.width
-      text: "Reps are saved in " + (root.gym && root.gym.reps ? root.gym.reps.replace(/^\/home\/[^\/]+/, "~") : "~/Work/gym")
+      text: "Challenges are saved in " + (root.antirot && root.antirot.reps ? root.antirot.reps.replace(/^\/home\/[^\/]+/, "~") : "~/Work/antirot")
         + (root.streak ? " · " + root.streak + (root.streak === 1 ? " day" : " days") + " in a row" : "")
       textFormat: Text.PlainText
       elide: Text.ElideRight
