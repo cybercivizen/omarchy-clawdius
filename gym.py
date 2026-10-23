@@ -8,6 +8,7 @@
   gym.py set LANG on|off        a language in or out of the rotation (on sets it up)
   gym.py level LANG N           its level, 1-10 (Exercism's difficulty)
   gym.py setup LANG             clone its track (JavaScript: install jest once)
+  gym.py editor NAME|default    the editor reps open in (default: Omarchy's)
 
 Everything lands in $XDG_STATE_HOME/clawdius/gym.json, which the widget
 watches; nothing else writes it. Tracks are shallow clones of
@@ -71,6 +72,7 @@ def load():
     state.setdefault("done", [])
     state.setdefault("skipped", {})
     state.setdefault("streak", {"count": 0, "last": ""})
+    state.setdefault("editor", "")
     for lang in LANGS:
         state["langs"].setdefault(lang, {"on": False, "level": START_LEVEL, "passes": 0})
     return state
@@ -320,6 +322,8 @@ def main(args):
             t = state["today"]
             if t and t["lang"] == lang and not t.get("startedAt"):
                 pick(state, lang)
+        elif cmd == "editor" and len(args) == 2 and (lang == "default" or re.fullmatch(r"[\w.+-]+", lang)):
+            state["editor"] = "" if lang == "default" else lang
         elif cmd == "setup":
             code = setup(lang)
             ensure_today(state)

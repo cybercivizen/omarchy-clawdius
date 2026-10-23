@@ -1457,17 +1457,26 @@ BarWidget {
         noticeClear.restart()
       } else if (action === "start") {
         var file = gymOut.text.trim().split("\n").pop()
-        if (file) root.launch("omarchy-launch-editor " + root.shellQuote(file))
+        if (file) root.openRep(file)
       }
       root.nextGym()
     }
+  }
+
+  // Open a rep file in the editor chosen in Settings, else Omarchy's default.
+  // Terminal editors get a window of their own, as omarchy-launch-editor does.
+  function openRep(file) {
+    var editor = root.gym && root.gym.editor ? root.gym.editor : ""
+    if (!editor) { root.launch("omarchy-launch-editor " + root.shellQuote(file)); return }
+    var tui = ["nvim", "vim", "nano", "micro", "hx", "helix"].indexOf(editor) >= 0
+    root.launch((tui ? "omarchy-launch-tui " : "setsid uwsm-app -- ") + editor + " -- " + root.shellQuote(file))
   }
 
   // The rep card's buttons.
   function repAction(action) {
     var rep = root.gym ? root.gym.today : null
     if (action === "settings") root.view = "settings"
-    else if (action === "open" && rep && rep.file) root.launch("omarchy-launch-editor " + root.shellQuote(rep.file))
+    else if (action === "open" && rep && rep.file) root.openRep(rep.file)
     else if (action === "review" && rep && rep.dir) root.reviewRep(rep)
     else if (["start", "check", "easier", "skip"].indexOf(action) >= 0) root.runGym([action], rep ? rep.lang : "")
   }
@@ -2580,6 +2589,7 @@ BarWidget {
                   onLangToggled: function(lang, on) { root.runGym(["set", lang, on ? "on" : "off"], lang) }
                   onLevelSet: function(lang, level) { root.runGym(["level", lang, String(level)], lang) }
                   onSetupAsked: function(lang) { root.runGym(["setup", lang], lang) }
+                  onEditorSet: function(editor) { root.runGym(["editor", editor || "default"], "") }
                 }
               }
 

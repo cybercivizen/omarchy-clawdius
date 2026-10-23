@@ -6,7 +6,7 @@ import "Icons.js" as Icons
 // One section per feature, stacked; a new setting is a new section here.
 //
 //   Daily reps  which languages are in the rotation, and each one's level
-//               (gym.py keeps both in gym.json).
+//               (gym.py keeps both in gym.json), and the editor reps open in.
 Column {
   id: root
 
@@ -21,6 +21,11 @@ Column {
   signal langToggled(string lang, bool on)
   signal levelSet(string lang, int level)
   signal setupAsked(string lang)
+  signal editorSet(string editor)
+
+  // [label, command]; "" is Omarchy's default editor.
+  readonly property var editors: [["Default", ""], ["Neovim", "nvim"], ["Helix", "hx"], ["Nano", "nano"], ["VS Code", "code"], ["Zed", "zeditor"]]
+  readonly property string editor: gym && gym.editor ? gym.editor : ""
 
   readonly property var info: gym && gym.info ? gym.info : ({})
   readonly property var langs: gym && gym.langs ? gym.langs : ({})
@@ -195,6 +200,27 @@ Column {
               onClicked: root.langToggled(langRow.modelData, !toggle.on)
             }
           }
+        }
+      }
+    }
+
+    Caption { text: "EDITOR" }
+
+    Flow {
+      width: parent.width
+      spacing: Style.space(6)
+
+      Repeater {
+        model: root.editors
+
+        Pill {
+          required property var modelData
+          pal: root.pal
+          compact: true
+          fontFamily: root.fontFamily
+          kind: root.editor === modelData[1] ? "primary" : "secondary"
+          label: modelData[0]
+          onClicked: root.editorSet(modelData[1])
         }
       }
     }

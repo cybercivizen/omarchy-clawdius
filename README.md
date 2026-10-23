@@ -269,7 +269,8 @@ buffer squashed into the new size.
   `shell.json`, one section per feature (`Settings.qml`). For now, **Daily
   reps**: each language's on/off switch, its level (− / +, 1–10), and its
   state: ready, not set up (**Set up**), or the toolchain it still needs,
-  with the install command.
+  with the install command. Below them, the **editor** reps open in
+  (Omarchy's default, Neovim, Helix, Nano, VS Code or Zed).
 
 #### Daily reps
 
