@@ -112,7 +112,8 @@ Rectangle {
   border.width: 1
   border.color: pal ? pal.hairline : "transparent"
   readonly property bool agents: mode === "agents"
-  // Something is at work: the Agents tab pulses a dot while another mode is up.
+  // Something is at work, or just finished: the Agents tab wears a dot while
+  // another mode is up (pulsing orange, or green for a finish).
   readonly property bool anyWorking: kind === "working" || railSessions.some(x => x.busy)
 
   implicitHeight: Math.max(Style.space(204), agents ? body.implicitHeight + pad * 2 : 0, railColumn.implicitHeight + Style.space(20))
@@ -688,7 +689,7 @@ Rectangle {
 
         Rectangle {
           id: workDot
-          visible: parent.modelData.id === "agents" && !parent.current && root.anyWorking
+          visible: parent.modelData.id === "agents" && !parent.current && (root.anyWorking || root.kind === "done")
           anchors.right: parent.right
           anchors.top: parent.top
           anchors.rightMargin: Style.space(3)
@@ -696,9 +697,9 @@ Rectangle {
           width: Style.space(6)
           height: width
           radius: width / 2
-          color: root.pal.crab
+          color: root.kind === "done" ? root.pal.done : root.pal.crab
 
-          Throb { target: workDot; running: workDot.visible && root.active; period: 1400; steps: 10 }
+          Throb { target: workDot; running: workDot.visible && root.active && root.kind !== "done"; period: 1400; steps: 10 }
         }
 
         MouseArea {

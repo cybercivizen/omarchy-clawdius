@@ -1322,9 +1322,10 @@ BarWidget {
   property var walk: ({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
   property string cornerMode: "limits"
   // Home's main card: agents | today | antirot. What needs you shows Agents
-  // whatever was picked; the pick comes back after.
+  // whatever was picked; the pick comes back after. A finished turn doesn't
+  // force it: the Agents tab wears a green dot instead.
   property string mainMode: "agents"
-  readonly property string mainShown: ["approval", "waiting", "done", "failed", "limited"].indexOf(root.moment.kind) >= 0 ? "agents" : root.mainMode
+  readonly property string mainShown: ["approval", "waiting", "failed", "limited"].indexOf(root.moment.kind) >= 0 ? "agents" : root.mainMode
   property int postureRings: 0
   property int walkRings: 0
   readonly property bool nudging: root.posture.on || root.walk.on
