@@ -30,6 +30,12 @@ Item {
   property int fontSize: Style.font.subtitle
   property int bubbleSize: Style.font.subtitle
   property bool active: true
+  // The session's folder: linked paths inside it are written relative to it.
+  property string cwd: ""
+
+  // The card's Flickable stays still while the pointer is over the
+  // conversation, so a drag there selects text instead of scrolling the card.
+  readonly property bool holdsPointer: hover.hovered
 
   signal grabbed()
   signal showTerminal()
@@ -57,16 +63,25 @@ Item {
     width: Style.space(16)
     height: Style.space(11)
     preferredRendererType: Shape.CurveRenderer
+    // Filled whole (it covers the bubble's bottom border where they join),
+    // stroked along the outer slope only.
     ShapePath {
       fillColor: tail.body
-      strokeColor: tail.outline
-      strokeWidth: 1
-      capStyle: ShapePath.FlatCap
-      joinStyle: ShapePath.RoundJoin
+      strokeColor: "transparent"
       startX: tail.flip ? 0 : tail.width
       startY: -1
       PathLine { x: tail.flip ? tail.width : 0; y: tail.height }
       PathLine { x: tail.flip ? tail.width : 0; y: -1 }
+    }
+    ShapePath {
+      fillColor: "transparent"
+      strokeColor: tail.outline
+      strokeWidth: 1
+      capStyle: ShapePath.FlatCap
+      joinStyle: ShapePath.MiterJoin
+      startX: tail.flip ? 0.5 : tail.width - 0.5
+      startY: -1
+      PathLine { x: tail.flip ? tail.width - 0.5 : 0.5; y: tail.height }
     }
   }
 
@@ -83,8 +98,8 @@ Item {
   readonly property bool working: !root.asking && (root.jobId === "" || !!root.s.busy
                                   || (root.awaitingSince > 0 && Date.now() - root.awaitingSince < 20000))
 
+  // Detail sizes it to the card, so the composer sits at the bottom.
   implicitHeight: Style.space(440)
-  height: implicitHeight
 
   // ---- Messages
 
@@ -166,9 +181,85 @@ Item {
     root.stick = true
   }
 
+  // The bubble text last selected: starting another clears it.
+  property Item selecting: null
+  property Item wasSelecting: null
+  onSelectingChanged: {
+    if (wasSelecting && wasSelecting !== selecting) wasSelecting.deselect()
+    wasSelecting = selecting
+  }
+
+  function copySelection(edit) {
+    var text = edit.selectedText.replace(/[\u2028\u2029]/g, "\n").replace(/\u00a0/g, " ")
+    if (text.trim() !== "") Quickshell.execDetached(["wl-copy", "--", text])
+  }
+
+  // ---- Linking files and folders, as in LiveTerm: typed into the composer as @path
+
+  readonly property string home: Quickshell.env("HOME") || ""
+  property bool linkMenu: false
+  readonly property bool picking: browser.running
+
+  Process {
+    id: browser
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.mention(text.split("\n"))
+    }
+  }
+
+  function browse(kind) {
+    if (browser.running) return
+    browser.command = ["zenity", "--file-selection", "--filename=" + (root.cwd || root.home) + "/",
+                       "--title=" + (kind === "folder" ? "Link a folder" : "Link files")]
+      .concat(kind === "folder" ? ["--directory"] : ["--multiple", "--separator=\n"])
+    browser.running = true
+  }
+
+  // Inside the session's folder relative, else absolute; quoted if it has spaces.
+  function mention(paths) {
+    var refs = []
+    for (var i = 0; i < paths.length; i++) {
+      var path = paths[i]
+      if (!path) continue
+      if (root.cwd && path === root.cwd) path = "."
+      else if (root.cwd && path.indexOf(root.cwd + "/") === 0) path = path.slice(root.cwd.length + 1)
+      refs.push(/\s/.test(path) ? '@"' + path + '"' : "@" + path)
+    }
+    if (!refs.length || !input) return
+    var at = input.cursorPosition
+    var before = input.text.slice(0, at)
+    var add = (before && !/\s$/.test(before) ? " " : "") + refs.join(" ") + " "
+    input.text = before + add + input.text.slice(at)
+    input.cursorPosition = at + add.length
+    if (keyWindow) keyWindow.prime()
+  }
+
+  // Where each @path in the composer starts and ends.
+  readonly property var links: {
+    var found = [], re = /(^|\s)(@"[^"]+"|@\S+)/g, m
+    while ((m = re.exec(inputText)) !== null) {
+      var start = m.index + m[1].length
+      found.push({ start: start, end: start + m[2].length })
+    }
+    return found
+  }
+
   // Keys in the composer. Returns true when handled (not typed into the field).
   function promptKey(event) {
     var mods = event.modifiers
+    // Backspace at (or inside) an @path takes the whole link off, and the space after it.
+    if (event.key === Qt.Key_Backspace && !(mods & (Qt.ControlModifier | Qt.AltModifier)) && input && input.selectedText === "") {
+      var at = input.cursorPosition, t = root.inputText
+      for (var i = 0; i < root.links.length; i++) {
+        var l = root.links[i]
+        if (at > l.start && at <= l.end + (t.charAt(l.end) === " " ? 1 : 0)) {
+          input.text = t.slice(0, l.start) + t.slice(Math.max(at, l.end))
+          input.cursorPosition = l.start
+          return true
+        }
+      }
+    }
     if ((mods & Qt.ControlModifier) && event.key === Qt.Key_C && input && input.selectedText !== "") {
       Quickshell.execDetached(["wl-copy", "--", input.selectedText])
       return true
@@ -267,7 +358,7 @@ Item {
         }
 
         Tail {
-          x: Style.space(8)
+          x: 0
           y: parent.height - 1
           body: dots.color
           outline: dots.border.color
@@ -336,22 +427,37 @@ Item {
         width: Math.min(root.maxBubble, body.contentWidth + Style.space(28))
         height: body.contentHeight + Style.space(20) + (chips.visible ? chips.height + Style.space(8) : 0)
         radius: Style.space(16)
+        // The corner the tail hangs from is square, so its side runs into the tail.
+        bottomLeftRadius: row.tail && !row.mine ? 0 : radius
+        bottomRightRadius: row.tail && row.mine ? 0 : radius
         color: row.mine ? root.pal.alpha(root.pal.crab, root.pal.light ? 0.16 : 0.22) : root.pal.raised
         border.width: row.mine ? 0 : 1
         border.color: root.pal.hairline
         opacity: row.pending ? 0.6 : 1
 
-        Text {
+        TextEdit {
           id: body
           x: Style.space(14)
           y: Style.space(10)
           width: root.maxBubble - Style.space(28)
           text: row.split.text
-          textFormat: row.mine ? Text.PlainText : Text.MarkdownText
-          wrapMode: Text.Wrap
+          textFormat: row.mine ? TextEdit.PlainText : TextEdit.MarkdownText
+          wrapMode: TextEdit.Wrap
+          readOnly: true
+          selectByMouse: true
+          activeFocusOnPress: false
           color: root.pal.fg
+          selectionColor: root.pal.alpha(root.pal.crab, 0.4)
+          selectedTextColor: root.pal.fg
           font.family: root.fontFamily
           font.pixelSize: root.bubbleSize
+          onSelectedTextChanged: if (selectedText !== "") root.selecting = body
+          // A drag ends: the selection is copied, as in the terminal.
+          HoverHandler { cursorShape: Qt.IBeamCursor }
+          TapHandler {
+            acceptedButtons: Qt.LeftButton
+            onPressedChanged: if (!pressed) root.copySelection(body)
+          }
         }
 
         Flow {
@@ -397,13 +503,15 @@ Item {
         Tail {
           visible: row.tail
           flip: row.mine
-          x: row.mine ? parent.width - width - Style.space(8) : Style.space(8)
+          x: row.mine ? parent.width - width : 0
           y: parent.height - 1
           body: parent.color
           outline: row.mine ? "transparent" : root.pal.hairline
         }
       }
     }
+
+    HoverHandler { id: hover }
 
     // Mouse wheel scrolls the conversation (the island's Flickable leaves it).
     WheelHandler {
@@ -491,6 +599,21 @@ Item {
     }
   }
 
+  // What to link: a menu rising from the paperclip, over the conversation.
+  PickMenu {
+    visible: root.linkMenu
+    z: 10
+    x: Math.max(0, composer.x + attach.x + attach.width - width)
+    y: composer.y - height - Style.space(6)
+    title: "Link"
+    options: [{ id: "files", label: "Files…" }, { id: "folder", label: "Folder…" }]
+    ink: root.pal.fg
+    quietInk: root.pal.muted
+    hot: root.pal.crab
+    fill: root.pal.raised
+    onPicked: function(id) { root.linkMenu = false; root.browse(id) }
+  }
+
   // ---- Composer
 
   Rectangle {
@@ -510,7 +633,7 @@ Item {
     Item {
       id: clipBox
       anchors.left: parent.left
-      anchors.right: send.left
+      anchors.right: attach.left
       anchors.leftMargin: Style.space(16)
       anchors.rightMargin: Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
@@ -527,7 +650,37 @@ Item {
         fontSize: root.fontSize
         fontFamily: root.fontFamily
         placeholder: "Reply…"
-        onFocusRequested: { root.grabbed(); if (root.keyWindow) root.keyWindow.prime() }
+        onFocusRequested: { root.linkMenu = false; root.grabbed(); if (root.keyWindow) root.keyWindow.prime() }
+      }
+    }
+
+    // Link files or a folder: the chooser, from the choices above the composer.
+    Rectangle {
+      id: attach
+      anchors.right: send.left
+      anchors.rightMargin: Style.space(4)
+      anchors.verticalCenter: parent.verticalCenter
+      width: Style.space(28)
+      height: width
+      radius: width / 2
+      color: root.linkMenu || root.picking ? root.pal.alpha(root.pal.fg, 0.14)
+        : attachMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : "transparent"
+
+      Icon {
+        anchors.centerIn: parent
+        d: Icons.clip
+        size: Style.space(15)
+        stroke: 2
+        color: attachMouse.containsMouse || root.linkMenu ? root.pal.fg : root.pal.muted
+      }
+
+      MouseArea {
+        id: attachMouse
+        anchors.fill: parent
+        enabled: !root.picking
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: { root.linkMenu = !root.linkMenu; if (root.keyWindow) root.keyWindow.prime() }
       }
     }
 

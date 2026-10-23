@@ -35,7 +35,7 @@ Rectangle {
   property double now: Date.now()
   property bool active: true
   // The pointer is busy in the terminal (selecting): don't drag-scroll.
-  readonly property bool holdsPointer: !chatStyle && term.item ? term.item.holdsPointer : false
+  readonly property bool holdsPointer: term.item ? term.item.holdsPointer : false
   // The terminal's file chooser is open: it has the keyboard, the island stays.
   readonly property bool picking: !chatStyle && term.item ? term.item.picking : false
 
@@ -500,6 +500,8 @@ Rectangle {
       fontFamily: root.fontFamily
       fontSize: root.terminalFontSize
       session: root.s
+      cwd: root.s.workdir || root.s.cwd || ""
+      height: root.height - Style.space(18) * 2
       pendingText: root.pendingPrompt
       active: root.active
       onGrabbed: root.grabbed()

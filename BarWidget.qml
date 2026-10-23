@@ -2163,7 +2163,7 @@ BarWidget {
       // (the card clips the rest of him); he types along while you do.
       Clawd {
         id: peekCrab
-        visible: (root.view === "quick" || (root.view === "detail" && root.detailChat && root.terminalUp)) && !root.peeking
+        visible: root.view === "quick" && !root.peeking
         z: 5
         unit: Style.spaceReal(5)
         color: theme.crab
