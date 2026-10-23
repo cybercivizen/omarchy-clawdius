@@ -6,7 +6,7 @@ QML + Python plugin for the Omarchy shell (Quickshell). A pixel crab beside the 
 - `BarWidget.qml` (~2400 lines): the bar widget and island shell. Don't read it whole; grep for the section you need.
 - Views: `Approval`, `Sessions`, `Folders`, `Resume`, `Usage`, `Detail`, `Moment`, `SearchView`, `NewMenu`, `QuickChat`, `Glance`, `Settings` (the gear), `ChallengeCard` (the main card's Anti-rot mode), `Today` (its calendar + weather mode).
 - Live terminal: `LiveTerm.qml` + `live.py`. Session feed: `feed.py`. Permission hook: `approvals.py`. Past sessions: `resumable.py`. Browser tabs: `tabs.py`. Anti-rot challenges: `antirot.py` (sole writer of `antirot.json`).
-- Look: `Colors.qml`, `FrostCard.qml`, `Clawd.qml`/`Crab.qml`/`Sprite.js` (pixel art, whole-pixel sizes only). Animations: `Throb.qml`/`Spin.qml` (stepped timers, never per-frame).
+- Look: `Colors.qml`, `FrostCard.qml`, `Clawd.qml`/`Crab.qml`/`Sprite.js` (pixel art, whole-pixel sizes only). Animations: `Throb.qml`/`Spin.qml` (stepped timers, never per-frame), `ModeSwap.qml` (one-shot fade + slide when a card switches mode).
 - Helpers: `Link.js` (cross-instance calls), `Format.js`, `Icons.js`, `Apps.js`, `Calc.js`.
 - Design notes and behaviour: `README.md` (read only the relevant section). Open work: `TODO.md` (tick items off, add new at the bottom).
 

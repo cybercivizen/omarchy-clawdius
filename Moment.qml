@@ -105,7 +105,13 @@ Rectangle {
   color: pal ? pal.card : "transparent"
   border.width: 1
   border.color: pal ? pal.hairline : "transparent"
-  readonly property bool agents: mode === "agents"
+  ModeSwap {
+    id: swap
+    mode: root.mode
+    order: ["agents", "today", "antirot"]
+    live: root.active
+  }
+  readonly property bool agents: swap.shown === "agents"
 
   implicitHeight: Math.max(Style.space(204), agents ? body.implicitHeight + pad * 2 : 0, railColumn.implicitHeight + Style.space(20))
 
@@ -147,6 +153,8 @@ Rectangle {
   Item {
     id: crabSlot
     visible: root.agents
+    opacity: swap.fade
+    transform: Translate { x: swap.shift }
     x: root.pad + Style.space(4)
     anchors.verticalCenter: parent.verticalCenter
     width: crab.implicitWidth
@@ -222,6 +230,8 @@ Rectangle {
   Item {
     id: body
     visible: root.agents
+    opacity: swap.fade
+    transform: Translate { x: swap.shift }
     x: crabSlot.x + crabSlot.width + Style.space(28)
     width: (root.hasRail ? rail.x - Style.space(16) : root.width - root.pad) - x
     height: parent.height
@@ -577,7 +587,9 @@ Rectangle {
   readonly property real paneRight: hasRail ? rail.x - Style.space(16) : width - pad
 
   Today {
-    visible: !root.agents && root.mode === "today"
+    visible: swap.shown === "today"
+    opacity: swap.fade
+    transform: Translate { x: swap.shift }
     x: root.pad
     y: Style.space(38)
     width: root.paneRight - x
@@ -589,7 +601,9 @@ Rectangle {
   }
 
   Item {
-    visible: root.mode === "antirot"
+    visible: swap.shown === "antirot"
+    opacity: swap.fade
+    transform: Translate { x: swap.shift }
     x: root.pad
     y: Style.space(38)
     width: root.paneRight - x

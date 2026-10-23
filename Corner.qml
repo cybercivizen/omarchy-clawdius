@@ -42,6 +42,13 @@ Rectangle {
   border.width: 1
   border.color: pal ? pal.hairline : "transparent"
 
+  ModeSwap {
+    id: swap
+    mode: root.mode
+    order: root.modes.map(function(m) { return m.id })
+    live: root.visible
+  }
+
   Item {
     id: header
     x: root.pad
@@ -51,7 +58,8 @@ Rectangle {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      text: root.mode === "timer" ? "TIMER" : root.mode === "posture" ? "MOVE" : "LIMITS"
+      text: swap.shown === "timer" ? "TIMER" : swap.shown === "posture" ? "MOVE" : "LIMITS"
+      opacity: swap.fade
       textFormat: Text.PlainText
       color: root.pal.muted
       font.family: root.fontFamily
@@ -101,10 +109,12 @@ Rectangle {
     y: root.pad + header.height + Style.space(14)
     width: parent.width - root.pad * 2
     height: root.slot
+    opacity: swap.fade
+    transform: Translate { x: swap.shift }
 
     Glance {
       id: glance
-      visible: root.mode === "limits"
+      visible: swap.shown === "limits"
       width: parent.width
       pal: root.pal
       record: root.record
@@ -115,7 +125,7 @@ Rectangle {
 
     TimerPane {
       id: timerPane
-      visible: root.mode === "timer"
+      visible: swap.shown === "timer"
       width: parent.width
       pal: root.pal
       fontFamily: root.fontFamily
@@ -127,7 +137,7 @@ Rectangle {
 
     PosturePane {
       id: posturePane
-      visible: root.mode === "posture"
+      visible: swap.shown === "posture"
       width: parent.width
       pal: root.pal
       fontFamily: root.fontFamily
