@@ -17,7 +17,11 @@ import "Icons.js" as Icons
 //   failed    the same, for one that didn't work out
 //   limited   the same, for one stopped by the usage limit: when it resets
 //   working   the session being watched: its steps, time and tokens
-//   idle      nothing running: today's rep (ChallengeCard), or start a new chat
+//   idle      nothing running: start a new chat
+//
+// A switch up in the corner picks what the card is: the moment (Agents),
+// Today (calendar and weather) or Anti-rot (today's rep, ChallengeCard). The
+// rail stays in all three.
 Rectangle {
   id: root
 
@@ -43,7 +47,12 @@ Rectangle {
   // antirot.json (antirot.py), for today's rep in the idle moment; null: no reps yet.
   property var antirot: null
   property string challengeBusy: ""
+  // agents | today | antirot: what the card shows (BarWidget forces agents
+  // while a moment needs you). Weather.js parse(), for Today.
+  property string mode: "agents"
+  property var weather: null
 
+  signal modePicked(string mode)
   // answers: AskUserQuestion's, question → chosen label(s).
   signal answered(var request, string choice, var answers)
   signal dismissed()
@@ -96,7 +105,9 @@ Rectangle {
   color: pal ? pal.card : "transparent"
   border.width: 1
   border.color: pal ? pal.hairline : "transparent"
-  implicitHeight: Math.max(Style.space(168), body.implicitHeight + pad * 2, railColumn.implicitHeight + Style.space(20))
+  readonly property bool agents: mode === "agents"
+
+  implicitHeight: Math.max(Style.space(204), agents ? body.implicitHeight + pad * 2 : 0, railColumn.implicitHeight + Style.space(20))
 
   // ---- The glow: a wide arc of the state color rising from the bottom edge,
   //      clipped to the card's rounded corners by drawing it in their shape.
@@ -135,6 +146,7 @@ Rectangle {
   // ---- The crab
   Item {
     id: crabSlot
+    visible: root.agents
     x: root.pad + Style.space(4)
     anchors.verticalCenter: parent.verticalCenter
     width: crab.implicitWidth
@@ -209,6 +221,7 @@ Rectangle {
   // ---- What the moment says
   Item {
     id: body
+    visible: root.agents
     x: crabSlot.x + crabSlot.width + Style.space(28)
     width: (root.hasRail ? rail.x - Style.space(16) : root.width - root.pad) - x
     height: parent.height
@@ -511,27 +524,7 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(14)
 
-      ChallengeCard {
-        visible: !!root.antirot
-        width: parent.width
-        pal: root.pal
-        fontFamily: root.fontFamily
-        antirot: root.antirot
-        now: root.now
-        busy: root.challengeBusy
-        onStarted: root.challenge("start")
-        onOpened: root.challenge("open")
-        onChecked: root.challenge("check")
-        onEasier: root.challenge("easier")
-        onSkipped: root.challenge("skip")
-        onNexted: root.challenge("next")
-        onReviewed: root.challenge("review")
-        onSettingsOpened: root.challenge("settings")
-        onNewChat: root.newChat()
-      }
-
       Column {
-        visible: !root.antirot
         width: parent.width
         spacing: Style.space(5)
 
@@ -561,7 +554,6 @@ Rectangle {
 
       // Into the chat view (QuickChat): type, Chat or Code, Enter.
       Pill {
-        visible: !root.antirot
         pal: root.pal
         fontFamily: root.fontFamily
         kind: "primary"
@@ -578,6 +570,113 @@ Rectangle {
       z: -1
       cursorShape: Qt.PointingHandCursor
       onClicked: root.opened(root.s)
+    }
+  }
+
+  // ---- Today and Anti-rot: the other two modes, up to the rail
+  readonly property real paneRight: hasRail ? rail.x - Style.space(16) : width - pad
+
+  Today {
+    visible: !root.agents && root.mode === "today"
+    x: root.pad
+    y: Style.space(38)
+    width: root.paneRight - x
+    height: implicitHeight
+    pal: root.pal
+    fontFamily: root.fontFamily
+    now: root.now
+    weather: root.weather
+  }
+
+  Item {
+    visible: root.mode === "antirot"
+    x: root.pad
+    y: Style.space(38)
+    width: root.paneRight - x
+    height: parent.height - y - Style.space(12)
+
+    ChallengeCard {
+      visible: !!root.antirot
+      width: parent.width
+      anchors.verticalCenter: parent.verticalCenter
+      pal: root.pal
+      fontFamily: root.fontFamily
+      antirot: root.antirot
+      now: root.now
+      busy: root.challengeBusy
+      onStarted: root.challenge("start")
+      onOpened: root.challenge("open")
+      onChecked: root.challenge("check")
+      onEasier: root.challenge("easier")
+      onSkipped: root.challenge("skip")
+      onNexted: root.challenge("next")
+      onReviewed: root.challenge("review")
+      onSettingsOpened: root.challenge("settings")
+      onNewChat: root.newChat()
+    }
+
+    Column {
+      visible: !root.antirot
+      width: parent.width
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(10)
+
+      Text {
+        width: parent.width
+        text: "No reps yet."
+        textFormat: Text.PlainText
+        color: root.pal.strong
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.heading
+        font.bold: true
+      }
+
+      Pill {
+        pal: root.pal
+        fontFamily: root.fontFamily
+        icon: Icons.gear
+        label: "Set up"
+        onClicked: root.challenge("settings")
+      }
+    }
+  }
+
+  // ---- The mode switch, top left
+  Row {
+    x: root.pad - Style.space(6)
+    y: Style.space(10)
+    spacing: Style.space(2)
+
+    Repeater {
+      model: [
+        { id: "agents", icon: Icons.sessions },
+        { id: "today", icon: Icons.calendar },
+        { id: "antirot", icon: Icons.code }
+      ]
+
+      Rectangle {
+        required property var modelData
+        readonly property bool current: root.mode === modelData.id
+        width: Style.space(26)
+        height: Style.space(22)
+        radius: height / 2
+        color: current ? root.pal.alpha(root.pal.fg, 0.14) : root.pal.alpha(root.pal.fg, modeMouse.containsMouse ? 0.06 : 0)
+
+        Icon {
+          anchors.centerIn: parent
+          d: parent.modelData.icon
+          size: Style.space(13)
+          color: parent.current ? root.pal.strong : root.pal.muted
+        }
+
+        MouseArea {
+          id: modeMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.modePicked(parent.modelData.id)
+        }
+      }
     }
   }
 

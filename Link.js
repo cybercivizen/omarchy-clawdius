@@ -28,6 +28,18 @@ function clockHover(window, hovered) {
   }
 }
 
+// A click on the clock: the island on Today, on that bar's crab.
+function clockClick(window) {
+  for (var i = crabs.length - 1; i >= 0; i--) {
+    var crab = crabs[i]
+    try {
+      if (crab && crab.barWindow === window && crab.drawn()) { crab.clockClick(); return }
+    } catch (e) {
+      crabs.splice(i, 1)
+    }
+  }
+}
+
 // Every crab sees each permission prompt, but only one card should drop open:
 // a drawn crab (not the bar's zero-size placeholder) on the focused monitor,
 // the same rule the bar uses to route a panel hotkey.

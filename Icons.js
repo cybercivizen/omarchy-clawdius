@@ -28,7 +28,8 @@ var search = "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4.2-4.2"
 // From the mockups' island nav (Timers), plus the posture check's sitter.
 var timer = "M12 5a8 8 0 1 0 0 16a8 8 0 1 0 0-16M12 9v4l2 2M9 2h6"
 var posture = "M12 2.5a2 2 0 1 0 0 4a2 2 0 1 0 0-4M7 10h10M12 10v6M9 21l3-5 3 5"
-var bell = "M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"
+var calendar = "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4"
+var bell ="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"
 var minus = "M5 12h14"
 // The nav's Settings: a cog, its teeth as short spokes.
 var gear = "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6M12 5.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"

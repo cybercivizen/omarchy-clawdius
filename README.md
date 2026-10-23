@@ -134,8 +134,20 @@ buffer squashed into the new size.
   the tool call that's out with its command or path under it, or
   "Thinking…" between calls; under the list, Claude's latest words this
   turn in quotes.
-  With nothing running: today's **challenge** (see Anti-rot below) and **New
-  chat**, into the chat view. (Earlier sessions are under Sessions → Recent.)
+  With nothing running: **New chat**, into the chat view. (Earlier sessions
+  are under Sessions → Recent.)
+  The three icons at the card's top left pick what it is (remembered):
+  **Agents** (all of the above), **Today**, and **Anti-rot** (today's
+  challenge, see below). Anything that needs you (a prompt, a question, a
+  finished or failed turn, a limit) shows Agents until it's dealt with, then
+  the pick comes back.
+  **Today** is the calendar and the weather that used to be bar widgets: a
+  month grid with ISO week numbers (‹ ›, the scroll wheel, or a click on the
+  month to come back to this one), and beside it the weather now and for the
+  next two days. The weather is wttr.in's, for the place in Omarchy's weather
+  setting (else the IP's), fetched when the island opens and at most every 30
+  minutes into `~/.local/state/clawdius/weather.json`. A click on the bar's
+  clock opens the island on Today.
   Other running sessions sit on a **rail** of small crabs on the right, each
   with a bubble on its corner saying how long ago it last moved (since its
   turn started while it works or waits, since it went idle otherwise).
@@ -325,7 +337,7 @@ level; Skip puts it off a day. The corner card shows each language's usual
 solve time next to the five before ("~14m (was 22m)"), and how many re-dos
 are due.
 
-On Home's idle moment: the exercise's name, Exercism's one-line blurb, its
+On the Anti-rot card: the exercise's name, Exercism's one-line blurb, its
 difficulty, where the day's quota stands and the streak. **Start** copies the
 stub, the tests (every one of them, Exercism skips all but the first) and the
 instructions to `~/Work/antirot/<lang>/<slug>`, never the example solution,
@@ -339,12 +351,8 @@ It's asked to teach rather than fix, and to compare with Exercism's own
 solution after its review. **Easier** is a level down, **Skip** another one
 at the same level.
 
-The corner card's fourth mode (the `</>` icon, beside Limits, Timer and
-Move) is the same thing at a glance, and works while Claude is busy and
-Home shows the session: today's dots against the quota, the streak, the
-button that moves the current challenge on (Start, Check, Next), and two
-rows you step through with ‹ ›: the languages (level, progress to the next,
-usual solve time) and what you've done (the last 20, newest first).
+It is the main card's third mode (the `</>` icon), so it stays up while
+Claude is busy too; it is not the corner card's any more.
 
 State is `~/.local/state/clawdius/antirot.json`; only `antirot.py` writes it.
 Earlier installs (Daily reps, `gym.json`, `~/Work/gym`) are moved over on the
@@ -375,7 +383,7 @@ and call its `hover(window, hovered)`.
 |---|---|---|
 | UI | Omarchy shell plugin (Quickshell / QML), `BarWidget.qml` | Lives in the same process as the bar, inherits theme, hot-reloads on save |
 | Sprite | `Sprite.js` + `Clawd.qml`, rectangles on an 18×10 grid | Clawd decoded from the CLI's `▐▛███▜▌` block art; crisp at any scale |
-| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml` (the Move tab), `AntirotPane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
+| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml` (the Move tab); `Timers.js` has the sums), `Today.qml` (the main card's calendar and weather; `Calendar.js`, `Weather.js`), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
 | Parts | `Crab.qml` (Clawd + badge), `Pill.qml`, `Steps.qml`, `Chip.qml`, `Icon.qml` + `Icons.js` (SVG line icons via QtQuick.Shapes), `Format.js` | Shared by the views |
 | Colors | `Colors.qml` | Theme-aware palette; the `color` setting overrides the orange |
 | Data | `feed.py` (Python stdlib), spawned by the widget, JSON lines on stdout | Zero config; polls cheap mtimes once a second |
@@ -384,7 +392,7 @@ and call its `hover(window, hovered)`.
 | Card | `FrostCard.qml`, a reworked `PopupCard` | `island: true`: square corners on the bar, 30 px on the free ones; opens by growing out of the bar (a sliver widens, drops to full height, then the content fades in) and folds back into it on close; see-through enough that Hyprland frosts it (`blur_popups` on the `omarchy-bar` layer rule); animates height between views |
 | Approvals | `approvals.py` (`PermissionRequest` hook) + `Approval.qml` | Allow / Always / Deny from the card; the terminal dialog stays up alongside |
 | Resume | `resumable.py` + `Resume.qml` | Past sessions, with whether resuming hits the prompt cache |
-| Anti-rot | `antirot.py` + `ChallengeCard.qml` (Home's idle moment) + `AntirotPane.qml` (corner card), `Settings.qml` | Exercism tracks, human-written tests, offline once cloned; one writer for `antirot.json`, every crab watches it |
+| Anti-rot | `antirot.py` + `ChallengeCard.qml` (the main card's Anti-rot mode), `Settings.qml` | Exercism tracks, human-written tests, offline once cloned; one writer for `antirot.json`, every crab watches it |
 
 ### Background sessions & live terminal
 
