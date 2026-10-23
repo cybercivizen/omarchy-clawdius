@@ -77,6 +77,8 @@
         Commands come in on stdin, one JSON object per line:
             {"submit": "hello"}         pasted, then Enter
             {"clip": true}              attach the clipboard's image, if any
+            {"grab": true}              (chat) save the clipboard's image, answer {"image": path}
+            {"images": [path, ...]}     (chat) attach those images, before a "submit"
             {"text": "hello"}           typed literally (pasted if multi-line)
             {"keys": ["Enter", "C-c"]}  tmux key names
             {"wheel": 3}                scroll back 3 lines (negative: forward)
@@ -1165,6 +1167,16 @@ def handle(name, line):
         return
     if cmd.get("clip"):
         attach_clipboard_image(name)
+    if cmd.get("grab"):
+        path = save_clipboard_image()
+        if path:
+            emit({"image": path})
+    # Each path pasted on its own, which Claude turns into [Image #n].
+    for path in cmd.get("images") or []:
+        if isinstance(path, str) and path.startswith(PASTE_DIR + os.sep):
+            tmux("set-buffer", "-b", "crab", "--", path)
+            tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
+            time.sleep(SUBMIT_PAUSE_SEC)
     if cmd.get("submit"):
         # Pasted whole, then Enter on its own: an Enter in the same burst
         # reads as part of the paste and doesn't send.
@@ -1205,13 +1217,21 @@ def attach_clipboard_image(name):
     """An image on the clipboard: save it and paste its path, which Claude
     turns into [Image #n]. (Its own Ctrl+V would read the clipboard from the
     background daemon, which may not see this Wayland session.)"""
+    path = save_clipboard_image()
+    if path:
+        tmux("set-buffer", "-b", "crab", "--", path)
+        tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
+
+
+def save_clipboard_image():
+    """The clipboard's image saved under PASTE_DIR: its path, or None."""
     try:
         types = subprocess.run(["wl-paste", "--list-types"], capture_output=True, text=True, timeout=2).stdout.split()
     except (OSError, subprocess.TimeoutExpired):
-        return
+        return None
     images = [t for t in types if t.startswith("image/")]
     if not images:
-        return
+        return None
     kind = "image/png" if "image/png" in images else images[0]
     os.makedirs(PASTE_DIR, exist_ok=True)
     path = os.path.join(PASTE_DIR, "clip-%d.%s" % (time.time() * 1000, kind.split("/")[1].split("+")[0]))
@@ -1219,9 +1239,8 @@ def attach_clipboard_image(name):
         with open(path, "wb") as out:
             subprocess.run(["wl-paste", "--no-newline", "--type", kind], stdout=out, timeout=5, check=True)
     except (OSError, subprocess.SubprocessError):
-        return
-    tmux("set-buffer", "-b", "crab", "--", path)
-    tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
+        return None
+    return path
 
 
 # ---- Prompt history

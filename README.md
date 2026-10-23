@@ -471,8 +471,8 @@ conversation (`ChatView.qml`) instead of the terminal: your messages in
 tinted bubbles on the right, Claude's on the left (markdown, with its links
 as chips under the bubble), each with a small speech tail, a muted line for
 each tool it used, and three stepped dots while it works. Your message shows
-the moment you send it. Message text is selectable (a drag copies it), and the
-paperclip links files or a folder as `@path`, as in the terminal. The button beside "Open in terminal" flips a session between
+the moment you send it. Message text is selectable (a drag copies it),,
+Ctrl+V attaches a clipboard image, and the paperclip links files or a folder as `@path`, as in the terminal. The button beside "Open in terminal" flips a session between
 conversation and terminal (kept until the card reloads); Code sessions open
 as the terminal. When Claude asks something only the terminal can answer (a
 permission dialog), an amber bar offers "Answer in terminal".
