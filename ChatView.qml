@@ -27,9 +27,17 @@ Item {
   // The feed's row (busy, waiting…) and the first prompt of a session still starting.
   property var session: null
   property string pendingText: ""
+  // Pasted images waiting to go with the next message (paths).
+  property var images: []
   property int fontSize: Style.font.subtitle
   property int bubbleSize: Style.font.subtitle
   property bool active: true
+  // The session's folder: linked paths inside it are written relative to it.
+  property string cwd: ""
+
+  // The card's Flickable stays still while the pointer is over the
+  // conversation, so a drag there selects text instead of scrolling the card.
+  readonly property bool holdsPointer: hover.hovered
 
   signal grabbed()
   signal showTerminal()
@@ -47,26 +55,39 @@ Item {
     return { text: plain, links: links }
   }
 
-  // A speech tail: a small triangle hanging off a bubble's bottom edge, its
-  // point out to the side the speaker is on. Static, drawn once.
-  component Tail: Shape {
-    id: tail
-    property color body: "gray"
+  // A speech bubble drawn as one outline: the rounded rectangle, with the
+  // corner on the speaker's side running straight down into a tail that points
+  // out and back, so there's no seam where tail meets bubble. The tail hangs
+  // below the w x h body. Static: rebuilt only when the size changes.
+  component Bubble: Shape {
+    id: bub
+    property real w: 0
+    property real h: 0
+    property string tail: ""   // "", "left" or "right"
+    property color fill: "gray"
     property color outline: "transparent"
-    property bool flip: false
-    width: Style.space(16)
-    height: Style.space(11)
+    readonly property real r: Style.space(16)
+    readonly property real tailW: Style.space(14)
+    readonly property real tailH: Style.space(10)
+    // Inset half a pixel so the one-pixel outline lands on whole pixels.
+    readonly property string d: {
+      var l = 0.5, t = 0.5, rt = w - 0.5, bt = h - 0.5, r = bub.r
+      var arc = " A" + r + "," + r + " 0 0 1 "
+      var s = "M" + (l + r) + "," + t + " H" + (rt - r) + arc + rt + "," + (t + r)
+      if (tail === "right") s += " V" + (bt + tailH) + " L" + (rt - tailW) + "," + bt
+      else s += " V" + (bt - r) + arc + (rt - r) + "," + bt
+      s += " H" + (tail === "left" ? l + tailW : l + r)
+      if (tail === "left") s += " L" + l + "," + (bt + tailH)
+      else s += arc + l + "," + (bt - r)
+      return s + " V" + (t + r) + arc + (l + r) + "," + t + " Z"
+    }
     preferredRendererType: Shape.CurveRenderer
     ShapePath {
-      fillColor: tail.body
-      strokeColor: tail.outline
-      strokeWidth: 1
-      capStyle: ShapePath.FlatCap
+      fillColor: bub.fill
+      strokeColor: bub.outline
+      strokeWidth: bub.outline.a > 0 ? 1 : -1
       joinStyle: ShapePath.RoundJoin
-      startX: tail.flip ? 0 : tail.width
-      startY: -1
-      PathLine { x: tail.flip ? tail.width : 0; y: tail.height }
-      PathLine { x: tail.flip ? tail.width : 0; y: -1 }
+      PathSvg { path: bub.d }
     }
   }
 
@@ -83,8 +104,8 @@ Item {
   readonly property bool working: !root.asking && (root.jobId === "" || !!root.s.busy
                                   || (root.awaitingSince > 0 && Date.now() - root.awaitingSince < 20000))
 
+  // Detail sizes it to the card, so the composer sits at the bottom.
   implicitHeight: Style.space(440)
-  height: implicitHeight
 
   // ---- Messages
 
@@ -119,7 +140,7 @@ Item {
     var last = messages.count - 1
     if (last >= 0) messages.setProperty(last, "tail", messages.get(last).role !== msg.role || msg.role === "tool")
     messages.append({ key: msg.key, role: msg.role, text: msg.text, pending: !!pending, tail: true })
-    if (messages.count > 200) messages.remove(0, messages.count - 200)
+    if (messages.count > 400) messages.remove(0, messages.count - 400)
   }
 
   function addPending(text) {
@@ -159,16 +180,100 @@ Item {
 
   function submit() {
     var text = root.inputText.trim()
-    if (text === "") return
-    root.send({ submit: text })
-    root.addPending(text)
+    if (text === "" && root.images.length === 0) return
+    var shown = text !== "" ? text : (root.images.length > 1 ? root.images.length + " images" : "Image")
+    root.send({ images: root.images, submit: text !== "" ? text : " " })
+    root.addPending(shown)
+    root.images = []
     root.input.text = ""
     root.stick = true
+  }
+
+  // The bubble text last selected: starting another clears it.
+  property Item selecting: null
+  property Item wasSelecting: null
+  onSelectingChanged: {
+    if (wasSelecting && wasSelecting !== selecting) wasSelecting.deselect()
+    wasSelecting = selecting
+  }
+
+  function copySelection(edit) {
+    var text = edit.selectedText.replace(/[\u2028\u2029]/g, "\n").replace(/\u00a0/g, " ")
+    if (text.trim() !== "") Quickshell.execDetached(["wl-copy", "--", text])
+  }
+
+  // ---- Linking files and folders, as in LiveTerm: typed into the composer as @path
+
+  readonly property string home: Quickshell.env("HOME") || ""
+  property bool linkMenu: false
+  readonly property bool picking: browser.running
+
+  Process {
+    id: browser
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.mention(text.split("\n"))
+    }
+  }
+
+  function browse(kind) {
+    if (browser.running) return
+    browser.command = ["zenity", "--file-selection", "--filename=" + (root.cwd || root.home) + "/",
+                       "--title=" + (kind === "folder" ? "Link a folder" : "Link files")]
+      .concat(kind === "folder" ? ["--directory"] : ["--multiple", "--separator=\n"])
+    browser.running = true
+  }
+
+  // Inside the session's folder relative, else absolute; quoted if it has spaces.
+  function mention(paths) {
+    var refs = []
+    for (var i = 0; i < paths.length; i++) {
+      var path = paths[i]
+      if (!path) continue
+      if (root.cwd && path === root.cwd) path = "."
+      else if (root.cwd && path.indexOf(root.cwd + "/") === 0) path = path.slice(root.cwd.length + 1)
+      refs.push(/\s/.test(path) ? '@"' + path + '"' : "@" + path)
+    }
+    if (!refs.length || !input) return
+    var at = input.cursorPosition
+    var before = input.text.slice(0, at)
+    var add = (before && !/\s$/.test(before) ? " " : "") + refs.join(" ") + " "
+    input.text = before + add + input.text.slice(at)
+    input.cursorPosition = at + add.length
+    if (keyWindow) keyWindow.prime()
+  }
+
+  // Where each @path in the composer starts and ends.
+  readonly property var links: {
+    var found = [], re = /(^|\s)(@"[^"]+"|@\S+)/g, m
+    while ((m = re.exec(inputText)) !== null) {
+      var start = m.index + m[1].length
+      found.push({ start: start, end: start + m[2].length })
+    }
+    return found
   }
 
   // Keys in the composer. Returns true when handled (not typed into the field).
   function promptKey(event) {
     var mods = event.modifiers
+    // An image on the clipboard joins the message; text still pastes here as usual.
+    if ((mods & Qt.ControlModifier) && event.key === Qt.Key_V) { root.send({ grab: true }); return false }
+    if (event.key === Qt.Key_Backspace && root.inputText === "" && root.images.length > 0) {
+      root.images = root.images.slice(0, -1)
+      return true
+    }
+    // Backspace at (or inside) an @path takes the whole link off, and the space after it.
+    if (event.key === Qt.Key_Backspace && !(mods & (Qt.ControlModifier | Qt.AltModifier)) && input && input.selectedText === "") {
+      var at = input.cursorPosition, t = root.inputText
+      for (var i = 0; i < root.links.length; i++) {
+        var l = root.links[i]
+        if (at > l.start && at <= l.end + (t.charAt(l.end) === " " ? 1 : 0)) {
+          input.text = t.slice(0, l.start) + t.slice(Math.max(at, l.end))
+          input.cursorPosition = l.start
+          return true
+        }
+      }
+    }
     if ((mods & Qt.ControlModifier) && event.key === Qt.Key_C && input && input.selectedText !== "") {
       Quickshell.execDetached(["wl-copy", "--", input.selectedText])
       return true
@@ -193,6 +298,7 @@ Item {
         try { ev = JSON.parse(line) } catch (e) { return }
         if (ev.history) for (var i = 0; i < ev.history.length; i++) root.add(ev.history[i], false)
         else if (ev.msg) root.add(ev.msg, false)
+        else if (ev.image) root.images = root.images.concat([ev.image])
         else if (ev.state) { root.alive = ev.state.alive !== false; root.asking = ev.state.asking === true }
       }
     }
@@ -207,7 +313,7 @@ Item {
 
   property bool stick: true
 
-  ListView {
+  Flickable {
     id: list
     anchors.left: parent.left
     anchors.right: parent.right
@@ -215,204 +321,261 @@ Item {
     anchors.bottom: ask.visible ? ask.top : composer.top
     anchors.bottomMargin: Style.space(8)
     clip: true
-    model: messages
-    spacing: 0
-    topMargin: Style.space(12)
+    contentWidth: width
+    contentHeight: rows.height
     boundsBehavior: Flickable.StopAtBounds
-    cacheBuffer: Style.space(400)
     interactive: false
 
-    onContentHeightChanged: if (root.stick) Qt.callLater(list.positionViewAtEnd)
-    onHeightChanged: if (root.stick) Qt.callLater(list.positionViewAtEnd)
+    readonly property real maxY: Math.max(0, contentHeight - height)
+    function scrollToEnd() { contentY = maxY }
+    onContentHeightChanged: if (root.stick) Qt.callLater(list.scrollToEnd)
+    onHeightChanged: if (root.stick) Qt.callLater(list.scrollToEnd)
 
-    // Scrolling is done here, not by the card's Flickable: it takes the wheel only when there's more.
-    footer: Item {
+    Column {
+      id: rows
       width: list.width
-      height: root.working ? dots.height + Style.space(10) : Style.space(4)
+      topPadding: Style.space(12)
 
-      Rectangle {
-        id: dots
-        visible: root.working
-        x: root.gutter
-        y: Style.space(3)
-        width: Style.space(54)
-        height: Style.space(30)
-        radius: Style.space(16)
-        color: root.pal.raised
-        border.width: 1
-        border.color: root.pal.hairline
+      Repeater {
+        model: messages
 
-        property int phase: 0
-        Timer {
-          interval: 280
-          repeat: true
-          running: dots.visible && root.active
-          onTriggered: dots.phase = (dots.phase + 1) % 4
-        }
+          delegate: Item {
+          id: row
+          required property int index
+          required property string role
+          required property string text
+          required property bool pending
+          required property bool tail
 
-        Row {
-          anchors.centerIn: parent
-          spacing: Style.space(6)
-          Repeater {
-            model: 3
+          readonly property var split: role === "assistant" ? root.splitLinks(text) : ({ text: text, links: [] })
+          readonly property bool mine: role === "user"
+          readonly property bool tool: role === "tool"
+
+          width: list.width
+          height: (tool ? chip.height + Style.space(3) : bubble.height + (tail ? Style.space(15) : Style.space(4)))
+
+          // Arrivals fade and rise once; the history on opening just appears.
+          property real rise: 0
+          opacity: 1
+          transform: Translate { y: row.rise }
+          Component.onCompleted: if (root.started && root.stick && root.active && root.arrivedLive) enter.start()
+          ParallelAnimation {
+            id: enter
+            NumberAnimation { target: row; property: "opacity"; from: 0; to: 1; duration: 140 }
+            NumberAnimation { target: row; property: "rise"; from: Style.space(6); to: 0; duration: 140; easing.type: Easing.OutCubic }
+          }
+
+          // A tool call: a muted line, no bubble.
+          Row {
+            id: chip
+            visible: row.tool
+            x: root.gutter + Style.space(4)
+            height: Style.space(20)
+            spacing: Style.space(8)
+
             Rectangle {
-              required property int index
-              width: Style.space(6)
+              anchors.verticalCenter: parent.verticalCenter
+              width: Style.space(5)
               height: width
               radius: width / 2
+              color: root.pal.dim
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              width: Math.min(implicitWidth, root.maxBubble)
+              text: row.text
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
               color: root.pal.muted
-              opacity: dots.phase === index ? 1 : 0.35
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
             }
           }
-        }
 
-        Tail {
-          x: Style.space(8)
-          y: parent.height - 1
-          body: dots.color
-          outline: dots.border.color
-        }
-      }
-    }
+          Rectangle {
+            id: bubble
+            visible: !row.tool
+            x: row.mine ? row.width - width - root.gutter : root.gutter
+            width: Math.min(root.maxBubble, body.contentWidth + Style.space(28))
+            height: body.contentHeight + Style.space(20) + (chips.visible ? chips.height + Style.space(8) : 0)
+            color: "transparent"
+            opacity: row.pending ? 0.6 : 1
 
-    delegate: Item {
-      id: row
-      required property int index
-      required property string role
-      required property string text
-      required property bool pending
-      required property bool tail
+            Bubble {
+              w: bubble.width
+              h: bubble.height
+              tail: row.tail ? (row.mine ? "right" : "left") : ""
+              fill: row.mine ? root.pal.alpha(root.pal.crab, root.pal.light ? 0.16 : 0.22) : root.pal.raised
+              outline: row.mine ? "transparent" : root.pal.hairline
+            }
 
-      readonly property var split: role === "assistant" ? root.splitLinks(text) : ({ text: text, links: [] })
-      readonly property bool mine: role === "user"
-      readonly property bool tool: role === "tool"
-
-      width: list.width
-      height: (tool ? chip.height + Style.space(3) : bubble.height + (tail ? Style.space(15) : Style.space(4)))
-
-      // Arrivals fade and rise once; the history on opening just appears.
-      property real rise: 0
-      opacity: 1
-      transform: Translate { y: row.rise }
-      Component.onCompleted: if (root.started && root.stick && root.active && root.arrivedLive) enter.start()
-      ParallelAnimation {
-        id: enter
-        NumberAnimation { target: row; property: "opacity"; from: 0; to: 1; duration: 140 }
-        NumberAnimation { target: row; property: "rise"; from: Style.space(6); to: 0; duration: 140; easing.type: Easing.OutCubic }
-      }
-
-      // A tool call: a muted line, no bubble.
-      Row {
-        id: chip
-        visible: row.tool
-        x: root.gutter + Style.space(4)
-        height: Style.space(20)
-        spacing: Style.space(8)
-
-        Rectangle {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(5)
-          height: width
-          radius: width / 2
-          color: root.pal.dim
-        }
-
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(implicitWidth, root.maxBubble)
-          text: row.text
-          textFormat: Text.PlainText
-          elide: Text.ElideRight
-          color: root.pal.muted
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-        }
-      }
-
-      Rectangle {
-        id: bubble
-        visible: !row.tool
-        x: row.mine ? row.width - width - root.gutter : root.gutter
-        width: Math.min(root.maxBubble, body.contentWidth + Style.space(28))
-        height: body.contentHeight + Style.space(20) + (chips.visible ? chips.height + Style.space(8) : 0)
-        radius: Style.space(16)
-        color: row.mine ? root.pal.alpha(root.pal.crab, root.pal.light ? 0.16 : 0.22) : root.pal.raised
-        border.width: row.mine ? 0 : 1
-        border.color: root.pal.hairline
-        opacity: row.pending ? 0.6 : 1
-
-        Text {
-          id: body
-          x: Style.space(14)
-          y: Style.space(10)
-          width: root.maxBubble - Style.space(28)
-          text: row.split.text
-          textFormat: row.mine ? Text.PlainText : Text.MarkdownText
-          wrapMode: Text.Wrap
-          color: root.pal.fg
-          font.family: root.fontFamily
-          font.pixelSize: root.bubbleSize
-        }
-
-        Flow {
-          id: chips
-          visible: row.split.links.length > 0
-          x: Style.space(14)
-          y: body.y + body.contentHeight + Style.space(8)
-          width: body.width
-          spacing: Style.space(6)
-
-          Repeater {
-            model: row.split.links
-            Rectangle {
-              required property var modelData
-              width: Math.min(chips.width, chipText.implicitWidth + Style.space(20))
-              height: Style.space(24)
-              radius: height / 2
-              color: root.pal.alpha(root.pal.crab, hit.containsMouse ? 0.26 : 0.14)
-
-              Text {
-                id: chipText
-                anchors.centerIn: parent
-                width: Math.min(implicitWidth, parent.width - Style.space(20))
-                text: "↗ " + parent.modelData.label
-                textFormat: Text.PlainText
-                elide: Text.ElideRight
-                color: root.pal.crab
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.bodySmall
+            TextEdit {
+              id: body
+              x: Style.space(14)
+              y: Style.space(10)
+              width: root.maxBubble - Style.space(28)
+              text: row.split.text
+              textFormat: row.mine ? TextEdit.PlainText : TextEdit.MarkdownText
+              wrapMode: TextEdit.Wrap
+              readOnly: true
+              selectByMouse: true
+              activeFocusOnPress: false
+              color: root.pal.fg
+              selectionColor: root.pal.alpha(root.pal.crab, 0.4)
+              selectedTextColor: root.pal.fg
+              font.family: root.fontFamily
+              font.pixelSize: root.bubbleSize
+              onSelectedTextChanged: if (selectedText !== "") root.selecting = body
+              // A drag ends: the selection is copied, as in the terminal.
+              HoverHandler { cursorShape: Qt.IBeamCursor }
+              TapHandler {
+                acceptedButtons: Qt.LeftButton
+                onPressedChanged: if (!pressed) root.copySelection(body)
               }
+            }
 
-              MouseArea {
-                id: hit
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openLink(parent.modelData.url)
+            Flow {
+              id: chips
+              visible: row.split.links.length > 0
+              x: Style.space(14)
+              y: body.y + body.contentHeight + Style.space(8)
+              width: body.width
+              spacing: Style.space(6)
+
+              Repeater {
+                model: row.split.links
+                Rectangle {
+                  required property var modelData
+                  width: Math.min(chips.width, chipText.implicitWidth + Style.space(20))
+                  height: Style.space(24)
+                  radius: height / 2
+                  color: root.pal.alpha(root.pal.crab, hit.containsMouse ? 0.26 : 0.14)
+
+                  Text {
+                    id: chipText
+                    anchors.centerIn: parent
+                    width: Math.min(implicitWidth, parent.width - Style.space(20))
+                    text: "↗ " + parent.modelData.label
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    color: root.pal.crab
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.bodySmall
+                  }
+
+                  MouseArea {
+                    id: hit
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.openLink(parent.modelData.url)
+                  }
+                }
               }
             }
           }
         }
-
-        Tail {
-          visible: row.tail
-          flip: row.mine
-          x: row.mine ? parent.width - width - Style.space(8) : Style.space(8)
-          y: parent.height - 1
-          body: parent.color
-          outline: row.mine ? "transparent" : root.pal.hairline
-        }
       }
+
+        Item {
+          width: list.width
+          height: root.working ? dots.height + Style.space(10) : Style.space(4)
+
+          Rectangle {
+            id: dots
+            visible: root.working
+            x: root.gutter
+            y: Style.space(3)
+            width: Style.space(54)
+            height: Style.space(30)
+            color: "transparent"
+
+            property int phase: 0
+            Timer {
+              interval: 280
+              repeat: true
+              running: dots.visible && root.active
+              onTriggered: dots.phase = (dots.phase + 1) % 4
+            }
+
+            Bubble {
+              w: dots.width
+              h: dots.height
+              tail: "left"
+              fill: root.pal.raised
+              outline: root.pal.hairline
+            }
+
+            Row {
+              anchors.centerIn: parent
+              spacing: Style.space(6)
+              Repeater {
+                model: 3
+                Rectangle {
+                  required property int index
+                  width: Style.space(6)
+                  height: width
+                  radius: width / 2
+                  color: root.pal.muted
+                  opacity: dots.phase === index ? 1 : 0.35
+                }
+              }
+            }
+
+          }
+        }
     }
+
+    HoverHandler { id: hover }
 
     // Mouse wheel scrolls the conversation (the island's Flickable leaves it).
     WheelHandler {
       acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
       onWheel: function(event) {
-        var dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 2
-        list.contentY = Math.max(-list.topMargin, Math.min(list.contentHeight - list.height + list.bottomMargin, list.contentY - dy))
-        root.stick = list.atYEnd
+        // Quicker than 1:1: a wheel notch (120) moves about 144 px.
+        var dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y * 2 : event.angleDelta.y * 1.2
+        list.contentY = Math.max(0, Math.min(list.maxY, list.contentY - dy))
+        root.stick = list.contentY >= list.maxY - 1
       }
+    }
+  }
+
+  // A scroll bar along the conversation's right edge: drag the thumb, or click
+  // the track to jump there. Only while there's more than fits.
+  Item {
+    id: bar
+    visible: list.maxY > 0
+    anchors.right: list.right
+    anchors.top: list.top
+    anchors.bottom: list.bottom
+    anchors.topMargin: Style.space(6)
+    anchors.bottomMargin: Style.space(6)
+    width: Style.space(12)
+
+    readonly property real thumbH: Math.max(Style.space(28), height * list.height / Math.max(1, list.contentHeight))
+    readonly property real travel: Math.max(1, height - thumbH)
+
+    Rectangle {
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: barMouse.containsMouse || barMouse.pressed ? Style.space(6) : Style.space(4)
+      height: bar.thumbH
+      y: list.maxY > 0 ? list.contentY / list.maxY * bar.travel : 0
+      radius: width / 2
+      color: root.pal.alpha(root.pal.fg, barMouse.containsMouse || barMouse.pressed ? 0.4 : 0.22)
+    }
+
+    MouseArea {
+      id: barMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      function scrollTo(y) {
+        list.contentY = Math.max(0, Math.min(list.maxY, (y - bar.thumbH / 2) / bar.travel * list.maxY))
+        root.stick = list.contentY >= list.maxY - 1
+      }
+      onPressed: function(mouse) { scrollTo(mouse.y) }
+      onPositionChanged: function(mouse) { if (pressed) scrollTo(mouse.y) }
     }
   }
 
@@ -425,7 +588,16 @@ Item {
   }
   onStartedChanged: if (!started) arrivedLive = false
 
+  // An opaque base under the pill, so the text behind it doesn't show through.
+  Rectangle {
+    visible: jump.visible
+    anchors.fill: jump
+    radius: height / 2
+    color: root.pal.card
+  }
+
   Pill {
+    id: jump
     visible: !root.stick && messages.count > 0
     anchors.horizontalCenter: list.horizontalCenter
     anchors.bottom: list.bottom
@@ -435,7 +607,7 @@ Item {
     compact: true
     icon: Icons.forward
     label: "Jump to bottom"
-    onClicked: { root.stick = true; list.positionViewAtEnd() }
+    onClicked: { root.stick = true; list.scrollToEnd() }
   }
 
   // Nothing yet.
@@ -491,6 +663,21 @@ Item {
     }
   }
 
+  // What to link: a menu rising from the paperclip, over the conversation.
+  PickMenu {
+    visible: root.linkMenu
+    z: 10
+    x: Math.max(0, composer.x + attach.x + attach.width - width)
+    y: composer.y - height - Style.space(6)
+    title: "Link"
+    options: [{ id: "files", label: "Files…" }, { id: "folder", label: "Folder…" }]
+    ink: root.pal.fg
+    quietInk: root.pal.muted
+    hot: root.pal.crab
+    fill: root.pal.raised
+    onPicked: function(id) { root.linkMenu = false; root.browse(id) }
+  }
+
   // ---- Composer
 
   Rectangle {
@@ -500,21 +687,78 @@ Item {
     anchors.bottom: parent.bottom
     anchors.leftMargin: root.gutter
     anchors.rightMargin: root.gutter
-    anchors.bottomMargin: Style.space(14)
-    height: Math.min(composerText.implicitHeight, composerText.lineStep * 6) + Style.space(22)
+    anchors.bottomMargin: Style.space(4)
+    height: Math.min(composerText.implicitHeight, composerText.lineStep * 6) + Style.space(22) + thumbs.height
     radius: Style.space(18)
     color: root.pal.well
     border.width: 1
     border.color: root.pal.hairline
 
+    // Pasted images, as small thumbnails with a way to take each back off.
+    Flow {
+      id: thumbs
+      x: Style.space(14)
+      y: Style.space(8)
+      width: parent.width - x * 2
+      height: root.images.length > 0 ? Style.space(52) : 0
+      spacing: Style.space(6)
+
+      Repeater {
+        model: root.images
+
+        Item {
+          id: thumb
+          required property int index
+          required property string modelData
+          width: Style.space(48)
+          height: Style.space(48)
+
+          Image {
+            anchors.fill: parent
+            source: "file://" + thumb.modelData
+            sourceSize.width: Style.space(96)
+            sourceSize.height: Style.space(96)
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+          }
+
+          Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            width: Style.space(16)
+            height: width
+            radius: width / 2
+            color: root.pal.card
+            border.width: 1
+            border.color: root.pal.hairline
+
+            Text {
+              anchors.centerIn: parent
+              text: "×"
+              textFormat: Text.PlainText
+              color: root.pal.fg
+              font.pixelSize: Style.font.caption
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.images = root.images.filter(function(p, i) { return i !== thumb.index })
+            }
+          }
+        }
+      }
+    }
+
     Item {
       id: clipBox
       anchors.left: parent.left
-      anchors.right: send.left
+      anchors.right: attach.left
       anchors.leftMargin: Style.space(16)
       anchors.rightMargin: Style.space(8)
-      anchors.verticalCenter: parent.verticalCenter
-      height: parent.height - Style.space(22)
+      anchors.top: parent.top
+      anchors.topMargin: Style.space(11) + thumbs.height
+      height: parent.height - Style.space(22) - thumbs.height
       clip: true
 
       MirrorInput {
@@ -527,7 +771,37 @@ Item {
         fontSize: root.fontSize
         fontFamily: root.fontFamily
         placeholder: "Reply…"
-        onFocusRequested: { root.grabbed(); if (root.keyWindow) root.keyWindow.prime() }
+        onFocusRequested: { root.linkMenu = false; root.grabbed(); if (root.keyWindow) root.keyWindow.prime() }
+      }
+    }
+
+    // Link files or a folder: the chooser, from the choices above the composer.
+    Rectangle {
+      id: attach
+      anchors.right: send.left
+      anchors.rightMargin: Style.space(4)
+      anchors.verticalCenter: parent.verticalCenter
+      width: Style.space(28)
+      height: width
+      radius: width / 2
+      color: root.linkMenu || root.picking ? root.pal.alpha(root.pal.fg, 0.14)
+        : attachMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : "transparent"
+
+      Icon {
+        anchors.centerIn: parent
+        d: Icons.clip
+        size: Style.space(15)
+        stroke: 2
+        color: attachMouse.containsMouse || root.linkMenu ? root.pal.fg : root.pal.muted
+      }
+
+      MouseArea {
+        id: attachMouse
+        anchors.fill: parent
+        enabled: !root.picking
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: { root.linkMenu = !root.linkMenu; if (root.keyWindow) root.keyWindow.prime() }
       }
     }
 
@@ -539,7 +813,7 @@ Item {
       width: Style.space(30)
       height: width
       radius: width / 2
-      readonly property bool ready: root.inputText.trim() !== ""
+      readonly property bool ready: root.inputText.trim() !== "" || root.images.length > 0
       color: ready ? root.pal.crab : root.pal.alpha(root.pal.fg, 0.08)
 
       Icon {
