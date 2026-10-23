@@ -146,3 +146,28 @@ renders, but nobody has clicked or typed through it yet.
       `--model`, else the settings); the chip reads "Opus Plan · Opus/Sonnet"
       after the mode, and no longer sticks to the banner's start model.
       (Feed checked against live sessions.)
+- [x] Anti-rot (was Daily reps): one hand-written Exercism exercise a day (JavaScript,
+      Rust) on Home's idle moment, with Check, a streak and a read-only
+      Claude review; a gear in the nav opens Settings for the languages and
+      levels. (antirot.py run end to end on JavaScript; the cards and Settings
+      seen rendered in a harness. Not hand-tested in the real island yet.)
+- [ ] Coach chat: a chat mode where Claude explains and hints but can't
+      edit files, for side projects written by hand.
+- [ ] Claude-generated "real-world" reps alongside Exercism's, checked
+      against Claude's own solution before they're handed out.
+- [x] Anti-rot: 1-3 challenges a day (Settings), Next / Another one to chain
+      more, and a corner-card mode with the day's progress and the last
+      three done. Renamed from Daily reps; gym.json and ~/Work/gym move
+      over on first run.
+- [x] Anti-rot: card buttons wrap and New chat is an icon once there's a
+      challenge (it overflowed); time box (Settings), solve-time stats in
+      the corner pane, and spaced re-dos for shaky passes. (antirot.py run
+      against a scratch state; QML not seen rendered.)
+- [x] Anti-rot: the corner pane steps through languages and history with
+      ‹ › instead of listing them, Settings is on dense rows (Pill's
+      `dense`), and a language that no longer exists (javascript) is dropped
+      from the state. (QML parses with qmldom; not seen rendered.)
+- [x] Corner card: every mode fits one fixed slot (Corner.qml `slot`) so tabs
+      don't change the island's height; Posture became Move with a Sit up
+      and a Walk nudge, their timing moved to Settings → Move, Timer is
+      compacted. (qmllint clean apart from import paths; not seen rendered.)

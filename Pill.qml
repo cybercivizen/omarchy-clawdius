@@ -15,6 +15,8 @@ Rectangle {
   property bool iconOnly: false
   property bool busy: false
   property bool compact: false
+  // Smaller still, for dense rows (Settings, the corner card).
+  property bool dense: false
   property string fontFamily: Style.font.family
   property string tooltip: ""
   property bool tooltipAbove: false   // at the foot of a card: over the pill
@@ -28,8 +30,8 @@ Rectangle {
     : kind === "quiet" && !hovered ? pal.muted
     : pal.fg
 
-  implicitHeight: Style.space(compact ? 30 : 36)
-  implicitWidth: iconOnly ? implicitHeight : row.implicitWidth + Style.space(compact ? 24 : 32)
+  implicitHeight: Style.space(dense ? 24 : compact ? 30 : 36)
+  implicitWidth: iconOnly ? implicitHeight : row.implicitWidth + Style.space(dense ? 18 : compact ? 24 : 32)
   radius: height / 2
   color: !pal ? "transparent"
     : primary ? (hovered ? pal.mix(pal.primary, pal.light ? "#ffffff" : "#000000", 0.12) : pal.primary)

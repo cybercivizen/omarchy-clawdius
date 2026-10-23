@@ -146,7 +146,7 @@
         "type": "boolean",
         "label": "Timer sound",
         "defaultValue": true,
-        "description": "Play a chime when a timer, alarm, reminder or posture nudge goes off."
+        "description": "Play a chime when a timer, alarm, reminder, posture or walk nudge goes off."
       }
     ]
   }

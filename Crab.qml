@@ -13,7 +13,7 @@ Item {
   property color color: pal ? pal.crab : "#D97757"
   property bool sweat: false
   property bool animate: true
-  // "" | "working" | "waiting" | "done" | "failed" | "limited" | "posture"
+  // "" | "working" | "waiting" | "done" | "failed" | "limited" | "posture" | "walk"
   property string badge: ""
   // Shown in the waiting badge when more than one thing waits.
   property int count: 0
@@ -68,7 +68,7 @@ Item {
         : root.badge === "done" ? root.pal.done
         : root.badge === "failed" ? root.pal.failed
         : root.badge === "limited" ? root.pal.limit
-        : root.badge === "posture" ? root.pal.posture
+        : root.badge === "posture" || root.badge === "walk" ? root.pal.posture
         : root.pal.mix(root.pal.card, root.pal.fg, 0.12)
 
       Text {
@@ -80,6 +80,7 @@ Item {
           : root.badge === "failed" ? "✗"
           : root.badge === "limited" ? "z"
           : root.badge === "posture" ? "↑"
+          : root.badge === "walk" ? "→"
           : ""
         textFormat: Text.PlainText
         color: root.pal ? root.pal.onFill(badgeFill.color) : "white"

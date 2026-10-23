@@ -17,7 +17,7 @@ import "Icons.js" as Icons
 //   failed    the same, for one that didn't work out
 //   limited   the same, for one stopped by the usage limit: when it resets
 //   working   the session being watched: its steps, time and tokens
-//   idle      nothing running: start a new chat
+//   idle      nothing running: today's rep (ChallengeCard), or start a new chat
 Rectangle {
   id: root
 
@@ -40,6 +40,9 @@ Rectangle {
   property int sessionCount: 0
   // The usage record (Omarchy's collector), for when a hit limit resets.
   property var usage: null
+  // antirot.json (antirot.py), for today's rep in the idle moment; null: no reps yet.
+  property var antirot: null
+  property string challengeBusy: ""
   // The corner card's timers and alarms, to tell a reset alarm is set.
   property var timers: []
 
@@ -53,6 +56,8 @@ Rectangle {
   signal newChat()
   signal pinned(var session)
   signal moreSessions()
+  // ChallengeCard's: start | open | check | easier | skip | next | review | settings
+  signal challenge(string action)
   // An alarm for when the spent limit resets.
   signal alarmRequested(double at, string label)
 
@@ -519,7 +524,27 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(14)
 
+      ChallengeCard {
+        visible: !!root.antirot
+        width: parent.width
+        pal: root.pal
+        fontFamily: root.fontFamily
+        antirot: root.antirot
+        now: root.now
+        busy: root.challengeBusy
+        onStarted: root.challenge("start")
+        onOpened: root.challenge("open")
+        onChecked: root.challenge("check")
+        onEasier: root.challenge("easier")
+        onSkipped: root.challenge("skip")
+        onNexted: root.challenge("next")
+        onReviewed: root.challenge("review")
+        onSettingsOpened: root.challenge("settings")
+        onNewChat: root.newChat()
+      }
+
       Column {
+        visible: !root.antirot
         width: parent.width
         spacing: Style.space(5)
 
@@ -549,6 +574,7 @@ Rectangle {
 
       // Into the chat view (QuickChat): type, Chat or Code, Enter.
       Pill {
+        visible: !root.antirot
         pal: root.pal
         fontFamily: root.fontFamily
         kind: "primary"

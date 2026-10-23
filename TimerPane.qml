@@ -25,7 +25,7 @@ Item {
   property int minutes: 10
   property int alarmAt: Timers.defaultAlarm(Date.now())
 
-  readonly property var shown: timers.slice().sort(function(a, b) { return a.at - b.at }).slice(0, 3)
+  readonly property var shown: timers.slice().sort(function(a, b) { return a.at - b.at }).slice(0, 2)
 
   implicitHeight: setting ? setter.implicitHeight : list.implicitHeight
 
@@ -50,9 +50,10 @@ Item {
 
     Item {
       width: parent.width
-      height: Style.space(16)
+      height: Style.space(24)
 
       Row {
+        anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(12)
 
         Repeater {
@@ -79,7 +80,9 @@ Item {
 
       Text {
         visible: root.timers.length > 0
-        anchors.right: parent.right
+        anchors.right: startPill.left
+        anchors.rightMargin: Style.space(10)
+        anchors.verticalCenter: parent.verticalCenter
         text: "Back"
         textFormat: Text.PlainText
         color: root.pal.muted
@@ -92,6 +95,19 @@ Item {
           cursorShape: Qt.PointingHandCursor
           onClicked: root.composing = false
         }
+      }
+
+      Pill {
+        id: startPill
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        pal: root.pal
+        dense: true
+        fontFamily: root.fontFamily
+        kind: "primary"
+        icon: root.kind === "timer" ? Icons.timer : Icons.bell
+        label: Timers.kinds[root.kind === "alarm" ? 1 : 0].verb
+        onClicked: root.start()
       }
     }
 
@@ -182,15 +198,6 @@ Item {
       }
     }
 
-    Pill {
-      width: parent.width
-      pal: root.pal
-      compact: true
-      kind: "primary"
-      icon: root.kind === "timer" ? Icons.timer : Icons.bell
-      label: Timers.kinds[root.kind === "alarm" ? 1 : 0].verb
-      onClicked: root.start()
-    }
   }
 
   // ---- What's running
@@ -208,7 +215,7 @@ Item {
         required property var modelData
         readonly property double remaining: modelData.at - root.now
         width: list.width
-        height: Style.space(34)
+        height: Style.space(32)
 
         Icon {
           id: entryIcon
@@ -285,19 +292,8 @@ Item {
       pal: root.pal
       compact: true
       icon: Icons.plus
-      label: "New"
+      label: root.timers.length > root.shown.length ? "New · +" + (root.timers.length - root.shown.length) + " later" : "New"
       onClicked: root.composing = true
-    }
-
-    Text {
-      visible: root.timers.length > root.shown.length
-      width: parent.width
-      horizontalAlignment: Text.AlignHCenter
-      text: "+ " + (root.timers.length - root.shown.length) + " later"
-      textFormat: Text.PlainText
-      color: root.pal.muted
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
     }
   }
 }

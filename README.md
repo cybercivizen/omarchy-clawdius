@@ -105,7 +105,7 @@ It sweats (a drop runs down its side) once the 5-hour limit is 90% spent.
 Near-black, hung straight off the bar,
 with an icon nav: **Home**, **Chat** (a new chat), **Sessions**, **Search**
 (the icon stretches into a search bar), the status ("1 needs you · 2
-working"), and **+** for a new session from any view. Opened by hovering,
+working"), a gear for **Settings**, and **+** for a new session from any view. Opened by hovering,
 the nav also shows the two shortcuts (hidden when the status leaves no room).
 The island opens from the empty bar within the middle 560 px
 (`hoverZoneWidth`), not only the clock and crab: a passive `HoverHandler` on
@@ -136,8 +136,8 @@ buffer squashed into the new size.
   the tool call that's out with its command or path under it, or
   "Thinking…" between calls; under the list, Claude's latest words this
   turn in quotes.
-  With nothing running: **New chat**, into the chat view. (Earlier sessions
-  are under Sessions → Recent.)
+  With nothing running: today's **challenge** (see Anti-rot below) and **New
+  chat**, into the chat view. (Earlier sessions are under Sessions → Recent.)
   Other running sessions sit on a **rail** of small crabs on the right, each
   with a bubble on its corner saying how long ago it last moved (since its
   turn started while it works or waits, since it went idle otherwise).
@@ -153,15 +153,18 @@ buffer squashed into the new size.
     the island peeks open with a toast and a chime (setting **Timer sound**).
     They survive a shell restart (`~/.local/state/clawdius/timers.json`); one
     that came due while the shell was down rings on start, marked "Was due".
-  - **Posture**: a playful sit-up-straight nudge every 20 or 30
-    minutes, or a **Custom** wait (5 to 120 minutes, − / +). The crab sits
-    tall, slumps in the last two minutes, and stretches in a teal toast
-    (↑ badge) with a line to follow ("Shoulders down, claws loose.") and
-    when the next one's due. **Nudge me now** rings one
-    to try it. It's idle-aware: after 2 minutes without input (a playing
-    video counts as there) the count pauses and the crab dozes; back after a
-    short break it carries on, after 5 minutes or more it starts over ("Fresh
-    start after your break.").
+  - **Move** (the sitter icon): two nudges on one card, **Sit up** (a playful
+    sit-up-straight, default every 30 minutes) and **Walk** (stand up and walk,
+    default every 60), each with its own Start / Off, countdown and filling
+    bar. How often each rings is in **Settings → Move** (sit up 20 to 60,
+    walk 30 to 90 minutes). The crab sits tall, slumps in the last two
+    minutes, and stretches in a teal toast (↑ for sit up, → for walk) with a
+    line to follow. Click the crab to ring the nearest one and try it.
+    It's idle-aware: after 2 minutes without input (a playing video counts
+    as there) the counts pause and the crab dozes; back after a short break
+    they carry on, after 5 minutes or more they start over ("Fresh start
+    after your break."). Every mode of the card fits one fixed slot, so
+    switching tabs never moves the island.
 
   Only the first crab (the leader on a multi-monitor bar) rings, so nothing
   goes off twice.
@@ -289,6 +292,65 @@ buffer squashed into the new size.
 - **Stats** — Claude usage, replacing the old `cybercivizen.agents` bar icon:
   plan, 5-hour and weekly limits (orange when ahead of the pace tick, red at
   90%), today's tokens / prompts / sessions, tokens per model, last 7 days.
+- **Settings** (the gear): settings that live in the island rather than in
+  `shell.json`, one section per feature (`Settings.qml`). For now, **Anti-rot**:
+  challenges a day (1–3), each language's on/off switch, its level (− / +, 1–10), and its
+  state: ready, not set up (**Set up**), or the toolchain it still needs,
+  with the install command. Below them, the **editor** challenges open in
+  (Omarchy's default, Neovim, Helix, Nano, VS Code or Zed).
+
+#### Anti-rot
+
+Small exercises, written by hand, to keep in practice when Claude writes
+most of the code. `antirot.py` takes them from Exercism's open tracks
+(TypeScript and Rust to start; Settings adds Python, Go, Ruby or Elixir with
+one click, and `antirot.py add TRACK NAME TOOLS "TEST COMMAND"` any other track,
+whose result is the command's exit code): turning a language on in Settings
+clones its track (`~/.local/share/clawdius/tracks`; TypeScript also installs
+jest once, under `~/Work/antirot/typescript`). Exercism has tracks for languages,
+not frameworks. The languages that are on take turns. The challenge is the
+unsolved exercise nearest the language's level, never one skipped in the last
+30 days; two passes at a level move it up.
+
+**How often** is set in Settings: 1, 2 or 3 challenges a day. The streak
+counts days the quota was met. Past the quota, or any time a challenge is
+passed, **Next** / **Another one** chains one more.
+
+**Time box** (Settings: off, 15, 25 or 45 min) shows the time left, then "Nm over",
+and the done line says how long it took and in how many checks. Time is wall
+clock, Start to the passing Check. A pass is **shaky** if it ran over the box
+(without one: 1.5× the language's usual time), or took four checks. Shaky
+passes come back as a **re-do** a week later, ahead of anything new, from a
+blank stub beside the first attempt (`<slug>.redo1`), until one is solved
+clean; after three rounds it's let go. A re-do doesn't count toward the next
+level; Skip puts it off a day. The corner card shows each language's usual
+solve time next to the five before ("~14m (was 22m)"), and how many re-dos
+are due.
+
+On Home's idle moment: the exercise's name, Exercism's one-line blurb, its
+difficulty, where the day's quota stands and the streak. **Start** copies the
+stub, the tests (every one of them, Exercism skips all but the first) and the
+instructions to `~/Work/antirot/<lang>/<slug>`, never the example solution,
+and opens the instructions (`.docs/instructions.md`, the actual task) and the
+stub in the chosen editor (side by side in Neovim/Vim; default
+`omarchy-launch-editor`). **Check** runs the tests (`cargo test`, jest) and
+shows how many pass, with the end of the output. All passing counts toward
+the day: a ✓, the streak, **Next**, and **Review** (with Claude), a session in
+the live view that can read but not edit (`--disallowedTools Edit,Write,…`).
+It's asked to teach rather than fix, and to compare with Exercism's own
+solution after its review. **Easier** is a level down, **Skip** another one
+at the same level.
+
+The corner card's fourth mode (the `</>` icon, beside Limits, Timer and
+Move) is the same thing at a glance, and works while Claude is busy and
+Home shows the session: today's dots against the quota, the streak, the
+button that moves the current challenge on (Start, Check, Next), and two
+rows you step through with ‹ ›: the languages (level, progress to the next,
+usual solve time) and what you've done (the last 20, newest first).
+
+State is `~/.local/state/clawdius/antirot.json`; only `antirot.py` writes it.
+Earlier installs (Daily reps, `gym.json`, `~/Work/gym`) are moved over on the
+first run.
 
 Colors come from the theme's ink and paper (`Colors.qml`), so Solitude and
 Solitude Light both read: orange `#D97757` (`#C15F3C` on light) means Claude
@@ -315,7 +377,7 @@ and call its `hover(window, hovered)`.
 |---|---|---|
 | UI | Omarchy shell plugin (Quickshell / QML), `BarWidget.qml` | Lives in the same process as the bar, inherits theme, hot-reloads on save |
 | Sprite | `Sprite.js` + `Clawd.qml`, rectangles on an 18×10 grid | Clawd decoded from the CLI's `▐▛███▜▌` block art; crisp at any scale |
-| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
+| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml` (the Move tab), `AntirotPane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
 | Parts | `Crab.qml` (Clawd + badge), `Pill.qml`, `Steps.qml`, `Chip.qml`, `Icon.qml` + `Icons.js` (SVG line icons via QtQuick.Shapes), `Format.js` | Shared by the views |
 | Colors | `Colors.qml` | Theme-aware palette; the `color` setting overrides the orange |
 | Data | `feed.py` (Python stdlib), spawned by the widget, JSON lines on stdout | Zero config; polls cheap mtimes once a second |
@@ -324,6 +386,7 @@ and call its `hover(window, hovered)`.
 | Card | `FrostCard.qml`, a reworked `PopupCard` | `island: true`: square corners on the bar, 30 px on the free ones; opens by growing out of the bar (a sliver widens, drops to full height, then the content fades in) and folds back into it on close; see-through enough that Hyprland frosts it (`blur_popups` on the `omarchy-bar` layer rule); animates height between views |
 | Approvals | `approvals.py` (`PermissionRequest` hook) + `Approval.qml` | Allow / Always / Deny from the card; the terminal dialog stays up alongside |
 | Resume | `resumable.py` + `Resume.qml` | Past sessions, with whether resuming hits the prompt cache |
+| Anti-rot | `antirot.py` + `ChallengeCard.qml` (Home's idle moment) + `AntirotPane.qml` (corner card), `Settings.qml` | Exercism tracks, human-written tests, offline once cloned; one writer for `antirot.json`, every crab watches it |
 
 ### Background sessions & live terminal
 
@@ -447,7 +510,7 @@ Drawn in the island (`Toast.qml`), built to read at a glance:
 - **Icon** — a little Clawd in the state's pose (`Crab.qml`), the status
   badge on his corner: green ✓ done (hopping), red ✗ failed (gray, slumped),
   amber ! needs you (waving), purple z out of usage (gray, asleep), teal ↑
-  for the posture nudge (stretching). On the
+  for the posture and walk nudges (stretching). On the
   open island the note is a borderless card faintly tinted with that color.
 - **Title** — the status, then the session: `Done · work-e9`, `Failed · …`,
   `Needs your OK · …` (permission / sandbox prompts), `Needs input · …`,
