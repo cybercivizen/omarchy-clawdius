@@ -140,7 +140,7 @@ Item {
     var last = messages.count - 1
     if (last >= 0) messages.setProperty(last, "tail", messages.get(last).role !== msg.role || msg.role === "tool")
     messages.append({ key: msg.key, role: msg.role, text: msg.text, pending: !!pending, tail: true })
-    if (messages.count > 200) messages.remove(0, messages.count - 200)
+    if (messages.count > 400) messages.remove(0, messages.count - 400)
   }
 
   function addPending(text) {

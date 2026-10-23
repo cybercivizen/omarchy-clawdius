@@ -940,8 +940,8 @@ def view(job, cols, rows, theme):
 
 # ---- Conversation view
 
-CHAT_BOOTSTRAP_BYTES = 1 << 20
-CHAT_BOOTSTRAP_MSGS = 60
+CHAT_BOOTSTRAP_BYTES = 6 << 20
+CHAT_BOOTSTRAP_MSGS = 400
 # How often the screen is looked at for "is Claude asking something".
 CHAT_LOOK_SEC = 0.5
 CHAT_BUSY_POLL_SEC = 0.3
