@@ -129,8 +129,9 @@ renders, but nobody has clicked or typed through it yet.
       20m / 30m / Custom (5 to 120 min); Posture pauses while you're away
       and restarts after a 5 minute break. (Not hand-tested; see the
       verification notes in the PR.)
-- [ ] Ring when the Claude limits reset: a bell on a Limits row, or "Alert
+- [x] Ring when the Claude limits reset: a bell on a Limits row, or "Alert
       me" on the out-of-usage moment, sets an alarm for the reset time.
+      ("Ring at …" on the out-of-usage moment only; no Limits-row bell.)
 - [ ] The running timer's time left beside the crab on the bar.
 
 ## Live session composer
@@ -175,3 +176,8 @@ renders, but nobody has clicked or typed through it yet.
       the card's top left, rail stays; Anti-rot left the corner card; a click
       on the bar clock opens the island on Today. (Seen rendered; the clock
       click was tried through `omarchy.clock open`, not a real pointer.)
+- [x] Chat sessions open as a conversation (ChatView.qml, `live.py chat`):
+      speech bubbles with tails, tool lines, typing dots, link chips, a
+      toggle to the terminal. Seen rendered in the dark theme; light theme
+      not checked. Open: image paste, Up / Down history, code-block
+      background.

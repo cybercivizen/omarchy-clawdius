@@ -51,6 +51,8 @@ Rectangle {
   // while a moment needs you). Weather.js parse(), for Today.
   property string mode: "agents"
   property var weather: null
+  // The corner card's timers and alarms, to tell a reset alarm is set.
+  property var timers: []
 
   signal modePicked(string mode)
   // answers: AskUserQuestion's, question → chosen label(s).
@@ -65,8 +67,12 @@ Rectangle {
   signal moreSessions()
   // ChallengeCard's: start | open | check | easier | skip | next | review | settings
   signal challenge(string action)
+  // An alarm for when the spent limit resets.
+  signal alarmRequested(double at, string label)
 
   readonly property string kind: moment ? moment.kind : "idle"
+  // A plan to read needs the island's taller cap.
+  readonly property bool tall: kind === "approval" && !!moment.request && moment.request.tool === "ExitPlanMode"
   readonly property var s: moment && moment.session ? moment.session : null
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property real pad: Style.space(26)
@@ -351,6 +357,15 @@ Rectangle {
           fontFamily: root.fontFamily
           label: "Open"
           onClicked: root.opened(root.s)
+        }
+        // Rings like any alarm (timers.json, the leader's toast).
+        Pill {
+          readonly property bool set: root.timers.some(function(t) { return t.kind === "alarm" && t.at === limited.resetsAt })
+          visible: limited.resetsAt > root.now
+          pal: root.pal
+          fontFamily: root.fontFamily
+          label: set ? "✓ Will ring" : "Ring at " + Qt.formatTime(new Date(limited.resetsAt), "h:mm ap")
+          onClicked: if (!set) root.alarmRequested(limited.resetsAt, "Usage is back")
         }
         Pill {
           pal: root.pal
