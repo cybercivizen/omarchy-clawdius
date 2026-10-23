@@ -116,6 +116,32 @@ def always_option(tool, suggestions):
     return None, ""
 
 
+PLACES = {"session": "this session", "localSettings": "this project, just you",
+          "projectSettings": "this project, shared with the repo", "userSettings": "everywhere",
+          "cliArg": "this run"}
+
+
+def always_rule(updates):
+    """What "Always" adds, in one line: each rule, then where it's kept."""
+    home = os.path.expanduser("~")
+    parts = []
+    for u in updates or []:
+        kind = u.get("type")
+        if kind in ("addRules", "replaceRules"):
+            what = ", ".join(r.get("toolName", "") + ("(%s)" % r["ruleContent"] if r.get("ruleContent") else "")
+                             for r in u.get("rules") or [])
+        elif kind == "setMode":
+            what = "mode " + str(u.get("mode", ""))
+        elif kind == "addDirectories":
+            what = "access " + ", ".join(d.replace(home, "~", 1) if d.startswith(home) else d
+                                         for d in u.get("directories") or [])
+        else:
+            continue
+        dest = u.get("destination") or "session"
+        parts.append(what + " · " + PLACES.get(dest, dest))
+    return clip("; ".join(parts), 200)
+
+
 def questions(inp):
     """AskUserQuestion's questions, trimmed for the card."""
     out = []
@@ -126,7 +152,7 @@ def questions(inp):
             "question": str(q.get("question", "")),
             "header": clip(q.get("header", ""), 24),
             "multiSelect": bool(q.get("multiSelect")),
-            "options": [{"label": str(o.get("label", "")), "description": clip(o.get("description", ""), 160)}
+            "options": [{"label": str(o.get("label", "")), "description": clip(o.get("description", ""), 600)}
                         for o in (q.get("options") or []) if isinstance(o, dict)][:6],
         })
     return out
@@ -216,8 +242,9 @@ def hook():
         "sessionId": payload.get("session_id", ""), "cwd": payload.get("cwd", ""),
         "tool": tool, "verb": verb, "detail": detail, "diff": diff,
         "alwaysLabel": "" if tool in (QUESTION_TOOL, PLAN_TOOL) else always_label,
+        "alwaysRule": "" if tool in (QUESTION_TOOL, PLAN_TOOL) else always_rule(updates),
         "questions": questions(inp) if tool == QUESTION_TOOL else [],
-        "plan": clip(inp.get("plan", ""), 6000) if tool == PLAN_TOOL else "",
+        "plan": clip(inp.get("plan", ""), 40000) if tool == PLAN_TOOL else "",
     })
 
     answer = None

@@ -21,12 +21,15 @@ Rectangle {
   property var session: null
   property var keyWindow: null
   property int terminalFontSize: 13
+  // A Chat session shows as a conversation (ChatView) rather than the terminal.
+  property bool chatStyle: false
+  property string pendingPrompt: ""
   property double now: Date.now()
   property bool active: true
   // The pointer is busy in the terminal (selecting): don't drag-scroll.
-  readonly property bool holdsPointer: term.item ? term.item.holdsPointer : false
+  readonly property bool holdsPointer: !chatStyle && term.item ? term.item.holdsPointer : false
   // The terminal's file chooser is open: it has the keyboard, the island stays.
-  readonly property bool picking: term.item ? term.item.picking : false
+  readonly property bool picking: !chatStyle && term.item ? term.item.picking : false
 
   signal grabbed()
   signal openTerminal()
@@ -34,6 +37,7 @@ Rectangle {
   signal newSession(string dir)
   signal openLink(string url)
   signal collapse()
+  signal toggleChat()
 
   readonly property var s: session || ({})
   readonly property bool lively: !!s.busy || !!s.waiting
@@ -101,7 +105,7 @@ Rectangle {
 
       Text {
         width: parent.width
-        text: "Claude Code · bg" + (root.s.waiting ? " · needs you" : root.s.busy ? " · " + Format.clock(root.now, root.s.turnStart) : "")
+        text: (root.chatStyle ? "Chat" : "Claude Code") + " · bg" + (root.s.waiting ? " · needs you" : root.s.busy ? " · " + Format.clock(root.now, root.s.turnStart) : "")
         textFormat: Text.PlainText
         elide: Text.ElideRight
         color: root.s.waiting ? root.pal.needsYouText : root.pal.muted
@@ -397,7 +401,18 @@ Rectangle {
         pal: root.pal
         fontFamily: root.fontFamily
         compact: true
-        icon: Icons.terminal
+        iconOnly: true
+        icon: root.chatStyle ? Icons.terminal : Icons.chat
+        tooltip: root.chatStyle ? "Show the terminal" : "Show as a conversation"
+        tooltipAbove: true
+        onClicked: root.toggleChat()
+      }
+
+      Pill {
+        pal: root.pal
+        fontFamily: root.fontFamily
+        compact: true
+        icon: Icons.external
         label: "Open in terminal"
         onClicked: root.openTerminal()
       }
@@ -436,7 +451,31 @@ Rectangle {
     y: Style.space(18)
     width: root.width - x - Style.space(18)
 
-    sourceComponent: LiveTerm {
+    sourceComponent: root.chatStyle ? chatComponent : termComponent
+  }
+
+  Component {
+    id: chatComponent
+
+    ChatView {
+      jobId: root.jobId
+      keyWindow: root.keyWindow
+      pal: root.pal
+      fontFamily: root.fontFamily
+      fontSize: root.terminalFontSize
+      session: root.s
+      pendingText: root.pendingPrompt
+      active: root.active
+      onGrabbed: root.grabbed()
+      onShowTerminal: root.toggleChat()
+      onOpenLink: url => root.openLink(url)
+    }
+  }
+
+  Component {
+    id: termComponent
+
+    LiveTerm {
       jobId: root.jobId
       keyWindow: root.keyWindow
       fontSize: root.terminalFontSize
