@@ -255,7 +255,7 @@ BarWidget {
   // A click: a background session up close in the island, else its terminal.
   function activateToast() {
     // A timer or nudge has no session to go to; a click puts it away.
-    if (root.toastDrawn && (root.toastDrawn.kind === "timer" || root.toastDrawn.kind === "posture")) { hideToast(); return }
+    if (root.toastDrawn && (root.toastDrawn.kind === "timer" || root.toastDrawn.kind === "posture" || root.toastDrawn.kind === "walk")) { hideToast(); return }
     var s = root.toastDrawn ? root.sessionById(root.toastDrawn.id) : null
     root.toast = null
     if (!s) { if (root.peeking) card.open = false; return }
@@ -370,7 +370,7 @@ BarWidget {
   Timer {
     // Keeps the "working 3m12s" timers ticking while the card is up.
     running: card.open
-    interval: root.activeSessions.length || root.timers.length || root.posture.on ? 1000 : 5000
+    interval: root.activeSessions.length || root.timers.length || root.nudging ? 1000 : 5000
     repeat: true
     triggeredOnStart: true
     onTriggered: root.now = Date.now()
@@ -472,7 +472,7 @@ BarWidget {
     function setView(name: string): void { root.view = name }
     // A rep card button: start | open | check | easier | skip | next | review | settings.
     function challenge(action: string): void { root.challengeAction(action) }
-    // Home's corner card: limits | timer | posture.
+    // Home's corner card: limits | timer | posture (the Move tab) | antirot.
     function setCorner(mode: string): void { root.pickCorner(mode) }
     // Show a background session live, by its job id ("" hides it).
     function live(jobId: string): void { root.liveId = jobId; root.view = jobId ? "detail" : "home"; root.pinned = true; root.open() }
@@ -1270,8 +1270,12 @@ BarWidget {
   //      rings what's due, so a two-monitor bar doesn't ring twice.
   property var timers: []           // {id, kind: timer | alarm, label, at, len}
   property var posture: ({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
+  // The stand-up-and-walk nudge: the same shape, a longer wait.
+  property var walk: ({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
   property string cornerMode: "limits"
   property int postureRings: 0
+  property int walkRings: 0
+  readonly property bool nudging: root.posture.on || root.walk.on
 
   FileView {
     id: timersFile
@@ -1284,6 +1288,7 @@ BarWidget {
         var d = JSON.parse(text()) || {}
         root.timers = d.timers || []
         root.posture = Object.assign({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.posture || {})
+        root.walk = Object.assign({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.walk || {})
         root.cornerMode = d.mode || "limits"
       } catch (e) { console.warn("clawdius timers parse", e) }
     }
@@ -1292,7 +1297,7 @@ BarWidget {
   Timer {
     id: timersSave
     interval: 300
-    onTriggered: timersFile.setText(JSON.stringify({ timers: root.timers, posture: root.posture, mode: root.cornerMode }))
+    onTriggered: timersFile.setText(JSON.stringify({ timers: root.timers, posture: root.posture, walk: root.walk, mode: root.cornerMode }))
   }
 
   function addTimer(kind, label, at, len) {
@@ -1305,17 +1310,18 @@ BarWidget {
     timersSave.restart()
   }
 
-  function setPosture(patch) {
-    var p = Object.assign({}, root.posture, patch)
+  // key: "posture" | "walk".
+  function setNudge(key, patch) {
+    var p = Object.assign({}, root[key], patch)
     // Turning it on, or changing how often, counts from now.
-    if ((patch.on && !root.posture.on) || (patch.everyMin && p.on)) {
+    if ((patch.on && !root[key].on) || (patch.everyMin && p.on)) {
       p.nextAt = Date.now() + p.everyMin * 60000
       p.awaySince = 0
       p.pausedLeft = 0
       p.rested = false
     }
     if (patch.on === false) { p.awaySince = 0; p.pausedLeft = 0; p.rested = false }
-    root.posture = p
+    root[key] = p
     timersSave.restart()
   }
 
@@ -1328,11 +1334,12 @@ BarWidget {
   function ringDue() {
     if (!Link.isLeader(root)) return
     // Left frozen by a shell restart while away: back now, so pick it up.
-    if (root.posture.awaySince > 0 && !idleMonitor.isIdle) root.postureIdle(false)
+    if ((root.posture.awaySince > 0 || root.walk.awaySince > 0) && !idleMonitor.isIdle) root.postureIdle(false)
     var t = Date.now()
     var due = root.timers.filter(function(x) { return x.at <= t })
     var posturing = root.posture.on && !root.posture.awaySince && root.posture.nextAt > 0 && root.posture.nextAt <= t
-    if (!due.length && !posturing) return
+    var walking = root.walk.on && !root.walk.awaySince && root.walk.nextAt > 0 && root.walk.nextAt <= t
+    if (!due.length && !posturing && !walking) return
     if (due.length) root.timers = root.timers.filter(function(x) { return x.at > t })
     if (posturing) {
       var p = Object.assign({}, root.posture)
@@ -1340,6 +1347,13 @@ BarWidget {
       p.rested = false
       root.posture = p
       root.postureRings++
+    }
+    if (walking) {
+      var w = Object.assign({}, root.walk)
+      w.nextAt = t + w.everyMin * 60000
+      w.rested = false
+      root.walk = w
+      root.walkRings++
     }
     timersSave.restart()
     var focused = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
@@ -1350,8 +1364,10 @@ BarWidget {
       crab.ring({ kind: "timer", status: Timers.ringName(first.kind), name: first.label,
         text: late ? "Was due " + Qt.formatDateTime(new Date(first.at), "HH:mm") : "Time's up.",
         meta: due.length > 1 ? ["+" + (due.length - 1) + " more"] : [], at: t, id: "" })
-    } else {
+    } else if (posturing) {
       crab.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(root.postureRings), meta: ["next in " + Timers.span(root.posture.everyMin)], at: t, id: "" })
+    } else {
+      crab.ring({ kind: "walk", status: "Move break", name: "Stand up", text: Timers.walkLine(root.walkRings), meta: ["next in " + Timers.span(root.walk.everyMin)], at: t, id: "" })
     }
   }
 
@@ -1359,26 +1375,31 @@ BarWidget {
   // as there): the nudge count waits, from when you left. Back after a real
   //  break (5 minutes), it starts over; after a short one it carries on.
   function postureIdle(idle) {
-    if (!Link.isLeader(root) || !root.posture.on) return
+    if (!Link.isLeader(root) || !root.nudging) return
     var t = Date.now()
-    var p = Object.assign({}, root.posture)
-    if (idle && !p.awaySince) {
-      p.awaySince = t - 120000
-      p.pausedLeft = Math.max(0, p.nextAt - p.awaySince)
-    } else if (!idle && p.awaySince) {
-      var rested = t - p.awaySince >= 300000
-      p.nextAt = t + (rested ? p.everyMin * 60000 : p.pausedLeft)
-      p.rested = rested
-      p.awaySince = 0
-      p.pausedLeft = 0
-    } else return
-    root.posture = p
-    timersSave.restart()
+    var changed = false
+    ;["posture", "walk"].forEach(function(key) {
+      if (!root[key].on) return
+      var p = Object.assign({}, root[key])
+      if (idle && !p.awaySince) {
+        p.awaySince = t - 120000
+        p.pausedLeft = Math.max(0, p.nextAt - p.awaySince)
+      } else if (!idle && p.awaySince) {
+        var rested = t - p.awaySince >= 300000
+        p.nextAt = t + (rested ? p.everyMin * 60000 : p.pausedLeft)
+        p.rested = rested
+        p.awaySince = 0
+        p.pausedLeft = 0
+      } else return
+      root[key] = p
+      changed = true
+    })
+    if (changed) timersSave.restart()
   }
 
   IdleMonitor {
     id: idleMonitor
-    enabled: root.posture.on
+    enabled: root.nudging
     timeout: 120
     respectInhibitors: true
     onIsIdleChanged: root.postureIdle(isIdle)
@@ -1392,7 +1413,7 @@ BarWidget {
     toastTimer.restart()
     root.showPeek()
     if (setting("timerSound", true)) {
-      chime.command = ["pw-play", "/usr/share/sounds/freedesktop/stereo/" + (t.kind === "posture" ? "bell" : "alarm-clock-elapsed") + ".oga"]
+      chime.command = ["pw-play", "/usr/share/sounds/freedesktop/stereo/" + (t.kind === "posture" || t.kind === "walk" ? "bell" : "alarm-clock-elapsed") + ".oga"]
       chime.running = true
     }
   }
@@ -1403,7 +1424,7 @@ BarWidget {
   }
 
   Timer {
-    running: root.timers.length > 0 || root.posture.on
+    running: root.timers.length > 0 || root.nudging
     interval: 1000
     repeat: true
     onTriggered: root.ringDue()
@@ -2494,6 +2515,7 @@ BarWidget {
                   mode: root.cornerMode
                   timers: root.timers
                   posture: root.posture
+                  walk: root.walk
                   antirot: root.antirot
                   antirotBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   onChallenge: function(action) { root.challengeAction(action) }
@@ -2501,8 +2523,11 @@ BarWidget {
                   onStatsOpened: root.view = "stats"
                   onTimerAdded: function(kind, label, at, len) { root.addTimer(kind, label, at, len) }
                   onTimerCancelled: function(id) { root.cancelTimer(id) }
-                  onPostureEdited: function(patch) { root.setPosture(patch) }
-                  onNudged: root.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(++root.postureRings), meta: ["next in " + Timers.span(root.posture.everyMin)], at: Date.now(), id: "" })
+                  onNudgeEdited: function(key, patch) { root.setNudge(key, patch) }
+                  onNudged: function(key) {
+                    if (key === "walk") root.ring({ kind: "walk", status: "Move break", name: "Stand up", text: Timers.walkLine(++root.walkRings), meta: ["next in " + Timers.span(root.walk.everyMin)], at: Date.now(), id: "" })
+                    else root.ring({ kind: "posture", status: "Posture check", name: "Sit up", text: Timers.postureLine(++root.postureRings), meta: ["next in " + Timers.span(root.posture.everyMin)], at: Date.now(), id: "" })
+                  }
                 }
               }
 
@@ -2644,8 +2669,11 @@ BarWidget {
                   pal: theme
                   fontFamily: root.fontFamily
                   antirot: root.antirot
+                  posture: root.posture
+                  walk: root.walk
                   busy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   busyLang: root.antirotBusyLang
+                  onNudgeSet: function(key, min) { root.setNudge(key, { everyMin: min }) }
                   onLangToggled: function(lang, on) { root.runAntirot(["set", lang, on ? "on" : "off"], lang) }
                   onLevelSet: function(lang, level) { root.runAntirot(["level", lang, String(level)], lang) }
                   onSetupAsked: function(lang) { root.runAntirot(["setup", lang], lang) }

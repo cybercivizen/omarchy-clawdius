@@ -3,9 +3,11 @@ import qs.Commons
 import "Icons.js" as Icons
 
 // Home's right-hand card, with a switcher up top: Limits (the Claude usage
-// glance), Timer (timers, alarms, reminders), Posture (the crab's
-// sit-up-straight nudge) and Anti-rot (today's challenges and progress). The mode is remembered; the engine behind the
-// timers and the nudge is in BarWidget.
+// glance), Timer (timers, alarms, reminders), Move (the crab's sit-up and
+// stand-up-and-walk nudges; their timing is in Settings) and Anti-rot
+// (today's challenges and progress). Every mode fits one fixed slot, so
+// switching never moves the island. The mode is remembered (the Move tab
+// is mode "posture"); the engine behind the timers and nudges is in BarWidget.
 Rectangle {
   id: root
 
@@ -15,6 +17,7 @@ Rectangle {
   property var record: null
   property var timers: []
   property var posture: ({ on: false, everyMin: 30, nextAt: 0 })
+  property var walk: ({ on: false, everyMin: 60, nextAt: 0 })
   // antirot.json, as antirot.py writes it, and the action running.
   property var antirot: null
   property string antirotBusy: ""
@@ -25,19 +28,21 @@ Rectangle {
   signal statsOpened()
   signal timerAdded(string kind, string label, double at, double len)
   signal timerCancelled(string id)
-  signal postureEdited(var patch)
-  signal nudged()
+  signal nudgeEdited(string key, var patch)
+  signal nudged(string key)
   signal challenge(string action)
 
   readonly property var modes: [
     { id: "limits", name: "LIMITS", icon: Icons.limits },
     { id: "timer", name: "TIMER", icon: Icons.timer },
-    { id: "posture", name: "POSTURE", icon: Icons.posture },
+    { id: "posture", name: "MOVE", icon: Icons.posture },
     { id: "antirot", name: "ANTI-ROT", icon: Icons.code }
   ]
   readonly property real pad: Style.space(18)
+  // The content's height in every mode: Limits' two bars set it.
+  readonly property real slot: Style.space(110)
 
-  implicitHeight: pad * 2 + header.height + Style.space(14) + Math.max(glance.implicitHeight, stack.implicitHeight)
+  implicitHeight: pad * 2 + header.height + Style.space(14) + slot
   radius: Style.space(24)
   color: pal ? pal.card : "transparent"
   border.width: 1
@@ -52,7 +57,7 @@ Rectangle {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      text: root.mode === "timer" ? "TIMER" : root.mode === "posture" ? "POSTURE" : root.mode === "antirot" ? "ANTI-ROT" : "LIMITS"
+      text: root.mode === "timer" ? "TIMER" : root.mode === "posture" ? "MOVE" : root.mode === "antirot" ? "ANTI-ROT" : "LIMITS"
       textFormat: Text.PlainText
       color: root.pal.muted
       font.family: root.fontFamily
@@ -101,7 +106,7 @@ Rectangle {
     x: root.pad
     y: root.pad + header.height + Style.space(14)
     width: parent.width - root.pad * 2
-    implicitHeight: root.mode === "timer" ? timerPane.implicitHeight : root.mode === "posture" ? posturePane.implicitHeight : root.mode === "antirot" ? antirotPane.implicitHeight : glance.implicitHeight
+    height: root.slot
 
     Glance {
       id: glance
@@ -133,9 +138,10 @@ Rectangle {
       pal: root.pal
       fontFamily: root.fontFamily
       posture: root.posture
+      walk: root.walk
       now: root.now
-      onEdited: function(patch) { root.postureEdited(patch) }
-      onNudged: root.nudged()
+      onEdited: function(key, patch) { root.nudgeEdited(key, patch) }
+      onNudged: function(key) { root.nudged(key) }
     }
 
     AntirotPane {

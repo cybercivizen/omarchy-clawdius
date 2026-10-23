@@ -9,7 +9,8 @@ var kinds = [
 ]
 
 var presets = [5, 10, 25, 45]
-var intervals = [20, 30]
+var intervals = [20, 30, 45, 60]
+var walkIntervals = [30, 45, 60, 90]
 
 // What the crab says when it's time to sit up, and how often it's heard.
 var postureLines = [
@@ -24,6 +25,19 @@ var postureLines = [
 
 function postureLine(n) {
   return postureLines[Math.abs(n) % postureLines.length]
+}
+
+// The stand-up-and-walk nudge.
+var walkLines = [
+  "Up you get. A lap of the room.",
+  "Crabs scuttle. Go refill your water.",
+  "Stand, stretch, walk to a window.",
+  "Ten steps away from the desk, then back.",
+  "Legs have a purpose. Use them."
+]
+
+function walkLine(n) {
+  return walkLines[Math.abs(n) % walkLines.length]
 }
 
 function pad(n) {

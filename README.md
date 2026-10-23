@@ -151,15 +151,18 @@ buffer squashed into the new size.
     the island peeks open with a toast and a chime (setting **Timer sound**).
     They survive a shell restart (`~/.local/state/clawdius/timers.json`); one
     that came due while the shell was down rings on start, marked "Was due".
-  - **Posture**: a playful sit-up-straight nudge every 20 or 30
-    minutes, or a **Custom** wait (5 to 120 minutes, − / +). The crab sits
-    tall, slumps in the last two minutes, and stretches in a teal toast
-    (↑ badge) with a line to follow ("Shoulders down, claws loose.") and
-    when the next one's due. **Nudge me now** rings one
-    to try it. It's idle-aware: after 2 minutes without input (a playing
-    video counts as there) the count pauses and the crab dozes; back after a
-    short break it carries on, after 5 minutes or more it starts over ("Fresh
-    start after your break.").
+  - **Move** (the sitter icon): two nudges on one card, **Sit up** (a playful
+    sit-up-straight, default every 30 minutes) and **Walk** (stand up and walk,
+    default every 60), each with its own Start / Off, countdown and filling
+    bar. How often each rings is in **Settings → Move** (sit up 20 to 60,
+    walk 30 to 90 minutes). The crab sits tall, slumps in the last two
+    minutes, and stretches in a teal toast (↑ for sit up, → for walk) with a
+    line to follow. Click the crab to ring the nearest one and try it.
+    It's idle-aware: after 2 minutes without input (a playing video counts
+    as there) the counts pause and the crab dozes; back after a short break
+    they carry on, after 5 minutes or more they start over ("Fresh start
+    after your break."). Every mode of the card fits one fixed slot, so
+    switching tabs never moves the island.
 
   Only the first crab (the leader on a multi-monitor bar) rings, so nothing
   goes off twice.
@@ -337,7 +340,7 @@ solution after its review. **Easier** is a level down, **Skip** another one
 at the same level.
 
 The corner card's fourth mode (the `</>` icon, beside Limits, Timer and
-Posture) is the same thing at a glance, and works while Claude is busy and
+Move) is the same thing at a glance, and works while Claude is busy and
 Home shows the session: today's dots against the quota, the streak, the
 button that moves the current challenge on (Start, Check, Next), and two
 rows you step through with ‹ ›: the languages (level, progress to the next,
@@ -372,7 +375,7 @@ and call its `hover(window, hovered)`.
 |---|---|---|
 | UI | Omarchy shell plugin (Quickshell / QML), `BarWidget.qml` | Lives in the same process as the bar, inherits theme, hot-reloads on save |
 | Sprite | `Sprite.js` + `Clawd.qml`, rectangles on an 18×10 grid | Clawd decoded from the CLI's `▐▛███▜▌` block art; crisp at any scale |
-| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml`, `AntirotPane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
+| Island | `Moment.qml` (Home), `Corner.qml` (its switchable right card: `Glance.qml` limits, `TimerPane.qml`, `PosturePane.qml` (the Move tab), `AntirotPane.qml`; `Timers.js` has the sums), `Sessions.qml` / `Resume.qml` / `Folders.qml`, `Detail.qml`, `NewMenu.qml` | One moment at a time; the rail and its peek live in `Moment.qml` |
 | Parts | `Crab.qml` (Clawd + badge), `Pill.qml`, `Steps.qml`, `Chip.qml`, `Icon.qml` + `Icons.js` (SVG line icons via QtQuick.Shapes), `Format.js` | Shared by the views |
 | Colors | `Colors.qml` | Theme-aware palette; the `color` setting overrides the orange |
 | Data | `feed.py` (Python stdlib), spawned by the widget, JSON lines on stdout | Zero config; polls cheap mtimes once a second |
@@ -501,7 +504,7 @@ Drawn in the island (`Toast.qml`), built to read at a glance:
 - **Icon** — a little Clawd in the state's pose (`Crab.qml`), the status
   badge on his corner: green ✓ done (hopping), red ✗ failed (gray, slumped),
   amber ! needs you (waving), purple z out of usage (gray, asleep), teal ↑
-  for the posture nudge (stretching). On the
+  for the posture and walk nudges (stretching). On the
   open island the note is a borderless card faintly tinted with that color.
 - **Title** — the status, then the session: `Done · work-e9`, `Failed · …`,
   `Needs your OK · …` (permission / sandbox prompts), `Needs input · …`,

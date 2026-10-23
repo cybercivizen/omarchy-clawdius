@@ -1,10 +1,13 @@
 import QtQuick
 import qs.Commons
 import "Icons.js" as Icons
+import "Timers.js" as Timers
 
 // The gear's view: settings that live in the island rather than shell.json.
 // One section per feature, stacked; a new setting is a new section here.
 //
+//   Move        how often the sit-up and the stand-up-and-walk nudges ring
+//               (the switches are on Home's Move card).
 //   Anti-rot    how many challenges a day, which languages are in the rotation,
 //               and each one's level (antirot.py keeps them in antirot.json),
 //               languages to add, and the editor challenges open in.
@@ -18,7 +21,11 @@ Column {
   // The antirot.py action running ("set", "level", "setup"…) and its language.
   property string busy: ""
   property string busyLang: ""
+  // {on, everyMin, …} of the two nudges, as BarWidget keeps them.
+  property var posture: ({ everyMin: 30 })
+  property var walk: ({ everyMin: 60 })
 
+  signal nudgeSet(string key, int everyMin)
   signal langToggled(string lang, bool on)
   signal levelSet(string lang, int level)
   signal setupAsked(string lang)
@@ -49,6 +56,78 @@ Column {
     font.letterSpacing: 0.8
   }
 
+  // A setting: its name, then its choices on the same line.
+  component Setting: Flow {
+    property string name: ""
+    width: parent.width
+    spacing: Style.space(6)
+
+    Text {
+      height: Style.space(24)
+      width: Style.space(70)
+      verticalAlignment: Text.AlignVCenter
+      text: parent.name
+      textFormat: Text.PlainText
+      color: root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+    }
+  }
+
+  // ---- Move
+  Column {
+    width: parent.width
+    spacing: Style.space(6)
+
+    Caption { text: "MOVE" }
+
+    Text {
+      width: parent.width
+      text: "The crab's nudges on Home's Move card: sit up straight, and stand up and walk. Time away from the keyboard counts as a break."
+      textFormat: Text.PlainText
+      wrapMode: Text.Wrap
+      color: root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+    }
+
+    Setting {
+      name: "Sit up"
+
+      Repeater {
+        model: Timers.intervals
+
+        Pill {
+          required property int modelData
+          pal: root.pal
+          dense: true
+          fontFamily: root.fontFamily
+          kind: root.posture.everyMin === modelData ? "primary" : "secondary"
+          label: modelData + " min"
+          onClicked: root.nudgeSet("posture", modelData)
+        }
+      }
+    }
+
+    Setting {
+      name: "Walk"
+
+      Repeater {
+        model: Timers.walkIntervals
+
+        Pill {
+          required property int modelData
+          pal: root.pal
+          dense: true
+          fontFamily: root.fontFamily
+          kind: root.walk.everyMin === modelData ? "primary" : "secondary"
+          label: modelData + " min"
+          onClicked: root.nudgeSet("walk", modelData)
+        }
+      }
+    }
+  }
+
   // ---- Anti-rot
   Column {
     width: parent.width
@@ -64,24 +143,6 @@ Column {
       color: root.pal.muted
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption
-    }
-
-    // A setting: its name, then its choices on the same line.
-    component Setting: Flow {
-      property string name: ""
-      width: parent.width
-      spacing: Style.space(6)
-
-      Text {
-        height: Style.space(24)
-        width: Style.space(70)
-        verticalAlignment: Text.AlignVCenter
-        text: parent.name
-        textFormat: Text.PlainText
-        color: root.pal.muted
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-      }
     }
 
     Setting {

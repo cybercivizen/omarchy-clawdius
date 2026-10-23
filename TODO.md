@@ -166,3 +166,7 @@ renders, but nobody has clicked or typed through it yet.
       ‹ › instead of listing them, Settings is on dense rows (Pill's
       `dense`), and a language that no longer exists (javascript) is dropped
       from the state. (QML parses with qmldom; not seen rendered.)
+- [x] Corner card: every mode fits one fixed slot (Corner.qml `slot`) so tabs
+      don't change the island's height; Posture became Move with a Sit up
+      and a Walk nudge, their timing moved to Settings → Move, Timer is
+      compacted. (qmllint clean apart from import paths; not seen rendered.)
