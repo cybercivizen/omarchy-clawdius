@@ -243,7 +243,7 @@ Column {
                 width: Math.min(implicitWidth, parent.width)
                 text: (option.index + 1) + ". " + option.modelData.label
                 textFormat: Text.PlainText
-                elide: Text.ElideRight
+                wrapMode: Text.Wrap
                 color: root.pal.strong
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.body
@@ -257,8 +257,6 @@ Column {
                 text: option.modelData.description
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
-                maximumLineCount: 2
-                elide: Text.ElideRight
                 color: root.pal.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -278,31 +276,50 @@ Column {
     }
   }
 
-  // ---- The plan, for a plan waiting to be approved.
+  // ---- The plan, for a plan waiting to be approved: Markdown, scrolling.
   Rectangle {
     visible: root.planning && !!root.request && (root.request.plan || "") !== ""
     width: parent.width
-    height: Math.min(planText.implicitHeight, Style.space(180)) + Style.space(12) * 2
+    height: Math.min(planText.implicitHeight + Style.space(12) * 2, Style.space(520))
     radius: Style.space(12)
     color: root.pal.well
     border.width: 1
     border.color: root.pal.alpha(root.pal.fg, 0.10)
     clip: true
 
-    Text {
-      id: planText
-      x: Style.space(14)
-      y: Style.space(12)
-      width: parent.width - Style.space(14) * 2
-      height: Math.min(implicitHeight, Style.space(180))
-      text: root.request ? root.request.plan || "" : ""
-      textFormat: Text.PlainText
-      wrapMode: Text.Wrap
-      elide: Text.ElideRight
-      color: root.pal.fg
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-      lineHeight: 1.1
+    Flickable {
+      id: planFlick
+      anchors.fill: parent
+      contentWidth: width
+      contentHeight: planText.implicitHeight + Style.space(12) * 2
+      boundsBehavior: Flickable.StopAtBounds
+
+      Text {
+        id: planText
+        x: Style.space(14)
+        y: Style.space(12)
+        width: parent.width - Style.space(14) * 2 - Style.space(8)
+        text: root.request ? root.request.plan || "" : ""
+        textFormat: Text.MarkdownText
+        wrapMode: Text.Wrap
+        color: root.pal.fg
+        linkColor: root.pal.strong
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        lineHeight: 1.1
+      }
+    }
+
+    // A slim thumb on the right edge, shown only when the plan overflows.
+    Rectangle {
+      visible: planFlick.contentHeight > planFlick.height + 1
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(4)
+      y: planFlick.visibleArea.yPosition * planFlick.height
+      width: Style.space(3)
+      height: Math.max(Style.space(24), planFlick.visibleArea.heightRatio * planFlick.height)
+      radius: width / 2
+      color: root.pal.alpha(root.pal.fg, 0.3)
     }
   }
 

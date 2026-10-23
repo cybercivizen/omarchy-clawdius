@@ -62,6 +62,8 @@ Rectangle {
   signal alarmRequested(double at, string label)
 
   readonly property string kind: moment ? moment.kind : "idle"
+  // A plan to read needs the island's taller cap.
+  readonly property bool tall: kind === "approval" && !!moment.request && moment.request.tool === "ExitPlanMode"
   readonly property var s: moment && moment.session ? moment.session : null
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property real pad: Style.space(26)

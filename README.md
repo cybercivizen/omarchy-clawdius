@@ -493,7 +493,9 @@ watching, after 5 minutes, or on any error.
 and options, and the answer goes back as an allow whose `updatedInput` adds
 `answers` (question → label, several picks joined with ", "), the way the
 Agent SDK answers it. `ExitPlanMode` shows the plan: Approve plan allows it,
-Keep planning denies it with a note to ask what to change. Test:
+Keep planning denies it with a note to ask what to change. Options show
+their full text, and the plan is formatted Markdown in a scrolling box
+(the island grows taller for it). Test:
 `approvals.py answer <id> answer '{"Which database?": "Postgres"}'`. Test it without Claude: start `approvals.py watch`, pipe a payload into
 `approvals.py hook`, then `approvals.py answer <id> allow`.
 

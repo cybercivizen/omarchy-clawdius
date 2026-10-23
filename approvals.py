@@ -152,7 +152,7 @@ def questions(inp):
             "question": str(q.get("question", "")),
             "header": clip(q.get("header", ""), 24),
             "multiSelect": bool(q.get("multiSelect")),
-            "options": [{"label": str(o.get("label", "")), "description": clip(o.get("description", ""), 160)}
+            "options": [{"label": str(o.get("label", "")), "description": clip(o.get("description", ""), 600)}
                         for o in (q.get("options") or []) if isinstance(o, dict)][:6],
         })
     return out
@@ -244,7 +244,7 @@ def hook():
         "alwaysLabel": "" if tool in (QUESTION_TOOL, PLAN_TOOL) else always_label,
         "alwaysRule": "" if tool in (QUESTION_TOOL, PLAN_TOOL) else always_rule(updates),
         "questions": questions(inp) if tool == QUESTION_TOOL else [],
-        "plan": clip(inp.get("plan", ""), 6000) if tool == PLAN_TOOL else "",
+        "plan": clip(inp.get("plan", ""), 40000) if tool == PLAN_TOOL else "",
     })
 
     answer = None

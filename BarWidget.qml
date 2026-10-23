@@ -2033,7 +2033,7 @@ BarWidget {
     maxContentWidth: card.fittedContentWidth(Style.space(948))
     // The nav keeps its height; the view under it takes what the island has
     // left and scrolls. The + menu can reach past a short view.
-    readonly property real cap: Style.space(root.tallView ? 900 : 680)
+    readonly property real cap: Style.space(root.tallView || (root.view === "home" && momentCard.tall) ? 900 : 680)
     contentHeight: root.peeking ? card.fittedContentHeight(toastBanner.implicitHeight)
       : card.fittedContentHeight(Math.max(toastSlot.height + nav.height + content.spacing + body.implicitHeight,
                                           root.newMenuOpen ? newMenu.y + newMenu.height + Style.space(8) : 0), cap)
