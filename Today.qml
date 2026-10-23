@@ -21,7 +21,10 @@ Item {
   property int year: today.getFullYear()
   property int month: today.getMonth()
   readonly property var grid: Calendar.monthGrid(year, month, todayKey)
-  readonly property real cell: Style.space(25)
+  // The weather keeps its width; the month takes the rest, never narrower than 8 × 25.
+  readonly property real weatherW: Style.space(210)
+  readonly property real calW: Math.max(Style.space(25) * 8, width - weatherW - Style.space(36) - 1)
+  readonly property real cell: calW / 8
   readonly property real rowH: Style.space(19)
 
   implicitHeight: Style.space(22) + Style.space(6) + Style.space(14) + rowH * 6
@@ -52,7 +55,7 @@ Item {
   // ---- The month
   Item {
     id: calendar
-    width: root.cell * 8
+    width: root.calW
     height: parent.height
 
     Item {
