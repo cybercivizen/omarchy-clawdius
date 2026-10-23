@@ -61,7 +61,8 @@ Rectangle {
     width: Style.space(236)
     spacing: Style.space(16)
 
-    // Back to where the detail view was opened from, beside the crab.
+    // Back to where the detail view was opened from, beside the crab, and
+    // the chat/terminal switch on its other side.
     Row {
       spacing: Style.space(12)
 
@@ -85,6 +86,17 @@ Rectangle {
         ring: root.pal.card
         animate: root.active
         fontFamily: root.fontFamily
+      }
+
+      Pill {
+        anchors.verticalCenter: parent.verticalCenter
+        pal: root.pal
+        fontFamily: root.fontFamily
+        compact: true
+        iconOnly: true
+        icon: root.chatStyle ? Icons.terminal : Icons.chat
+        tooltip: root.chatStyle ? "Show the terminal" : "Show as a conversation"
+        onClicked: root.toggleChat()
       }
     }
 
@@ -396,17 +408,6 @@ Rectangle {
 
     Row {
       spacing: Style.space(6)
-
-      Pill {
-        pal: root.pal
-        fontFamily: root.fontFamily
-        compact: true
-        iconOnly: true
-        icon: root.chatStyle ? Icons.terminal : Icons.chat
-        tooltip: root.chatStyle ? "Show the terminal" : "Show as a conversation"
-        tooltipAbove: true
-        onClicked: root.toggleChat()
-      }
 
       Pill {
         pal: root.pal
