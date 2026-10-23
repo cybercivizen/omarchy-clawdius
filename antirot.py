@@ -137,6 +137,8 @@ def load():
     # A language that's gone (JavaScript became TypeScript) can't be worked on.
     if state.get("today") and state["today"].get("lang") not in LANGS:
         state["today"] = None
+    for lang in [l for l in state["langs"] if l not in LANGS]:
+        del state["langs"][lang]
     for lang in LANGS:
         state["langs"].setdefault(lang, {"on": False, "level": START_LEVEL, "passes": 0})
     return state
@@ -170,7 +172,7 @@ def save(state):
                       "before": median(before) if len(before) >= 3 else None}
     state["stats"] = {"total": len(state["done"]), "byLang": by_lang,
                       "redos": sum(1 for v in state["redo"].values() if v["due"] <= today_str()),
-                      "recent": [dict(d, name=d.get("name") or d["slug"]) for d in state["done"][-3:][::-1]]}
+                      "recent": [dict(d, name=d.get("name") or d["slug"]) for d in state["done"][-20:][::-1]]}
     os.makedirs(STATE_DIR, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=STATE_DIR, prefix=".antirot-")
     with os.fdopen(fd, "w") as f:

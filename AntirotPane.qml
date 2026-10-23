@@ -2,11 +2,12 @@ import QtQuick
 import qs.Commons
 import "Icons.js" as Icons
 
-// The Anti-rot mode of Home's corner card: today's pips against the quota,
-// the streak, each language's level and progress, the last few challenges
-// done, and the one button that moves the current one on. It is how to ask
-// for the next challenge while Claude is working and the left side is busy.
-// The actions go to BarWidget as the challenge card's do.
+// The Anti-rot mode of Home's corner card: today against the quota, the one
+// button that moves the current challenge on, and two steppers (‹ ›) instead
+// of lists: one over the languages (level, progress, usual solve time), one
+// over what's been done. It is how to ask for the next challenge while
+// Claude is working and the left side is busy. The actions go to BarWidget
+// as the challenge card's do.
 Item {
   id: root
 
@@ -16,6 +17,9 @@ Item {
   property var antirot: null
   // The antirot.py action running: "" | start | check | next | …
   property string busy: ""
+  // The steppers' positions; langPick -1 follows today's language.
+  property int langPick: -1
+  property int doneAt: 0
 
   // start | open | check | next | settings
   signal challenge(string action)
@@ -24,10 +28,13 @@ Item {
   readonly property var info: antirot && antirot.info ? antirot.info : ({})
   readonly property var langs: antirot && antirot.langs ? antirot.langs : ({})
   readonly property var langsOn: Object.keys(langs).filter(function(l) { return langs[l].on }).sort()
-  readonly property var recent: antirot && antirot.stats ? antirot.stats.recent : []
+  readonly property int langAt: langsOn.length ? (langPick >= 0 ? langPick % langsOn.length : Math.max(0, langsOn.indexOf(rep ? rep.lang : ""))) : 0
+  readonly property string lang: langsOn.length ? langsOn[langAt] : ""
   readonly property var byLang: antirot && antirot.stats ? antirot.stats.byLang : ({})
   readonly property int redos: antirot && antirot.stats ? antirot.stats.redos : 0
+  readonly property var recent: antirot && antirot.stats ? antirot.stats.recent : []
   readonly property int total: antirot && antirot.stats ? antirot.stats.total : 0
+  readonly property int doneIdx: Math.min(doneAt, Math.max(0, recent.length - 1))
   readonly property int perDay: antirot ? antirot.perDay || 1 : 1
   readonly property int doneToday: antirot ? antirot.doneToday || 0 : 0
   readonly property int streak: antirot ? antirot.streakNow || 0 : 0
@@ -37,13 +44,13 @@ Item {
 
   implicitHeight: body.implicitHeight
 
-  function langName(lang) { return info[lang] ? info[lang].name : lang }
+  function langName(l) { return info[l] ? info[l].name : l }
 
   // " · ~14m (was 22m)": the usual solve time lately, and the five before.
-  function pace(lang) {
-    var m = byLang[lang]
+  function pace(l) {
+    var m = byLang[l]
     if (!m || !m.median) return ""
-    return " · ~" + Math.max(1, Math.round(m.median / 60)) + "m" + (m.before ? " (was " + Math.max(1, Math.round(m.before / 60)) + "m)" : "")
+    return "~" + Math.max(1, Math.round(m.median / 60)) + "m" + (m.before ? " (was " + Math.max(1, Math.round(m.before / 60)) + "m)" : "")
   }
 
   function dayName(iso) {
@@ -63,10 +70,83 @@ Item {
     font.pixelSize: Style.font.caption
   }
 
+  // A row with ‹ › at its ends: text, a muted aside and an optional bar (0..1).
+  component Stepper: Item {
+    id: step
+    property string text: ""
+    property string aside: ""
+    property real bar: -1
+    property bool canStep: true
+    signal stepped(int dir)
+
+    width: body.width
+    height: Style.space(20)
+
+    Repeater {
+      model: step.canStep ? [-1, 1] : []
+
+      Item {
+        required property int modelData
+        x: modelData < 0 ? 0 : step.width - width
+        width: Style.space(18)
+        height: step.height
+
+        Icon {
+          anchors.centerIn: parent
+          d: parent.modelData < 0 ? Icons.back : Icons.forward
+          size: Style.space(12)
+          color: arrowMouse.containsMouse ? root.pal.strong : root.pal.muted
+        }
+
+        MouseArea {
+          id: arrowMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: step.stepped(parent.modelData)
+        }
+      }
+    }
+
+    Row {
+      id: tail
+      anchors.right: parent.right
+      anchors.rightMargin: step.canStep ? Style.space(22) : 0
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(6)
+
+      Label { anchors.verticalCenter: parent.verticalCenter; visible: step.aside !== ""; text: step.aside }
+
+      Rectangle {
+        visible: step.bar >= 0
+        anchors.verticalCenter: parent.verticalCenter
+        width: Style.space(32)
+        height: Style.space(4)
+        radius: height / 2
+        color: root.pal.alpha(root.pal.fg, 0.12)
+
+        Rectangle {
+          width: parent.width * Math.min(1, Math.max(0, step.bar))
+          height: parent.height
+          radius: parent.radius
+          color: root.pal.crab
+        }
+      }
+    }
+
+    Label {
+      x: step.canStep ? Style.space(22) : 0
+      anchors.verticalCenter: parent.verticalCenter
+      width: Math.max(0, tail.x - x - Style.space(6))
+      color: root.pal.fg
+      text: step.text
+    }
+  }
+
   Column {
     id: body
     width: parent.width
-    spacing: Style.space(10)
+    spacing: Style.space(6)
 
     // Today against the quota, and the streak.
     Row {
@@ -77,7 +157,7 @@ Item {
 
         Rectangle {
           required property int index
-          width: Style.space(10)
+          width: Style.space(8)
           height: width
           radius: width / 2
           anchors.verticalCenter: parent.verticalCenter
@@ -90,18 +170,20 @@ Item {
       Label {
         anchors.verticalCenter: parent.verticalCenter
         text: root.doneToday + " of " + root.perDay + " today"
-          + (root.streak ? " · " + root.streak + (root.streak === 1 ? " day" : " days") + " in a row" : "")
+          + (root.streak ? " · " + root.streak + "-day streak" : "")
           + (root.redos ? " · " + root.redos + (root.redos === 1 ? " re-do" : " re-dos") + " due" : "")
       }
     }
 
     // The current challenge and its button.
-    Column {
+    Item {
       width: parent.width
-      spacing: Style.space(6)
+      height: Math.max(name.implicitHeight, buttons.implicitHeight)
 
       Text {
-        width: parent.width
+        id: name
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.max(0, parent.width - buttons.width - Style.space(8))
         text: root.rep ? root.rep.name : root.langsOn.length ? "No challenge today." : "Anti-rot is off."
         textFormat: Text.PlainText
         elide: Text.ElideRight
@@ -112,12 +194,25 @@ Item {
       }
 
       Row {
+        id: buttons
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(6)
 
         Pill {
+          visible: root.inProgress
+          pal: root.pal
+          dense: true
+          iconOnly: true
+          icon: Icons.external
+          tooltip: "Open"
+          tooltipAbove: true
+          onClicked: root.challenge("open")
+        }
+        Pill {
           visible: !root.rep
           pal: root.pal
-          compact: true
+          dense: true
           fontFamily: root.fontFamily
           kind: "secondary"
           icon: Icons.gear
@@ -127,7 +222,7 @@ Item {
         Pill {
           visible: !!root.rep && !root.rep.startedAt
           pal: root.pal
-          compact: true
+          dense: true
           fontFamily: root.fontFamily
           kind: "primary"
           icon: Icons.code
@@ -138,7 +233,7 @@ Item {
         Pill {
           visible: root.inProgress
           pal: root.pal
-          compact: true
+          dense: true
           fontFamily: root.fontFamily
           kind: "primary"
           icon: Icons.check
@@ -147,18 +242,9 @@ Item {
           onClicked: root.challenge("check")
         }
         Pill {
-          visible: root.inProgress
-          pal: root.pal
-          compact: true
-          fontFamily: root.fontFamily
-          icon: Icons.external
-          label: "Open"
-          onClicked: root.challenge("open")
-        }
-        Pill {
           visible: root.passed
           pal: root.pal
-          compact: true
+          dense: true
           fontFamily: root.fontFamily
           kind: root.doneToday < root.perDay ? "primary" : "secondary"
           label: root.doneToday < root.perDay ? "Next" : "Another one"
@@ -168,59 +254,24 @@ Item {
       }
     }
 
-    // Each language on: its level and how far to the next one.
-    Repeater {
-      model: root.langsOn
-
-      Item {
-        required property string modelData
-        readonly property var prefs: root.langs[modelData]
-        width: body.width
-        height: Style.space(16)
-
-        Label {
-          anchors.verticalCenter: parent.verticalCenter
-          width: parent.width - bar.width - Style.space(10)
-          text: root.langName(parent.modelData) + " · lv " + parent.prefs.level + root.pace(parent.modelData)
-        }
-
-        Rectangle {
-          id: bar
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(48)
-          height: Style.space(4)
-          radius: height / 2
-          color: root.pal.alpha(root.pal.fg, 0.12)
-
-          Rectangle {
-            width: parent.width * Math.min(1, (parent.parent.prefs.passes || 0) / root.passesToLevel)
-            height: parent.height
-            radius: parent.radius
-            color: root.pal.crab
-          }
-        }
-      }
+    // Languages: level, progress to the next, usual solve time.
+    Stepper {
+      visible: root.langsOn.length > 0
+      canStep: root.langsOn.length > 1
+      text: root.langName(root.lang) + " · lv " + (root.langs[root.lang] ? root.langs[root.lang].level : "")
+      aside: root.pace(root.lang)
+      bar: root.langs[root.lang] ? (root.langs[root.lang].passes || 0) / root.passesToLevel : -1
+      onStepped: function(dir) { root.langPick = (root.langAt + dir + root.langsOn.length) % root.langsOn.length }
     }
 
-    // The last few done.
-    Column {
+    // What's been done, newest first.
+    Stepper {
       visible: root.recent.length > 0
-      width: parent.width
-      spacing: Style.space(2)
-
-      Label { text: ("Done · " + root.total + " in all").toUpperCase(); font.letterSpacing: 0.8 }
-
-      Repeater {
-        model: root.recent
-
-        Label {
-          required property var modelData
-          width: body.width
-          color: root.pal.fg
-          text: modelData.name + " · " + root.langName(modelData.lang) + " · " + root.dayName(modelData.date)
-        }
-      }
+      canStep: root.recent.length > 1
+      text: root.recent.length ? root.recent[root.doneIdx].name + " · " + root.langName(root.recent[root.doneIdx].lang)
+        + " · " + root.dayName(root.recent[root.doneIdx].date) + (root.recent[root.doneIdx].redo ? " · re-do" : "") : ""
+      aside: (root.doneIdx + 1) + "/" + root.recent.length + (root.total > root.recent.length ? " of " + root.total : "")
+      onStepped: function(dir) { root.doneAt = Math.min(root.recent.length - 1, Math.max(0, root.doneIdx - dir)) }
     }
   }
 }

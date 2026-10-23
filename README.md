@@ -338,10 +338,10 @@ at the same level.
 
 The corner card's fourth mode (the `</>` icon, beside Limits, Timer and
 Posture) is the same thing at a glance, and works while Claude is busy and
-Home shows the session: today's dots against the quota, the streak, each
-language's level with its progress to the next, the last three done and the
-total, and the button that moves the current challenge on (Start, Check,
-Next).
+Home shows the session: today's dots against the quota, the streak, the
+button that moves the current challenge on (Start, Check, Next), and two
+rows you step through with ‹ ›: the languages (level, progress to the next,
+usual solve time) and what you've done (the last 20, newest first).
 
 State is `~/.local/state/clawdius/antirot.json`; only `antirot.py` writes it.
 Earlier installs (Daily reps, `gym.json`, `~/Work/gym`) are moved over on the

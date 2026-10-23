@@ -162,3 +162,7 @@ renders, but nobody has clicked or typed through it yet.
       challenge (it overflowed); time box (Settings), solve-time stats in
       the corner pane, and spaced re-dos for shaky passes. (antirot.py run
       against a scratch state; QML not seen rendered.)
+- [x] Anti-rot: the corner pane steps through languages and history with
+      ‹ › instead of listing them, Settings is on dense rows (Pill's
+      `dense`), and a language that no longer exists (javascript) is dropped
+      from the state. (QML parses with qmldom; not seen rendered.)

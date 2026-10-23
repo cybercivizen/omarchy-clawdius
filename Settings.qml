@@ -39,7 +39,7 @@ Column {
   readonly property int timeBox: antirot ? antirot.timeBox || 0 : 0
   readonly property int streak: antirot ? antirot.streakNow || 0 : 0
 
-  spacing: Style.space(16)
+  spacing: Style.space(12)
 
   component Caption: Text {
     textFormat: Text.PlainText
@@ -52,24 +52,40 @@ Column {
   // ---- Anti-rot
   Column {
     width: parent.width
-    spacing: Style.space(10)
+    spacing: Style.space(6)
 
     Caption { text: "ANTI-ROT" }
 
     Text {
       width: parent.width
-      text: "Small exercises from Exercism, written by hand. The languages on here take turns; a level goes up after two passes."
+      text: "Exercism exercises, written by hand. Languages take turns; two passes level one up. Over the time box, or four tries: it comes back as a re-do a week later."
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
       color: root.pal.muted
       font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Style.font.caption
     }
 
-    Caption { text: "CHALLENGES A DAY" }
-
-    Row {
+    // A setting: its name, then its choices on the same line.
+    component Setting: Flow {
+      property string name: ""
+      width: parent.width
       spacing: Style.space(6)
+
+      Text {
+        height: Style.space(24)
+        width: Style.space(70)
+        verticalAlignment: Text.AlignVCenter
+        text: parent.name
+        textFormat: Text.PlainText
+        color: root.pal.muted
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+    }
+
+    Setting {
+      name: "A day"
 
       Repeater {
         model: [1, 2, 3]
@@ -77,7 +93,7 @@ Column {
         Pill {
           required property int modelData
           pal: root.pal
-          compact: true
+          dense: true
           fontFamily: root.fontFamily
           kind: root.perDay === modelData ? "primary" : "secondary"
           label: String(modelData)
@@ -86,10 +102,8 @@ Column {
       }
     }
 
-    Caption { text: "TIME BOX" }
-
-    Row {
-      spacing: Style.space(6)
+    Setting {
+      name: "Time box"
 
       Repeater {
         model: [0, 15, 25, 45]
@@ -97,7 +111,7 @@ Column {
         Pill {
           required property int modelData
           pal: root.pal
-          compact: true
+          dense: true
           fontFamily: root.fontFamily
           kind: root.timeBox === modelData ? "primary" : "secondary"
           label: modelData ? modelData + " min" : "Off"
@@ -106,17 +120,44 @@ Column {
       }
     }
 
-    Text {
-      width: parent.width
-      text: "Passes that run over the box, or take four tries, come back as a re-do a week later, from a blank stub."
-      textFormat: Text.PlainText
-      wrapMode: Text.Wrap
-      color: root.pal.muted
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
+    Setting {
+      name: "Editor"
+
+      Repeater {
+        model: root.editors
+
+        Pill {
+          required property var modelData
+          pal: root.pal
+          dense: true
+          fontFamily: root.fontFamily
+          kind: root.editor === modelData[1] ? "primary" : "secondary"
+          label: modelData[0]
+          onClicked: root.editorSet(modelData[1])
+        }
+      }
     }
 
-    Caption { text: "LANGUAGES" }
+    Setting {
+      visible: presetList.count > 0
+      name: "Add track"
+
+      Repeater {
+        id: presetList
+        model: Object.keys(root.presets).sort()
+
+        Pill {
+          required property string modelData
+          pal: root.pal
+          dense: true
+          fontFamily: root.fontFamily
+          icon: Icons.plus
+          label: root.presets[modelData]
+          busy: root.busy === "add" && root.busyLang === modelData
+          onClicked: root.langAdded(modelData)
+        }
+      }
+    }
 
     Repeater {
       model: Object.keys(root.info).sort()
@@ -129,21 +170,21 @@ Column {
         readonly property bool missing: !!about.missing && about.missing.length > 0
         readonly property bool working: root.busyLang === modelData && root.busy !== ""
         width: parent.width
-        height: Style.space(60) + (installText.visible ? installText.implicitHeight + Style.space(6) : 0)
-        radius: Style.space(16)
+        height: Style.space(40) + (installText.visible ? installText.implicitHeight + Style.space(4) : 0)
+        radius: Style.space(12)
         color: root.pal.raised
 
-        Column {
-          x: Style.space(16)
-          y: Style.space(12)
-          width: parent.width - controls.width - Style.space(44)
-          spacing: Style.space(2)
+        Row {
+          x: Style.space(12)
+          height: Style.space(40)
+          width: parent.width - controls.width - Style.space(30)
+          spacing: Style.space(8)
 
           Text {
-            width: parent.width
+            id: langName
+            anchors.verticalCenter: parent.verticalCenter
             text: langRow.about.name || langRow.modelData
             textFormat: Text.PlainText
-            elide: Text.ElideRight
             color: root.pal.strong
             font.family: root.fontFamily
             font.pixelSize: Style.font.body
@@ -151,7 +192,8 @@ Column {
           }
 
           Text {
-            width: parent.width
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.max(0, parent.width - langName.width - parent.spacing)
             text: langRow.working ? "setting up…"
               : langRow.missing ? "needs " + langRow.about.missing.join(", ")
               : langRow.about.ready ? (langRow.prefs.on ? "in the rotation" : "ready")
@@ -162,33 +204,34 @@ Column {
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
           }
+        }
 
-          Text {
-            id: installText
-            visible: langRow.missing
-            width: parent.width
-            topPadding: Style.space(4)
-            text: langRow.about.install || ""
-            textFormat: Text.PlainText
-            elide: Text.ElideRight
-            color: root.pal.muted
-            font.family: "monospace"
-            font.pixelSize: Style.font.caption
-          }
+        Text {
+          id: installText
+          visible: langRow.missing
+          x: Style.space(12)
+          y: Style.space(34)
+          width: parent.width - Style.space(24)
+          text: langRow.about.install || ""
+          textFormat: Text.PlainText
+          elide: Text.ElideRight
+          color: root.pal.muted
+          font.family: "monospace"
+          font.pixelSize: Style.font.caption
         }
 
         Row {
           id: controls
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(14)
-          y: Style.space(15)
-          spacing: Style.space(10)
+          anchors.rightMargin: Style.space(12)
+          height: Style.space(40)
+          spacing: Style.space(8)
 
           Pill {
             visible: !!langRow.about.custom
             anchors.verticalCenter: parent.verticalCenter
             pal: root.pal
-            compact: true
+            dense: true
             iconOnly: true
             icon: Icons.close
             tooltip: "Remove"
@@ -199,7 +242,7 @@ Column {
             visible: !langRow.missing && !langRow.about.setUp && langRow.prefs.on
             anchors.verticalCenter: parent.verticalCenter
             pal: root.pal
-            compact: true
+            dense: true
             fontFamily: root.fontFamily
             label: "Set up"
             busy: langRow.working
@@ -209,11 +252,11 @@ Column {
           // The level: − N +
           Row {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.space(4)
+            spacing: Style.space(2)
 
             Pill {
               pal: root.pal
-              compact: true
+              dense: true
               iconOnly: true
               icon: Icons.minus
               tooltip: "Easier"
@@ -222,9 +265,9 @@ Column {
 
             Text {
               anchors.verticalCenter: parent.verticalCenter
-              width: Style.space(62)
+              width: Style.space(40)
               horizontalAlignment: Text.AlignHCenter
-              text: "level " + langRow.prefs.level
+              text: "lv " + langRow.prefs.level
               textFormat: Text.PlainText
               color: root.pal.fg
               font.family: root.fontFamily
@@ -233,7 +276,7 @@ Column {
 
             Pill {
               pal: root.pal
-              compact: true
+              dense: true
               iconOnly: true
               icon: Icons.plus
               tooltip: "Harder"
@@ -246,8 +289,8 @@ Column {
             id: toggle
             readonly property bool on: !!langRow.prefs.on
             anchors.verticalCenter: parent.verticalCenter
-            width: Style.space(40)
-            height: Style.space(22)
+            width: Style.space(36)
+            height: Style.space(20)
             radius: height / 2
             color: on ? root.pal.primary : root.pal.alpha(root.pal.fg, toggleMouse.containsMouse ? 0.18 : 0.12)
             Behavior on color { ColorAnimation { duration: 120 } }
@@ -275,75 +318,13 @@ Column {
       }
     }
 
-    Flow {
-      visible: presetList.count > 0
-      width: parent.width
-      spacing: Style.space(6)
-
-      Text {
-        height: Style.space(30)
-        verticalAlignment: Text.AlignVCenter
-        text: "Add"
-        textFormat: Text.PlainText
-        color: root.pal.muted
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-      }
-
-      Repeater {
-        id: presetList
-        model: Object.keys(root.presets).sort()
-
-        Pill {
-          required property string modelData
-          pal: root.pal
-          compact: true
-          fontFamily: root.fontFamily
-          icon: Icons.plus
-          label: root.presets[modelData]
-          busy: root.busy === "add" && root.busyLang === modelData
-          onClicked: root.langAdded(modelData)
-        }
-      }
-    }
-
     Text {
       width: parent.width
-      text: "Any other Exercism track: antirot.py add TRACK NAME TOOLS \"TEST COMMAND\""
+      text: "Other tracks: antirot.py add TRACK NAME TOOLS \"TEST COMMAND\" · saved in "
+        + (root.antirot && root.antirot.reps ? root.antirot.reps.replace(/^\/home\/[^\/]+/, "~") : "~/Work/antirot")
+        + (root.streak ? " · " + root.streak + "-day streak" : "")
       textFormat: Text.PlainText
-      elide: Text.ElideRight
-      color: root.pal.muted
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-    }
-
-    Caption { text: "EDITOR" }
-
-    Flow {
-      width: parent.width
-      spacing: Style.space(6)
-
-      Repeater {
-        model: root.editors
-
-        Pill {
-          required property var modelData
-          pal: root.pal
-          compact: true
-          fontFamily: root.fontFamily
-          kind: root.editor === modelData[1] ? "primary" : "secondary"
-          label: modelData[0]
-          onClicked: root.editorSet(modelData[1])
-        }
-      }
-    }
-
-    Text {
-      width: parent.width
-      text: "Challenges are saved in " + (root.antirot && root.antirot.reps ? root.antirot.reps.replace(/^\/home\/[^\/]+/, "~") : "~/Work/antirot")
-        + (root.streak ? " · " + root.streak + (root.streak === 1 ? " day" : " days") + " in a row" : "")
-      textFormat: Text.PlainText
-      elide: Text.ElideRight
+      wrapMode: Text.Wrap
       color: root.pal.muted
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption
