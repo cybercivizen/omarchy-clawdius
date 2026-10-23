@@ -24,6 +24,7 @@ Column {
   signal setupAsked(string lang)
   signal editorSet(string editor)
   signal oftenSet(int perDay)
+  signal timeBoxSet(int minutes)
   signal langAdded(string track)
   signal langRemoved(string lang)
 
@@ -35,6 +36,7 @@ Column {
   readonly property var langs: antirot && antirot.langs ? antirot.langs : ({})
   readonly property var presets: antirot && antirot.presets ? antirot.presets : ({})
   readonly property int perDay: antirot ? antirot.perDay || 1 : 1
+  readonly property int timeBox: antirot ? antirot.timeBox || 0 : 0
   readonly property int streak: antirot ? antirot.streakNow || 0 : 0
 
   spacing: Style.space(16)
@@ -82,6 +84,36 @@ Column {
           onClicked: root.oftenSet(modelData)
         }
       }
+    }
+
+    Caption { text: "TIME BOX" }
+
+    Row {
+      spacing: Style.space(6)
+
+      Repeater {
+        model: [0, 15, 25, 45]
+
+        Pill {
+          required property int modelData
+          pal: root.pal
+          compact: true
+          fontFamily: root.fontFamily
+          kind: root.timeBox === modelData ? "primary" : "secondary"
+          label: modelData ? modelData + " min" : "Off"
+          onClicked: root.timeBoxSet(modelData)
+        }
+      }
+    }
+
+    Text {
+      width: parent.width
+      text: "Passes that run over the box, or take four tries, come back as a re-do a week later, from a blank stub."
+      textFormat: Text.PlainText
+      wrapMode: Text.Wrap
+      color: root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
     }
 
     Caption { text: "LANGUAGES" }

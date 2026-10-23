@@ -25,6 +25,8 @@ Item {
   readonly property var langs: antirot && antirot.langs ? antirot.langs : ({})
   readonly property var langsOn: Object.keys(langs).filter(function(l) { return langs[l].on }).sort()
   readonly property var recent: antirot && antirot.stats ? antirot.stats.recent : []
+  readonly property var byLang: antirot && antirot.stats ? antirot.stats.byLang : ({})
+  readonly property int redos: antirot && antirot.stats ? antirot.stats.redos : 0
   readonly property int total: antirot && antirot.stats ? antirot.stats.total : 0
   readonly property int perDay: antirot ? antirot.perDay || 1 : 1
   readonly property int doneToday: antirot ? antirot.doneToday || 0 : 0
@@ -36,6 +38,13 @@ Item {
   implicitHeight: body.implicitHeight
 
   function langName(lang) { return info[lang] ? info[lang].name : lang }
+
+  // " · ~14m (was 22m)": the usual solve time lately, and the five before.
+  function pace(lang) {
+    var m = byLang[lang]
+    if (!m || !m.median) return ""
+    return " · ~" + Math.max(1, Math.round(m.median / 60)) + "m" + (m.before ? " (was " + Math.max(1, Math.round(m.before / 60)) + "m)" : "")
+  }
 
   function dayName(iso) {
     var d = new Date()
@@ -82,6 +91,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text: root.doneToday + " of " + root.perDay + " today"
           + (root.streak ? " · " + root.streak + (root.streak === 1 ? " day" : " days") + " in a row" : "")
+          + (root.redos ? " · " + root.redos + (root.redos === 1 ? " re-do" : " re-dos") + " due" : "")
       }
     }
 
@@ -171,7 +181,7 @@ Item {
         Label {
           anchors.verticalCenter: parent.verticalCenter
           width: parent.width - bar.width - Style.space(10)
-          text: root.langName(parent.modelData) + " · level " + parent.prefs.level
+          text: root.langName(parent.modelData) + " · lv " + parent.prefs.level + root.pace(parent.modelData)
         }
 
         Rectangle {

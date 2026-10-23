@@ -52,6 +52,10 @@ Column {
   // Where the day's quota stands; a chained one past it is a bonus.
   readonly property string counter: passed ? doneToday + " OF " + perDay + " DONE"
     : doneToday >= perDay ? "BONUS" : (doneToday + 1) + " OF " + perDay + " TODAY"
+  // Minutes the box allows, 0 for none; and how long this one has run.
+  readonly property int timeBox: antirot ? antirot.timeBox || 0 : 0
+  readonly property int minutesIn: rep && rep.startedAt ? Math.floor((now - rep.startedAt) / 60000) : 0
+  readonly property bool over: inProgress && timeBox > 0 && minutesIn >= timeBox
   readonly property int streak: antirot ? antirot.streakNow || 0 : 0
 
   function langName(lang) { return info[lang] ? info[lang].name : lang }
@@ -65,7 +69,7 @@ Column {
     Text {
       visible: !!root.rep
       width: parent.width
-      text: root.rep ? ("ANTI-ROT · " + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level + " · " + root.counter).toUpperCase() : ""
+      text: root.rep ? ("ANTI-ROT · " + (root.rep.redo ? "RE-DO · " : "") + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level + " · " + root.counter).toUpperCase() : ""
       textFormat: Text.PlainText
       elide: Text.ElideRight
       color: root.pal.muted
@@ -122,12 +126,15 @@ Column {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      text: root.passed ? "Done · " + root.streak + (root.streak === 1 ? " day" : " days") + " in a row"
+      text: root.passed ? "Done" + (root.rep.secs ? " in " + Math.max(1, Math.round(root.rep.secs / 60)) + "m" : "")
+          + (root.rep.checks > 1 ? " · " + root.rep.checks + " checks" : "")
+          + " · " + root.streak + (root.streak === 1 ? " day" : " days") + " in a row"
         : root.inProgress ? Format.ago(root.now, root.rep.startedAt) + " in"
+          + (root.timeBox ? (root.over ? " · " + (root.minutesIn - root.timeBox) + "m over" : " · " + (root.timeBox - root.minutesIn) + "m left") : "")
           + (root.check ? " · " + (root.check.total ? root.check.passed + "/" + root.check.total + " passing" : "doesn't run yet") : "")
         : "difficulty " + (root.rep ? root.rep.difficulty : 0) + "/10" + (root.streak ? " · " + root.streak + " in a row" : "")
       textFormat: Text.PlainText
-      color: root.passed ? root.pal.done : root.pal.muted
+      color: root.passed ? root.pal.done : root.over ? root.pal.needsYou : root.pal.muted
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
@@ -155,7 +162,8 @@ Column {
     }
   }
 
-  Row {
+  Flow {
+    width: parent.width
     spacing: Style.space(8)
 
     Pill {
@@ -233,7 +241,9 @@ Column {
       pal: root.pal
       fontFamily: root.fontFamily
       icon: Icons.chat
-      label: "Review with Claude"
+      label: "Review"
+      tooltip: "Review with Claude"
+      tooltipAbove: true
       onClicked: root.reviewed()
     }
 
@@ -245,6 +255,9 @@ Column {
       kind: !root.rep ? "primary" : "quiet"
       icon: Icons.chat
       label: "New chat"
+      iconOnly: !!root.rep
+      tooltip: "New chat"
+      tooltipAbove: true
       onClicked: root.newChat()
     }
   }

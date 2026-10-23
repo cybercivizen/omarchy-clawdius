@@ -158,3 +158,7 @@ renders, but nobody has clicked or typed through it yet.
       more, and a corner-card mode with the day's progress and the last
       three done. Renamed from Daily reps; gym.json and ~/Work/gym move
       over on first run.
+- [x] Anti-rot: card buttons wrap and New chat is an icon once there's a
+      challenge (it overflowed); time box (Settings), solve-time stats in
+      the corner pane, and spaced re-dos for shaky passes. (antirot.py run
+      against a scratch state; QML not seen rendered.)

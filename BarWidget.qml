@@ -2653,6 +2653,7 @@ BarWidget {
                   onLangRemoved: function(lang) { root.runAntirot(["remove", lang], lang) }
                   onEditorSet: function(editor) { root.runAntirot(["editor", editor || "default"], "") }
                   onOftenSet: function(n) { root.runAntirot(["often", String(n)], "") }
+                  onTimeBoxSet: function(n) { root.runAntirot(["timebox", String(n)], "") }
                 }
               }
 

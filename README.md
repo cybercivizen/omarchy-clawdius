@@ -311,6 +311,17 @@ unsolved exercise nearest the language's level, never one skipped in the last
 counts days the quota was met. Past the quota, or any time a challenge is
 passed, **Next** / **Another one** chains one more.
 
+**Time box** (Settings: off, 15, 25 or 45 min) shows the time left, then "Nm over",
+and the done line says how long it took and in how many checks. Time is wall
+clock, Start to the passing Check. A pass is **shaky** if it ran over the box
+(without one: 1.5× the language's usual time), or took four checks. Shaky
+passes come back as a **re-do** a week later, ahead of anything new, from a
+blank stub beside the first attempt (`<slug>.redo1`), until one is solved
+clean; after three rounds it's let go. A re-do doesn't count toward the next
+level; Skip puts it off a day. The corner card shows each language's usual
+solve time next to the five before ("~14m (was 22m)"), and how many re-dos
+are due.
+
 On Home's idle moment: the exercise's name, Exercism's one-line blurb, its
 difficulty, where the day's quota stands and the streak. **Start** copies the
 stub, the tests (every one of them, Exercism skips all but the first) and the
@@ -319,7 +330,7 @@ and opens the instructions (`.docs/instructions.md`, the actual task) and the
 stub in the chosen editor (side by side in Neovim/Vim; default
 `omarchy-launch-editor`). **Check** runs the tests (`cargo test`, jest) and
 shows how many pass, with the end of the output. All passing counts toward
-the day: a ✓, the streak, **Next**, and **Review with Claude**, a session in
+the day: a ✓, the streak, **Next**, and **Review** (with Claude), a session in
 the live view that can read but not edit (`--disallowedTools Edit,Write,…`).
 It's asked to teach rather than fix, and to compare with Exercism's own
 solution after its review. **Easier** is a level down, **Skip** another one

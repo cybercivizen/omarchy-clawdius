@@ -6,7 +6,9 @@
   antirot.py check                  run its tests; all passing counts the day
   antirot.py easier | skip          another one for today: a level down, or the same level
   antirot.py next                   chain another challenge once today's is passed
-  antirot.py often N                challenges a day, 1-3 (the streak counts days the quota was met)
+  antirot.py timebox N              minutes a challenge should take: 0 (off), 15, 25 or 45; passes
+                                    over it, or many tries, come back as a re-do a week later
+  antirot.py often N              challenges a day, 1-3 (the streak counts days the quota was met)
   antirot.py set LANG on|off        a language in or out of the rotation (on sets it up)
   antirot.py level LANG N           its level, 1-10 (Exercism's difficulty)
   antirot.py setup LANG             clone its track (TypeScript: install jest once)
@@ -46,6 +48,9 @@ OLD_REPS = os.path.expanduser("~/Work/gym")
 START_LEVEL = 2
 PASSES_TO_LEVEL_UP = 2
 MAX_PER_DAY = 3
+TIME_BOXES = (0, 15, 25, 45)
+REDO_DAYS = 7
+MAX_REDOS = 3
 SKIP_DAYS = 30
 TEST_TIMEOUT = 180
 # The TypeScript reps share one jest install: these, at the versions the
@@ -127,6 +132,8 @@ def load():
     state.setdefault("streak", {"count": 0, "last": ""})
     state.setdefault("editor", "")
     state.setdefault("perDay", 1)
+    state.setdefault("timeBox", 0)
+    state.setdefault("redo", {})
     # A language that's gone (JavaScript became TypeScript) can't be worked on.
     if state.get("today") and state["today"].get("lang") not in LANGS:
         state["today"] = None
@@ -154,7 +161,15 @@ def save(state):
     state["reps"] = REPS
     state["doneToday"] = done_today(state)
     state["passesToLevel"] = PASSES_TO_LEVEL_UP
-    state["stats"] = {"total": len(state["done"]),
+    # Median solve time of the last five and of the five before, per language.
+    by_lang = {}
+    for l in LANGS:
+        times = solve_times(state, l)
+        last, before = times[-5:], times[-10:-5]
+        by_lang[l] = {"median": median(last) if len(last) >= 3 else None,
+                      "before": median(before) if len(before) >= 3 else None}
+    state["stats"] = {"total": len(state["done"]), "byLang": by_lang,
+                      "redos": sum(1 for v in state["redo"].values() if v["due"] <= today_str()),
                       "recent": [dict(d, name=d.get("name") or d["slug"]) for d in state["done"][-3:][::-1]]}
     os.makedirs(STATE_DIR, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=STATE_DIR, prefix=".antirot-")
@@ -186,40 +201,78 @@ def done_today(state):
     return sum(1 for d in state["done"] if d["date"] == today_str())
 
 
+def due_redo(state, langs, lang=None):
+    """The oldest re-do due today (of lang, when one's asked for) whose
+    language is in the rotation, as "lang/slug"; None when there isn't one."""
+    due = [(v["due"], k) for k, v in state["redo"].items()
+           if v["due"] <= today_str() and k.split("/", 1)[0] in langs and (lang not in langs or k.startswith(lang + "/"))]
+    return min(due)[1] if due else None
+
+
+def median(values):
+    values = sorted(values)
+    n = len(values)
+    return None if not n else values[n // 2] if n % 2 else (values[n // 2 - 1] + values[n // 2]) / 2
+
+
+def solve_times(state, lang):
+    return [d["secs"] for d in state["done"] if d["lang"] == lang and d.get("secs")]
+
+
+def shaky(state, lang, secs, checks):
+    """A pass worth doing again: over the time box, or (without one) well past
+    the language's usual time, or it took many tries."""
+    box = state["timeBox"] * 60
+    times = solve_times(state, lang)
+    slow = secs > box if box else len(times) >= 3 and secs > 1.5 * median(times)
+    return slow or checks >= 4
+
+
 def pick(state, lang=None):
     """Today's rep: the language rotates by day, the exercise is the unsolved,
     not lately skipped one nearest the language's level. The same day always
     picks the same."""
     langs = rotation(state)
-    if lang not in langs:
-        if not langs:
-            state["today"] = None
-            return
-        lang = langs[(date.today().toordinal() * MAX_PER_DAY + done_today(state)) % len(langs)]
-    level = state["langs"][lang]["level"]
-    done = {d["slug"] for d in state["done"] if d["lang"] == lang}
-    cutoff = (date.today() - timedelta(days=SKIP_DAYS)).isoformat()
-    skipped = {k for k, day in state["skipped"].items() if day >= cutoff}
-    exercises = catalogue(lang)
-    fresh = [e for e in exercises if e["slug"] not in done and lang + "/" + e["slug"] not in skipped]
-    pool = fresh or [e for e in exercises if lang + "/" + e["slug"] not in skipped] or exercises
-    if not pool:
+    if not langs:
         state["today"] = None
         return
-    salt = today_str() + str(len(state["skipped"])) + str(done_today(state))
+    # A re-do that's due comes before anything new.
+    redo = due_redo(state, langs, lang)
+    e = None
+    if redo:
+        lang = redo.split("/", 1)[0]
+        e = next((x for x in catalogue(lang) if lang + "/" + x["slug"] == redo), None)
+        if not e:
+            del state["redo"][redo]
+            return pick(state, lang)
+    elif lang not in langs:
+        lang = langs[(date.today().toordinal() * MAX_PER_DAY + done_today(state)) % len(langs)]
+    level = state["langs"][lang]["level"]
+    if not e:
+        done = {d["slug"] for d in state["done"] if d["lang"] == lang}
+        cutoff = (date.today() - timedelta(days=SKIP_DAYS)).isoformat()
+        skipped = {k for k, day in state["skipped"].items() if day >= cutoff}
+        exercises = catalogue(lang)
+        fresh = [e for e in exercises if e["slug"] not in done and lang + "/" + e["slug"] not in skipped]
+        pool = fresh or [e for e in exercises if lang + "/" + e["slug"] not in skipped] or exercises
+        if not pool:
+            state["today"] = None
+            return
+        salt = today_str() + str(len(state["skipped"])) + str(done_today(state))
 
-    def rank(e):
-        tie = hashlib.md5((salt + e["slug"]).encode()).hexdigest()
-        return (abs(e.get("difficulty", 1) - level), tie)
+        def rank(e):
+            tie = hashlib.md5((salt + e["slug"]).encode()).hexdigest()
+            return (abs(e.get("difficulty", 1) - level), tie)
 
-    e = min(pool, key=rank)
+        e = min(pool, key=rank)
     meta = exercise_meta(lang, e["slug"])
     # The track's own solution, for Claude's review to compare against.
     example = meta.get("files", {}).get("example", [])
     example = os.path.join(track_dir(lang), "exercises", "practice", e["slug"], example[0]) if example else ""
     state["today"] = {"date": today_str(), "lang": lang, "slug": e["slug"], "name": e.get("name", e["slug"]),
                       "blurb": meta.get("blurb", ""), "difficulty": e.get("difficulty", 1), "level": level,
-                      "example": example, "dir": "", "file": "", "startedAt": 0, "passedAt": 0, "check": None}
+                      "example": example, "dir": "", "file": "", "startedAt": 0, "passedAt": 0, "check": None,
+                      "checks": 0, "redo": bool(redo), "round": state["redo"][redo]["round"] if redo else 0}
 
 
 def ensure_today(state):
@@ -246,8 +299,9 @@ def start(state):
         sys.stderr.write("no challenge today: turn a language on in Settings\n")
         return 1
     lang, slug = t["lang"], t["slug"]
-    dest = os.path.join(REPS, lang, slug)
-    files = exercise_meta(lang, slug).get("files", {})
+    # A re-do starts from a blank stub beside the first attempt.
+    dest = os.path.join(REPS, lang, slug + (".redo%d" % t["round"] if t.get("redo") else ""))
+    files =exercise_meta(lang, slug).get("files", {})
     if not os.path.isdir(dest):
         # A rep started on an earlier day keeps what was written in it.
         src = os.path.join(track_dir(lang), "exercises", "practice", slug)
@@ -326,11 +380,27 @@ def check(state):
     except subprocess.TimeoutExpired:
         passed, total, out = 0, 0, "The tests took over %ds and were stopped." % TEST_TIMEOUT
     t["check"] = {"passed": passed, "total": total, "at": int(time.time() * 1000), "tail": tail(out)}
+    t["checks"] = t.get("checks", 0) + 1
     if total and passed == total and not t.get("passedAt"):
         t["passedAt"] = t["check"]["at"]
-        state["done"].append({"date": today_str(), "lang": t["lang"], "slug": t["slug"], "name": t.get("name", "")})
+        # Wall clock, Start to the passing Check.
+        secs = max(1, (t["passedAt"] - t["startedAt"]) // 1000) if t.get("startedAt") else 0
+        key = t["lang"] + "/" + t["slug"]
+        if secs and shaky(state, t["lang"], secs, t["checks"]):
+            n = t.get("round", 0) + 1
+            if n <= MAX_REDOS:
+                state["redo"][key] = {"due": (date.today() + timedelta(days=REDO_DAYS)).isoformat(), "round": n}
+            else:
+                state["redo"].pop(key, None)
+        else:
+            state["redo"].pop(key, None)
+        state["done"].append({"date": today_str(), "lang": t["lang"], "slug": t["slug"], "name": t.get("name", ""),
+                              "secs": secs, "checks": t["checks"], "level": t.get("level", 0), "redo": bool(t.get("redo"))})
+        t["secs"] = secs
         lang = state["langs"][t["lang"]]
-        lang["passes"] = lang.get("passes", 0) + 1
+        # A re-do doesn't count toward the next level.
+        if not t.get("redo"):
+            lang["passes"] = lang.get("passes", 0) + 1
         if lang["passes"] >= PASSES_TO_LEVEL_UP and lang["level"] < 10:
             lang["level"] += 1
             lang["passes"] = 0
@@ -415,7 +485,12 @@ def main(args):
             return check(state)
         elif cmd in ("easier", "skip"):
             t = state["today"]
-            if t:
+            if t and t.get("redo"):
+                # A re-do is put off a day, not marked skipped or made easier.
+                key = t["lang"] + "/" + t["slug"]
+                state["redo"][key]["due"] = (date.today() + timedelta(days=1)).isoformat()
+                pick(state, t["lang"])
+            elif t:
                 if cmd == "easier":
                     l = state["langs"][t["lang"]]
                     l["level"] = max(1, l["level"] - 1)
@@ -428,6 +503,8 @@ def main(args):
             if t and t.get("passedAt"):
                 # The pass moved the language and the tie-break on.
                 pick(state)
+        elif cmd == "timebox" and len(args) == 2 and lang.isdigit() and int(lang) in TIME_BOXES:
+            state["timeBox"] = int(lang)
         elif cmd == "often" and len(args) == 2 and lang.isdigit():
             state["perDay"] = max(1, min(MAX_PER_DAY, int(lang)))
         elif cmd == "set" and len(args) == 3 and args[2] in ("on", "off"):
