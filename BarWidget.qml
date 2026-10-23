@@ -594,7 +594,8 @@ BarWidget {
 
   // ---- The hover zone: the clock and crab are small targets, so a wider
   //      stretch of the bar's middle opens the island too. A HoverHandler is
-  //      passive: the bar's widgets under it keep their own hover and clicks.
+  //      passive and non-blocking: the bar's widgets under it keep their own
+  //      hover and clicks.
   readonly property real hoverZoneWidth: Math.max(0, Number(setting("hoverZoneWidth", 560)))
   property bool zoneHovered: false
 
@@ -633,6 +634,7 @@ BarWidget {
     z: 100
 
     HoverHandler {
+      blocking: false   // let the modules under it (the tray drawer) get their hover
       onHoveredChanged: root.updateZone(this)
       onPointChanged: root.updateZone(this)
     }
@@ -915,6 +917,19 @@ BarWidget {
     printErrors: false
     onFileChanged: reload()
     onLoaded: { try { root.asleep = JSON.parse(text()) || {} } catch (e) { root.asleep = {} } }
+  }
+
+  // Job id → why the last sweep left it running (live.py writes it); stale
+  // once the sweep has stopped running, or is turned off.
+  property var awakeRecord: ({})
+  readonly property var awake: root.idleStopMinutes > 0 && root.now - (awakeRecord.at || 0) < 180000 ? awakeRecord.jobs || {} : ({})
+
+  FileView {
+    path: root.stateDir + "/awake.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: { try { root.awakeRecord = JSON.parse(text()) || {} } catch (e) { root.awakeRecord = {} } }
   }
 
   Timer {
@@ -2493,8 +2508,10 @@ BarWidget {
                   antirot: root.antirot
                   challengeBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   onChallenge: function(action) { root.challengeAction(action) }
+                  timers: root.timers
                   onAnswered: function(request, choice, answers) { root.answerRequest(request, choice, answers) }
                   onDismissed: root.finished = null
+                  onAlarmRequested: function(at, label) { root.addTimer("alarm", label, at, at - Date.now()) }
                   onOpened: function(s) { root.openSession(s) }
                   onTerminal: function(s) { root.focusSession(s) }
                   onNewChat: root.openView("quick")
@@ -2579,6 +2596,8 @@ BarWidget {
                     active: card.visible && visible
                     fontFamily: root.fontFamily
                     liveId: root.liveId
+                    awake: root.awake
+                    idleStopMinutes: root.idleStopMinutes
                     onOpened: function(s) { root.openSession(s) }
                     onStopRequested: function(s) { root.stopSession(s) }
                   }

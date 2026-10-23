@@ -231,6 +231,7 @@ def reap_empty(jobs):
 CLAUDE_HOME = os.path.expanduser("~/.claude")
 STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "clawdius")
 ASLEEP_PATH = os.path.join(STATE_DIR, "asleep.json")
+AWAKE_PATH = os.path.join(STATE_DIR, "awake.json")
 SWEEP_STAMP = os.path.join(STATE_DIR, "sweep.stamp")
 SWEEP_EVERY_SEC = 30
 SWEEP_GRACE_SEC = 120
@@ -379,6 +380,11 @@ def sweep(args):
     if dry:
         emit({"stopped": [], "plan": report})
         return 0
+    # Why each one left running is still up, for the Sessions rows.
+    tmp = AWAKE_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"at": int(now * 1000), "jobs": {r["job"]: r["keep"] for r in report if r["action"] == "keep"}}, f)
+    os.replace(tmp, AWAKE_PATH)
     claude = shutil.which("claude") or "claude"
     asleep = read_json(ASLEEP_PATH) or {}
     for r in stopped:
