@@ -533,10 +533,49 @@ Item {
     WheelHandler {
       acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
       onWheel: function(event) {
-        var dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 2
+        // Quicker than 1:1: a wheel notch (120) moves about 144 px.
+        var dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y * 2 : event.angleDelta.y * 1.2
         list.contentY = Math.max(0, Math.min(list.maxY, list.contentY - dy))
         root.stick = list.contentY >= list.maxY - 1
       }
+    }
+  }
+
+  // A scroll bar along the conversation's right edge: drag the thumb, or click
+  // the track to jump there. Only while there's more than fits.
+  Item {
+    id: bar
+    visible: list.maxY > 0
+    anchors.right: list.right
+    anchors.top: list.top
+    anchors.bottom: list.bottom
+    anchors.topMargin: Style.space(6)
+    anchors.bottomMargin: Style.space(6)
+    width: Style.space(12)
+
+    readonly property real thumbH: Math.max(Style.space(28), height * list.height / Math.max(1, list.contentHeight))
+    readonly property real travel: Math.max(1, height - thumbH)
+
+    Rectangle {
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: barMouse.containsMouse || barMouse.pressed ? Style.space(6) : Style.space(4)
+      height: bar.thumbH
+      y: list.maxY > 0 ? list.contentY / list.maxY * bar.travel : 0
+      radius: width / 2
+      color: root.pal.alpha(root.pal.fg, barMouse.containsMouse || barMouse.pressed ? 0.4 : 0.22)
+    }
+
+    MouseArea {
+      id: barMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      function scrollTo(y) {
+        list.contentY = Math.max(0, Math.min(list.maxY, (y - bar.thumbH / 2) / bar.travel * list.maxY))
+        root.stick = list.contentY >= list.maxY - 1
+      }
+      onPressed: function(mouse) { scrollTo(mouse.y) }
+      onPositionChanged: function(mouse) { if (pressed) scrollTo(mouse.y) }
     }
   }
 
