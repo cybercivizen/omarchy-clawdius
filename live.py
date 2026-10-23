@@ -35,6 +35,18 @@
         notes them in $XDG_STATE_HOME/clawdius/asleep.json (session id →
         when). Runs at most every 30s, under a lock (one bar per monitor).
 
+    live.py chat JOB_ID
+        The card's conversation view: the session as chat bubbles instead of
+        a terminal. The same hidden tmux pane as `view` (it takes the replies
+        in and notices when Claude is asking something), but what goes out
+        is read from the transcript, one JSON line per message:
+            {"history": [{"key": "…", "role": "user", "text": "hi", "at": 1.7e9}, …]}
+            {"msg": {"key": "…", "role": "assistant", "text": "Hello!", "at": 1.7e9}}
+            {"state": {"alive": true, "asking": false}}
+        role is "user", "assistant" or "tool" (a one-line label for a call).
+        Commands come in on stdin as for `view` ("submit", "keys", "clip").
+        The screen is only looked at now and then, never drawn.
+
     live.py history DIR
         The prompts given in DIR, newest first, as a JSON list: the card's
         Up / Down go through them in its own prompt.
@@ -920,6 +932,228 @@ def view(job, cols, rows, theme):
         tmux("kill-session", "-t", name)
 
 
+# ---- Conversation view
+
+CHAT_BOOTSTRAP_BYTES = 1 << 20
+CHAT_BOOTSTRAP_MSGS = 60
+# How often the screen is looked at for "is Claude asking something".
+CHAT_LOOK_SEC = 0.5
+CHAT_BUSY_POLL_SEC = 0.3
+CHAT_IDLE_POLL_SEC = 1.0
+CHAT_QUIET_AFTER_SEC = 8.0
+# Bookkeeping calls that mean nothing in a conversation.
+CHAT_HIDDEN_TOOLS = ("ToolSearch", "TaskCreate", "TaskUpdate", "TodoWrite")
+
+
+def tool_label(name, inp):
+    """A one-line version of a tool call, for the chip between bubbles."""
+    inp = inp if isinstance(inp, dict) else {}
+    base = lambda p: os.path.basename(str(p).rstrip("/")) or str(p)
+    if name == "WebSearch":
+        return "Searched the web: " + " ".join(str(inp.get("query", "")).split())[:60]
+    if name == "WebFetch":
+        return "Fetched " + " ".join(str(inp.get("url", "")).split())[:60]
+    if name == "Read":
+        return "Read " + base(inp.get("file_path", ""))
+    if name.startswith("mcp__"):
+        return "Used " + name.split("__")[-1].replace("_", " ")
+    return "Used " + name
+
+
+class ChatLog:
+    """The transcript, read incrementally into chat messages."""
+
+    def __init__(self, job):
+        self.job = job
+        self.path = ""
+        self.offset = 0
+        self.mtime = 0.0
+        self.started = False
+
+    def find(self):
+        state = read_json(os.path.join(CLAUDE_HOME, "jobs", self.job, "state.json")) or {}
+        sid = state.get("sessionId") or ""
+        found = glob.glob(os.path.join(CLAUDE_HOME, "projects", "*", sid + ".jsonl")) if sid else []
+        self.path = found[0] if found else ""
+
+    def read(self):
+        """New messages since the last call (the recent ones on the first)."""
+        if not self.path:
+            self.find()
+            if not self.path:
+                return [], False
+        try:
+            st = os.stat(self.path)
+        except OSError:
+            return [], False
+        if st.st_mtime == self.mtime and self.started:
+            return [], False
+        first = not self.started
+        if first:
+            self.started = True
+            self.offset = max(0, st.st_size - CHAT_BOOTSTRAP_BYTES)
+        self.mtime = st.st_mtime
+        try:
+            with open(self.path, "rb") as f:
+                f.seek(self.offset)
+                chunk = f.read()
+        except OSError:
+            return [], first
+        end = chunk.rfind(b"\n")
+        if end < 0:
+            return [], first
+        lines = chunk[: end + 1].splitlines()
+        if first and self.offset > 0:
+            lines = lines[1:]   # starts mid-record
+        self.offset += end + 1
+        msgs = []
+        for line in lines:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            msgs += self.messages(rec)
+        return (msgs[-CHAT_BOOTSTRAP_MSGS:] if first else msgs), first
+
+    @staticmethod
+    def messages(rec):
+        if not isinstance(rec, dict) or rec.get("isSidechain") or rec.get("isMeta"):
+            return []
+        kind = rec.get("type")
+        msg = rec.get("message") or {}
+        content = msg.get("content")
+        at = 0.0
+        stamp = str(rec.get("timestamp") or "")
+        try:
+            at = time.mktime(time.strptime(stamp[:19], "%Y-%m-%dT%H:%M:%S")) - time.timezone
+        except ValueError:
+            pass
+        uid = str(rec.get("uuid") or "")
+        out = []
+        if kind == "user":
+            parts = [content] if isinstance(content, str) else \
+                [b.get("text", "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text"]
+            text = "\n".join(p for p in parts if isinstance(p, str) and p.strip() and not p.lstrip().startswith("<")).strip()
+            if text:
+                out.append({"key": uid, "role": "user", "text": IMAGE_TOKEN.sub("", text).strip() or text, "at": at})
+        elif kind == "assistant" and isinstance(content, list):
+            for i, block in enumerate(content):
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "text" and str(block.get("text") or "").strip():
+                    out.append({"key": "%s:%d" % (uid, i), "role": "assistant", "text": block["text"].strip(), "at": at})
+                elif block.get("type") == "tool_use" and block.get("name") not in CHAT_HIDDEN_TOOLS:
+                    out.append({"key": "%s:%d" % (uid, i), "role": "tool",
+                                "text": tool_label(str(block.get("name") or ""), block.get("input")), "at": at})
+        return out
+
+
+def chat(job):
+    claude = shutil.which("claude") or "claude"
+    name = "live-%s-%d" % (re.sub(r"[^0-9A-Za-z]", "", job), os.getpid())
+    reap()
+    clean_pastes()
+    tmux("new-session", "-d", "-s", name, "-x", "100", "-y", str(30 + EXTRA_ROWS), "-e", "COLORTERM=truecolor", claude, "attach", job, check=True)
+    for opt in (("status", "off"), ("window-size", "manual"), ("remain-on-exit", "on")):
+        tmux("set-option", "-t", name, *opt)
+    tmux("set-option", "-g", "default-terminal", "tmux-256color")
+    subprocess.Popen(["sh", "-c", 'tail --pid="$1" -f /dev/null 2>/dev/null; tmux -L "$2" -f /dev/null kill-session -t "$3"',
+                      "watchdog", str(os.getpid()), SOCKET, name],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+    def cleanup(*_):
+        tmux("kill-session", "-t", name)
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, cleanup)
+    signal.signal(signal.SIGHUP, cleanup)
+
+    log = ChatLog(job)
+    state = None
+    seen_box = False     # Claude's prompt box has been up: before, it's just starting
+    missing = 0          # looks in a row that found no prompt box
+    active_at = time.monotonic()
+    try:
+        ctl = Control(name)
+    except OSError:
+        ctl = None
+    asked = False
+    last_look = 0.0
+    last_poll = 0.0
+
+    def look(info, screen):
+        nonlocal state, seen_box, missing
+        dead = bool(info) and info[0] == "1"
+        raws = NOISE.sub("", screen).split("\n")
+        ready = trim(raws, 30, None)[3]
+        # A prompt box, or text left in it, both mean Claude listens to us.
+        box = any(RULE.match(SGR.sub("", r).strip()) for r in raws) and any(SGR.sub("", r).lstrip().startswith("❯") for r in raws)
+        seen_box = seen_box or box
+        missing = 0 if (box or ready) else missing + 1
+        now_state = {"alive": not dead, "asking": seen_box and missing >= 2 and not dead}
+        if now_state != state:
+            state = now_state
+            emit({"state": state})
+        return not dead
+
+    try:
+        while True:
+            now = time.monotonic()
+            busy = now - active_at < CHAT_QUIET_AFTER_SEC
+            poll = CHAT_BUSY_POLL_SEC if busy else CHAT_IDLE_POLL_SEC
+            wait = max(0.0, last_poll + poll - now)
+            ready, _, _ = select.select([sys.stdin] + ([ctl.fd] if ctl else []), [], [], wait)
+            if sys.stdin in ready:
+                line = sys.stdin.readline()
+                if not line:
+                    break
+                handle(name, line)
+                active_at = time.monotonic()
+                if ctl:
+                    ctl.dirty = True
+            if ctl and ctl.fd in ready:
+                ctl.read()
+                if ctl.dirty:
+                    active_at = time.monotonic()
+            if ctl and ctl.closed:
+                ctl.close()
+                ctl = None
+                asked = False
+            now = time.monotonic()
+            if now - last_poll >= poll:
+                last_poll = now
+                msgs, first = log.read()
+                if first:
+                    emit({"history": msgs})
+                else:
+                    for m in msgs:
+                        emit({"msg": m})
+            if ctl is None:
+                if now - last_look >= CHAT_LOOK_SEC * 2:
+                    last_look = now
+                    info = tmux("display-message", "-p", "-t", name, CURSOR_FORMAT).stdout.split()
+                    screen = tmux("capture-pane", "-p", "-e", "-t", name).stdout.rstrip("\n") if len(info) >= 4 else ""
+                    if not look(info, screen) and len(info) < 4:
+                        break
+                continue
+            if not asked and now - last_look >= (CHAT_LOOK_SEC if ctl.dirty else IDLE_LOOK_SEC * 3):
+                ctl.dirty = False
+                last_look = now
+                ctl.send("display-message -p -t %s '%s'" % (name, CURSOR_FORMAT), "capture-pane -p -e -t %s" % name)
+                asked = True
+            if asked and len(ctl.replies) >= 2:
+                (info_ok, info), (screen_ok, screen) = ctl.replies[:2]
+                del ctl.replies[:2]
+                asked = False
+                if not info_ok:
+                    break
+                look(info.split(), screen.rstrip("\n") if screen_ok else "")
+    finally:
+        if ctl:
+            ctl.close()
+        tmux("kill-session", "-t", name)
+
+
 def handle(name, line):
     try:
         cmd = json.loads(line)
@@ -1046,6 +1280,8 @@ def main():
         return stop_job(sys.argv[2])
     if len(sys.argv) == 3 and sys.argv[1] == "history":
         return history(sys.argv[2])
+    if len(sys.argv) == 3 and sys.argv[1] == "chat":
+        return chat(sys.argv[2])
     if len(sys.argv) >= 2 and sys.argv[1] == "start":
         return launch_job(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "launch":

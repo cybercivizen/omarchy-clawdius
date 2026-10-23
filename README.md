@@ -453,6 +453,25 @@ viewer. A watchdog removes the pane even if the shell kills the viewer.
 Attached clients share one size, so a terminal attached at the same time
 draws at the card's size while it's open.
 
+#### Chat as a conversation
+
+A session started in the Chat folder opens in the detail view as a
+conversation (`ChatView.qml`) instead of the terminal: your messages in
+tinted bubbles on the right, Claude's on the left (markdown, with its links
+as chips under the bubble), each with a small speech tail, a muted line for
+each tool it used, and three stepped dots while it works. Your message shows
+the moment you send it. The crab peeks up from the bottom-left as in the new
+chat view. The button beside "Open in terminal" flips a session between
+conversation and terminal (kept until the card reloads); Code sessions open
+as the terminal. When Claude asks something only the terminal can answer (a
+permission dialog), an amber bar offers "Answer in terminal".
+
+`live.py chat JOB` feeds it: the same hidden tmux pane as `view` (it takes
+the replies and sees the dialog), but what goes out is read from the
+transcript, one JSON line per message, so nothing is captured or drawn per
+frame. Not yet: image paste, prompt history (Up / Down), live token
+streaming (a reply lands whole, per block).
+
 ### Idle sessions go to sleep
 
 Every background session stays loaded until stopped (~400 MB: the Claude

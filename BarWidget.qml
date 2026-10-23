@@ -757,6 +757,8 @@ BarWidget {
   property var trustAsk: null
   property string pendingLabel: ""
   property string pendingTitle: ""
+  // The whole first prompt, for the conversation view to show while the session starts.
+  property string pendingPrompt: ""
 
   // The folder a command's leading `cd <dir> &&` goes to, "" without one.
   readonly property var cdPrefix: /^\s*cd\s+(?:'([^']*)'|(\S+))\s*&&\s*/
@@ -794,6 +796,7 @@ BarWidget {
         if (!/^[0-9a-f]{6,}$/.test(id)) {
           console.warn("clawdius start", text)
           root.pendingSession = null
+          root.pendingPrompt = ""
           if (root.view === "detail" && !root.liveId) root.view = root.detailFrom
           root.startFailed(text)
           return
@@ -873,7 +876,7 @@ BarWidget {
   Timer {
     id: pendingClear
     interval: 15000
-    onTriggered: { root.pendingLiveId = ""; root.pendingSession = null }
+    onTriggered: { root.pendingLiveId = ""; root.pendingSession = null; root.pendingPrompt = "" }
   }
 
   // Stop the empty ones. live.py leaves alone anything attached (a terminal,
@@ -1000,6 +1003,23 @@ BarWidget {
     root.liveId = s.jobId
     root.view = "detail"
     root.autoOpened = false
+  }
+
+  // Chat sessions (started in the Chat folder) open as a conversation, Code
+  // ones as the terminal; the Detail view's button flips either, per session
+  // until the card is reloaded.
+  property var chatOverride: ({})
+  readonly property bool detailChat: {
+    var o = chatOverride[root.liveId || "starting"]
+    if (o !== undefined) return o
+    var s = root.liveSession || root.pendingSession
+    var dir = s ? String(s.workdir || s.cwd || "").replace(/(.)\/+$/, "$1") : ""
+    return dir !== "" && dir === root.commandDir(root.chatCommand)
+  }
+  function toggleDetailChat() {
+    var next = Object.assign({}, root.chatOverride)
+    next[root.liveId || "starting"] = !root.detailChat
+    root.chatOverride = next
   }
 
   function collapseLive() {
@@ -1131,6 +1151,7 @@ BarWidget {
     if (code && root.quickDir) base = "cd " + root.shellQuote(root.quickDir) + " && " + base.replace(root.cdPrefix, "")
     var command = base + model + effort + " -- " + root.shellQuote(text)
     liveKeys.field.text = ""
+    root.pendingPrompt = code ? "" : text
     root.launchInCard(command, code ? "Code" : "Chat", text.split("\n")[0].slice(0, 60))
   }
 
@@ -2049,15 +2070,16 @@ BarWidget {
       // (the card clips the rest of him); he types along while you do.
       Clawd {
         id: peekCrab
-        visible: root.view === "quick" && !root.peeking
+        visible: (root.view === "quick" || (root.view === "detail" && root.detailChat && root.terminalUp)) && !root.peeking
         z: 5
         unit: Style.spaceReal(5)
         color: theme.crab
         // Listens while there's nothing to read yet, types along, and waits
         // out the session starting.
-        mood: startProcess.running ? "thinking" : liveKeys.field.text !== "" ? "typing" : "listening"
+        mood: startProcess.running || (root.view === "detail" && !!(root.liveSession || {}).busy) ? "thinking"
+            : liveKeys.field.text !== "" ? "typing" : "listening"
         // Its thoughts keep drifting up while the session starts.
-        thoughts: mood === "listening" || mood === "thinking"
+        thoughts: root.view === "quick" && (mood === "listening" || mood === "thinking")
         animate: card.open
         anchors.left: parent.left
         anchors.leftMargin: Style.space(14)
@@ -2719,9 +2741,12 @@ BarWidget {
                   session: root.liveSession || (root.startingLabel !== "" ? root.pendingSession : null)
                   keyWindow: liveKeys
                   terminalFontSize: root.terminalFontSize
+                  chatStyle: root.detailChat
+                  pendingPrompt: root.startingLabel !== "" ? root.pendingPrompt : ""
                   now: root.now
                   active: root.islandOpen || (card.visible && !root.peeking)
                   onGrabbed: root.autoOpened = false
+                  onToggleChat: root.toggleDetailChat()
                   onOpenTerminal: if (root.liveSession) root.focusSession(root.liveSession)
                   onOpenEditor: dir => {
                     root.close()

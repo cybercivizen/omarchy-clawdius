@@ -171,3 +171,8 @@ renders, but nobody has clicked or typed through it yet.
       don't change the island's height; Posture became Move with a Sit up
       and a Walk nudge, their timing moved to Settings → Move, Timer is
       compacted. (qmllint clean apart from import paths; not seen rendered.)
+- [x] Chat sessions open as a conversation (ChatView.qml, `live.py chat`):
+      speech bubbles with tails, tool lines, typing dots, link chips, a
+      toggle to the terminal. Seen rendered in the dark theme; light theme
+      not checked. Open: image paste, Up / Down history, code-block
+      background.
