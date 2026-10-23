@@ -9,17 +9,21 @@ import "Link.js" as Link
 import "Format.js" as Format
 import "Icons.js" as Icons
 import "Timers.js" as Timers
+import "Weather.js" as Weather
 
 // A tiny Clawd beside the clock that types while any Claude Code session is
 // busy: orange while Claude is doing something, gray when it isn't. Hovering
 // it — or the clock itself — drops an island from the bar:
 //
-//   Home      one moment at a time, the most pressing (Moment.qml): a
-//             permission prompt to answer, a finished turn, the session
-//             you're watching and its steps, or, with nothing running,
-//             today's rep (ChallengeCard.qml, antirot.py) and New chat. Other running
-//             sessions sit on a rail of small crabs; the Limits glance
-//             beside it opens Stats.
+//   Home      the main card (Moment.qml) is one of three, picked by the
+//             switch in its corner: Agents (one moment at a time, the most
+//             pressing: a permission prompt to answer, a finished turn, the
+//             session you're watching and its steps, or New chat), Today
+//             (Today.qml: a month and the weather) or Anti-rot (today's rep,
+//             ChallengeCard.qml, antirot.py). Anything that needs you shows
+//             Agents until it's dealt with. Other running sessions sit on a
+//             rail of small crabs; the corner card beside it (Limits, Timer,
+//             Move) has the Limits glance that opens Stats.
 //   Chat      a new chat: type, Enter starts Chat or Code with it (QuickChat).
 //   Sessions  Live · Recent · Folders.
 //   Search    the nav's search bar: apps, sums, `/ ` a terminal command, `/g ` Google.
@@ -179,6 +183,8 @@ BarWidget {
 
   Component.onCompleted: Link.register(root)
   Component.onDestruction: Link.unregister(root)
+  // The clock's click goes to the crab on the same bar window (Link.clockClick).
+  function clockClick() { openToday() }
   function setClockHover(hovered) {
     clockHovered = hovered
     hoverChanged(hovered)
@@ -364,7 +370,7 @@ BarWidget {
   Connections {
     target: root
     // Opening also picks today's rep when the day has turned.
-    function onIslandOpenChanged() { if (root.islandOpen) { root.refreshUsage(60000); root.runAntirot(["today"], "") } }
+    function onIslandOpenChanged() { if (root.islandOpen) { root.refreshUsage(60000); root.runAntirot(["today"], ""); root.fetchWeather(30 * 60000) } }
   }
 
   Timer {
@@ -442,7 +448,7 @@ BarWidget {
       return JSON.stringify({ usage: !!root.usage, usageUpdated: root.usage ? root.usage.updatedAt : null,
         sessions: root.sessions.length, cardOpen: card.open, pinned: root.pinned, triggerMode: card.triggerMode, keysFocused: liveKeys.field.activeFocus,
         clockHovered: root.clockHovered, linkedCrabs: Link.count(), crabs: Link.states(), feedOk: root.feedOk,
-        view: root.view, sessionsTab: root.sessionsTab, moment: root.moment.kind, focusId: root.focusId,
+        view: root.view, sessionsTab: root.sessionsTab, moment: root.moment.kind, main: root.mainShown, weather: root.weather ? root.weather.temp + " " + root.weather.place : null, focusId: root.focusId,
         pinnedId: root.pinnedId, rail: root.railSessions.length, lightTheme: theme.light,
         colors: { fg: String(theme.fg), bg: String(theme.bg), primary: String(theme.primary), primaryInk: String(theme.primaryInk), island: String(theme.island), islandAlpha: card.frostAlpha, bar: root.bar ? String(root.bar.background) : "" },
         mood: root.mood, waiting: root.waitingCount, sweating: root.sweating,
@@ -472,8 +478,12 @@ BarWidget {
     function setView(name: string): void { root.view = name }
     // A rep card button: start | open | check | easier | skip | next | review | settings.
     function challenge(action: string): void { root.challengeAction(action) }
-    // Home's corner card: limits | timer | posture (the Move tab) | antirot.
+    // Home's corner card: limits | timer | posture (the Move tab).
     function setCorner(mode: string): void { root.pickCorner(mode) }
+    // Home's main card: agents | today | antirot.
+    function setMain(mode: string): void { root.pickMain(mode) }
+    // The clock's click, for testing: pinned on Today.
+    function today(): void { root.openToday() }
     // Show a background session live, by its job id ("" hides it).
     function live(jobId: string): void { root.liveId = jobId; root.view = jobId ? "detail" : "home"; root.pinned = true; root.open() }
     // Clicking the index-th Recent row.
@@ -1309,6 +1319,10 @@ BarWidget {
   // The stand-up-and-walk nudge: the same shape, a longer wait.
   property var walk: ({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
   property string cornerMode: "limits"
+  // Home's main card: agents | today | antirot. What needs you shows Agents
+  // whatever was picked; the pick comes back after.
+  property string mainMode: "agents"
+  readonly property string mainShown: ["approval", "waiting", "done", "failed", "limited"].indexOf(root.moment.kind) >= 0 ? "agents" : root.mainMode
   property int postureRings: 0
   property int walkRings: 0
   readonly property bool nudging: root.posture.on || root.walk.on
@@ -1325,7 +1339,9 @@ BarWidget {
         root.timers = d.timers || []
         root.posture = Object.assign({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.posture || {})
         root.walk = Object.assign({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.walk || {})
-        root.cornerMode = d.mode || "limits"
+        // The Anti-rot tab moved to the main card.
+        root.cornerMode = !d.mode || d.mode === "antirot" ? "limits" : d.mode
+        root.mainMode = d.main || "agents"
       } catch (e) { console.warn("clawdius timers parse", e) }
     }
   }
@@ -1333,7 +1349,7 @@ BarWidget {
   Timer {
     id: timersSave
     interval: 300
-    onTriggered: timersFile.setText(JSON.stringify({ timers: root.timers, posture: root.posture, walk: root.walk, mode: root.cornerMode }))
+    onTriggered: timersFile.setText(JSON.stringify({ timers: root.timers, posture: root.posture, walk: root.walk, mode: root.cornerMode, main: root.mainMode }))
   }
 
   function addTimer(kind, label, at, len) {
@@ -1364,6 +1380,80 @@ BarWidget {
   function pickCorner(mode) {
     root.cornerMode = mode
     timersSave.restart()
+  }
+
+  function pickMain(mode) {
+    root.mainMode = mode
+    timersSave.restart()
+  }
+
+  // The clock's click: the island, pinned, on Today.
+  function openToday() {
+    root.view = "home"
+    root.pickMain("today")
+    root.pinned = true
+    root.open()
+  }
+
+  // ---- Weather (wttr.in, the place from Omarchy's weather setting, else the
+  //      IP's): one report in stateDir/weather.json, fetched by whichever crab
+  //      sees it stale, read by every crab. Today shows it.
+  property var weather: null
+  property double weatherAt: 0
+  property string weatherPlace: ""
+  readonly property string weatherPath: root.stateDir + "/weather.json"
+
+  FileView {
+    id: weatherFile
+    path: root.weatherPath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var d = JSON.parse(text())
+        root.weatherAt = d.at || 0
+        root.weather = Weather.parse(JSON.stringify(d.report), Weather.imperial(Qt.locale().name), new Date().getHours())
+      } catch (e) { console.warn("clawdius weather parse", e) }
+    }
+  }
+
+  // The configured place's path segment: "lat,lon", else the name; blank asks the IP.
+  FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var d = JSON.parse(text())
+        var lat = parseFloat(d.latitude), lon = parseFloat(d.longitude)
+        root.weatherPlace = !isNaN(lat) && !isNaN(lon) ? lat + "," + lon : encodeURIComponent(String(d.name || "").trim())
+      } catch (e) { root.weatherPlace = "" }
+    }
+  }
+
+  function fetchWeather(maxAgeMs) {
+    if (weatherProcess.running || Date.now() - root.weatherAt < maxAgeMs) return
+    weatherProcess.command = ["curl", "-fsS", "--max-time", "10", "https://wttr.in/" + root.weatherPlace + "?format=j1"]
+    weatherProcess.running = true
+  }
+
+  Process {
+    id: weatherProcess
+    stdout: StdioCollector { id: weatherOut }
+    onExited: function(code) {
+      if (code !== 0) return
+      try { weatherFile.setText(JSON.stringify({ at: Date.now(), report: JSON.parse(weatherOut.text) })) } catch (e) {}
+    }
+  }
+
+  Timer {
+    interval: 30 * 60000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (Link.isLeader(root)) root.fetchWeather(25 * 60000)
   }
 
   // The leader's check, once a second while anything is set.
@@ -2529,6 +2619,9 @@ BarWidget {
                   usage: root.usage
                   antirot: root.antirot
                   challengeBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
+                  mode: root.mainShown
+                  weather: root.weather
+                  onModePicked: function(mode) { root.pickMain(mode) }
                   onChallenge: function(action) { root.challengeAction(action) }
                   timers: root.timers
                   onAnswered: function(request, choice, answers) { root.answerRequest(request, choice, answers) }
@@ -2555,9 +2648,6 @@ BarWidget {
                   timers: root.timers
                   posture: root.posture
                   walk: root.walk
-                  antirot: root.antirot
-                  antirotBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
-                  onChallenge: function(action) { root.challengeAction(action) }
                   onModePicked: function(mode) { root.pickCorner(mode) }
                   onStatsOpened: root.view = "stats"
                   onTimerAdded: function(kind, label, at, len) { root.addTimer(kind, label, at, len) }

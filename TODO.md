@@ -171,6 +171,11 @@ renders, but nobody has clicked or typed through it yet.
       don't change the island's height; Posture became Move with a Sit up
       and a Walk nudge, their timing moved to Settings → Move, Timer is
       compacted. (qmllint clean apart from import paths; not seen rendered.)
+- [x] Main card modes: Agents / Today (month grid + wttr.in weather, replacing
+      the clock's calendar popup and the weather widget) / Anti-rot, switch at
+      the card's top left, rail stays; Anti-rot left the corner card; a click
+      on the bar clock opens the island on Today. (Seen rendered; the clock
+      click was tried through `omarchy.clock open`, not a real pointer.)
 - [x] Chat sessions open as a conversation (ChatView.qml, `live.py chat`):
       speech bubbles with tails, tool lines, typing dots, link chips, a
       toggle to the terminal. Seen rendered in the dark theme; light theme
