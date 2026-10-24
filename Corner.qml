@@ -30,27 +30,25 @@ Rectangle {
   // today's rep, as antirot.py writes it, and the action it's running.
   property var rep: null
   property string antirotBusy: ""
-  // Stuck (help with the rep) only while there's a rep in progress.
-  readonly property bool stuckAvailable: !!rep && !!rep.startedAt && !rep.passedAt
+  // Stuck (help with the rep) is a tab only while it's shown: the Stuck?
+  // pill on the Anti-rot card opens it, Hide help or another tab closes it.
   readonly property var modes: {
     var m = [
       { id: "limits", name: "LIMITS", icon: Icons.limits },
       { id: "timer", name: "TIMER", icon: Icons.timer },
       { id: "posture", name: "MOVE", icon: Icons.posture }
     ]
-    return stuckAvailable ? m.concat([{ id: "stuck", name: "STUCK", icon: Icons.help }]) : m
+    return mode === "stuck" ? m.concat([{ id: "stuck", name: "STUCK", icon: Icons.help }]) : m
   }
   readonly property real pad: Style.space(18)
-  // The content's height in the other modes: Limits' two bars set it. Stuck
-  // grows to its text, up to a cap, then scrolls.
+  // The content's height in every mode: Limits' two bars set it. Stuck fills
+  // whatever height the card is given (the Anti-rot card's) and scrolls.
   readonly property real slot: Style.space(110)
-  readonly property real stuckCap: Style.space(300)
-  readonly property real slotNow: mode === "stuck" ? Math.max(slot, Math.min(stuckPane.implicitHeight, stuckCap)) : slot
 
   signal explainAsked(bool again)
   signal hintAsked()
 
-  implicitHeight: pad * 2 + header.height + Style.space(14) + slotNow
+  implicitHeight: pad * 2 + header.height + Style.space(14) + slot
   radius: pal.rad(Style.space(24))
   color: pal ? pal.card : "transparent"
   border.width: 1
@@ -114,7 +112,7 @@ Rectangle {
     x: root.pad
     y: root.pad + header.height + Style.space(14)
     width: parent.width - root.pad * 2
-    height: root.slotNow
+    height: root.mode === "stuck" ? Math.max(root.slot, root.height - y - root.pad) : root.slot
 
     Glance {
       id: glance
@@ -152,24 +150,16 @@ Rectangle {
       onNudged: function(key) { root.nudged(key) }
     }
 
-    Flickable {
+    Stuck {
       visible: root.mode === "stuck"
       width: parent.width
       height: parent.height
-      contentHeight: stuckPane.implicitHeight
-      boundsBehavior: Flickable.StopAtBounds
-      clip: true
-
-      Stuck {
-        id: stuckPane
-        width: parent.width
-        pal: root.pal
-        fontFamily: root.fontFamily
-        rep: root.rep
-        busy: root.antirotBusy
-        onExplainAsked: function(again) { root.explainAsked(again) }
-        onHintAsked: root.hintAsked()
-      }
+      pal: root.pal
+      fontFamily: root.fontFamily
+      rep: root.rep
+      busy: root.antirotBusy
+      onExplainAsked: function(again) { root.explainAsked(again) }
+      onHintAsked: root.hintAsked()
     }
 
   }

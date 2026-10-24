@@ -1,12 +1,14 @@
 import QtQuick
 import qs.Commons
+import "Icons.js" as Icons
 
 // The Stuck mode of Home's corner card, for a rep in progress: Explain (the
 // task in plain words, with worked examples, for when the instructions make
-// no sense) and Hint (nudges, each a step further). Both are asked of Claude
-// by antirot.py and kept in antirot.json, so asking again is a button, and
-// what's there is just shown. The corner card scrolls it when it's long.
-Column {
+// no sense) and Hint (nudges, each a step further, paged one at a time). Both
+// are asked of Claude by antirot.py and kept in antirot.json, so asking again
+// is a button, and what's there is just shown. It fills the height it's given
+// (the Anti-rot card's) and scrolls what doesn't fit, with a bar.
+Item {
   id: root
 
   property QtObject pal
@@ -17,6 +19,8 @@ Column {
   property string busy: ""
   // explain | hint
   property string tab: "explain"
+  // Which of the kept hints is shown.
+  property int page: 0
 
   signal explainAsked(bool again)
   signal hintAsked()
@@ -24,14 +28,19 @@ Column {
   readonly property string explainText: rep && rep.explain ? rep.explain : ""
   readonly property var hints: rep && rep.hints ? rep.hints : []
   readonly property int hintTotal: rep && rep.hintCount ? rep.hintCount : 0
+  readonly property real gap: Style.space(10)
   // What just arrived is what to look at.
   onExplainTextChanged: if (explainText) tab = "explain"
-  onHintTotalChanged: if (hintTotal) tab = "hint"
-  Component.onCompleted: if (!explainText && hintTotal) tab = "hint"
-
-  spacing: Style.space(10)
+  onHintTotalChanged: if (hintTotal) { tab = "hint"; page = Math.max(0, hints.length - 1) }
+  onTabChanged: flick.contentY = 0
+  onPageChanged: flick.contentY = 0
+  Component.onCompleted: {
+    page = Math.max(0, hints.length - 1)
+    if (!explainText && hintTotal) tab = "hint"
+  }
 
   Row {
+    id: tabs
     spacing: Style.space(2)
 
     Repeater {
@@ -67,73 +76,127 @@ Column {
     }
   }
 
-  // ---- Explain
-  Column {
-    visible: root.tab === "explain"
+  // ---- The text: the explanation, or the hint on this page.
+  Flickable {
+    id: flick
+    y: tabs.height + root.gap
     width: parent.width
-    spacing: Style.space(10)
+    height: Math.max(0, actions.y - root.gap - y)
+    contentHeight: body.implicitHeight
+    boundsBehavior: Flickable.StopAtBounds
+    clip: true
 
     Text {
-      width: parent.width
-      text: root.explainText || "The task in plain words, with worked examples."
-      textFormat: root.explainText ? Text.MarkdownText : Text.PlainText
+      id: body
+      width: flick.width - Style.space(12)
+      text: root.tab === "explain"
+        ? (root.explainText || "The task in plain words, with worked examples.")
+        : (root.hints.length ? root.hints[Math.min(root.page, root.hints.length - 1)] : "A nudge, never the code. Each one goes a step further.")
+      textFormat: root.tab === "explain" && root.explainText ? Text.MarkdownText : Text.PlainText
       wrapMode: Text.Wrap
-      color: root.explainText ? root.pal.strong : root.pal.muted
+      color: (root.tab === "explain" ? root.explainText : root.hints.length) ? root.pal.strong : root.pal.muted
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
+  }
+
+  // A thin bar on the right while there's more than fits; drag it or use the wheel.
+  Item {
+    id: bar
+    visible: flick.contentHeight > flick.height + 1
+    x: parent.width - width
+    y: flick.y
+    width: Style.space(8)
+    height: flick.height
+
+    Rectangle {
+      id: thumb
+      width: Style.space(3)
+      anchors.horizontalCenter: parent.horizontalCenter
+      height: Math.max(Style.space(24), bar.height * flick.visibleArea.heightRatio)
+      y: flick.visibleArea.yPosition * bar.height
+      radius: width / 2
+      color: root.pal.alpha(root.pal.fg, drag.pressed || drag.containsMouse ? 0.5 : 0.28)
+    }
+
+    MouseArea {
+      id: drag
+      anchors.fill: parent
+      hoverEnabled: true
+      preventStealing: true
+      function seek(my) {
+        var travel = Math.max(1, bar.height - thumb.height)
+        flick.contentY = Math.max(0, Math.min(1, (my - thumb.height / 2) / travel)) * (flick.contentHeight - flick.height)
+      }
+      onPressed: function(m) { seek(m.y) }
+      onPositionChanged: function(m) { if (pressed) seek(m.y) }
+    }
+  }
+
+  // ---- The buttons, pinned to the foot.
+  Item {
+    id: actions
+    y: parent.height - height
+    width: parent.width
+    height: Style.space(24)
 
     Pill {
+      visible: root.tab === "explain"
+      anchors.left: parent.left
       pal: root.pal
       fontFamily: root.fontFamily
       dense: true
       kind: root.explainText ? "quiet" : "primary"
       label: root.explainText ? "Simpler" : "Explain it"
       tooltip: root.explainText ? "Explain it again, plainer" : ""
+      tooltipAbove: true
       busy: root.busy === "explain"
       onClicked: root.explainAsked(!!root.explainText)
     }
-  }
 
-  // ---- Hint
-  Column {
-    visible: root.tab === "hint"
-    width: parent.width
-    spacing: Style.space(10)
+    // ‹ 2 / 3 ›
+    Row {
+      visible: root.tab === "hint" && root.hints.length > 1
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(4)
 
-    Text {
-      visible: root.hints.length === 0
-      width: parent.width
-      text: "A nudge, never the code. Each one goes a step further."
-      textFormat: Text.PlainText
-      wrapMode: Text.Wrap
-      color: root.pal.muted
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-    }
-
-    Repeater {
-      model: root.hints
-
+      Pill {
+        pal: root.pal
+        dense: true
+        iconOnly: true
+        icon: Icons.back
+        enabled: root.page > 0
+        opacity: enabled ? 1 : 0.35
+        onClicked: root.page--
+      }
       Text {
-        required property int index
-        required property string modelData
-        width: root.width
-        text: (root.hintTotal - root.hints.length + index + 1) + ". " + modelData
+        anchors.verticalCenter: parent.verticalCenter
+        text: (root.hintTotal - root.hints.length + root.page + 1) + " / " + root.hintTotal
         textFormat: Text.PlainText
-        wrapMode: Text.Wrap
-        color: index === root.hints.length - 1 ? root.pal.strong : root.pal.muted
+        color: root.pal.muted
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
+      }
+      Pill {
+        pal: root.pal
+        dense: true
+        iconOnly: true
+        icon: Icons.forward
+        enabled: root.page < root.hints.length - 1
+        opacity: enabled ? 1 : 0.35
+        onClicked: root.page++
       }
     }
 
     Pill {
+      visible: root.tab === "hint"
+      anchors.right: parent.right
       pal: root.pal
       fontFamily: root.fontFamily
       dense: true
       kind: root.hints.length ? "quiet" : "primary"
-      label: root.hints.length ? "Another hint" : "Get a hint"
+      label: root.hints.length ? "More hint" : "Get a hint"
       busy: root.busy === "hint"
       onClicked: root.hintAsked()
     }
