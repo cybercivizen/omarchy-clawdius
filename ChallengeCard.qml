@@ -17,12 +17,13 @@ Column {
   // antirot.json, as antirot.py writes it.
   property var antirot: null
   property double now: Date.now()
-  // The antirot.py action running: "" | start | check | easier | skip | next | set | setup
+  // The antirot.py action running: "" | start | check | hint | easier | skip | next | set | setup
   property string busy: ""
 
   signal started()
   signal opened()
   signal checked()
+  signal hinted()
   signal easier()
   signal skipped()
   signal nexted()
@@ -140,6 +141,30 @@ Column {
     }
   }
 
+  // Claude's latest nudge, while it's in progress.
+  Rectangle {
+    visible: root.inProgress && !!root.rep.hints && root.rep.hints.length > 0
+    width: parent.width
+    height: hintText.implicitHeight + Style.space(16)
+    radius: pal.rad(Style.space(10))
+    color: root.pal.well
+
+    Text {
+      id: hintText
+      x: Style.space(10)
+      y: Style.space(8)
+      width: parent.width - Style.space(20)
+      text: root.rep && root.rep.hints && root.rep.hints.length ? root.rep.hints[root.rep.hints.length - 1] : ""
+      textFormat: Text.PlainText
+      wrapMode: Text.Wrap
+      maximumLineCount: 4
+      elide: Text.ElideRight
+      color: root.pal.strong
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+    }
+  }
+
   // The last check's output, while it isn't passing.
   Rectangle {
     visible: root.inProgress && !!root.check && root.check.tail !== ""
@@ -205,6 +230,16 @@ Column {
       label: "Check"
       busy: root.busy === "check"
       onClicked: root.checked()
+    }
+    Pill {
+      visible: root.inProgress
+      pal: root.pal
+      fontFamily: root.fontFamily
+      label: "Hint"
+      tooltip: "A nudge from Claude, no code"
+      tooltipAbove: true
+      busy: root.busy === "hint"
+      onClicked: root.hinted()
     }
     Pill {
       visible: root.inProgress
