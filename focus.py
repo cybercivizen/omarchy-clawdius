@@ -5,17 +5,20 @@ Run when the island's notification, or a session's row, is clicked:
 
     focus.py --pid PID [--proc-start N] [--name NAME] [--job JOB_ID]
 
-1. Walk up from the session's process to the first ancestor that owns a
+1. A background job already attached somewhere: the window of the
+   `claude attach JOB` process, whatever its title says.
+2. Walk up from the session's process to the first ancestor that owns a
    Hyprland window: that's its terminal. Background jobs hang off whichever
    terminal started the jobs daemon, which is where the agent view lives.
-2. Failing that, a window whose title carries the session name (the agent
+3. Failing that, a window whose title carries the session name (the agent
    view titles itself after the session it's showing).
-3. A background job with no window left: open it in a new terminal with
+4. A background job with no window left: open it in a new terminal with
    `claude attach`.
 """
 
 import argparse
 import json
+import os
 import subprocess
 
 
@@ -54,6 +57,26 @@ def window_for_process(pid, proc_start, by_pid):
     return None
 
 
+def window_for_job(job, by_pid):
+    """The window holding `claude attach JOB`, by its process rather than its title."""
+    if not job:
+        return None
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit() or int(entry) == os.getpid():
+            continue
+        try:
+            with open("/proc/%s/cmdline" % entry, "rb") as f:
+                argv = f.read().split(b"\0")
+        except OSError:
+            continue
+        # `claude attach` takes the job's short id or its whole one.
+        if b"attach" in argv and any(len(a) >= 6 and job.encode().startswith(a) for a in argv[argv.index(b"attach") + 1:]):
+            window = window_for_process(int(entry), "", by_pid)
+            if window:
+                return window
+    return None
+
+
 def window_for_name(name, windows):
     if not name:
         return None
@@ -83,8 +106,9 @@ def main():
     windows = clients()
     by_pid = {w.get("pid"): w for w in windows if w.get("pid")}
 
-    window = window_for_process(args.pid, args.proc_start, by_pid) if args.pid else None
-    window = window or window_for_name(args.name, windows)
+    window = window_for_job(args.job, by_pid)
+    window = window or (window_for_process(args.pid, args.proc_start, by_pid) if args.pid else None)
+    window = window or window_for_name(args.name.rstrip("…"), windows)
     if args.dry_run:
         print("focus %s (%s, %r)" % (window["address"], window.get("class"), window.get("title")) if window
               else "attach %s" % args.job if args.job else "nothing")
