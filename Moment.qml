@@ -116,7 +116,8 @@ Rectangle {
   // another mode is up (pulsing orange, or green for a finish).
   readonly property bool anyWorking: kind === "working" || railSessions.some(x => x.busy)
 
-  implicitHeight: Math.max(Style.space(204), agents ? body.implicitHeight + pad * 2 : 0, railColumn.implicitHeight + Style.space(20))
+  implicitHeight: Math.max(Style.space(204), agents ? body.implicitHeight + pad * 2 : 0,
+    mode === "antirot" ? repCard.implicitHeight + Style.space(38 + 12 + 12) : 0, railColumn.implicitHeight + Style.space(20))
 
   // ---- The glow: a wide arc of the state color rising from the bottom edge,
   //      clipped to the card's rounded corners by drawing it in their shape.
@@ -614,6 +615,7 @@ Rectangle {
     height: parent.height - y - Style.space(12)
 
     ChallengeCard {
+      id: repCard
       visible: !!root.antirot
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
