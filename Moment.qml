@@ -65,7 +65,7 @@ Rectangle {
   signal newChat()
   signal pinned(var session)
   signal moreSessions()
-  // ChallengeCard's: start | open | check | easier | skip | next | review | settings
+  // ChallengeCard's: start | open | check | hint | easier | skip | next | review | settings
   signal challenge(string action)
   // An alarm for when the spent limit resets.
   signal alarmRequested(double at, string label)
@@ -625,6 +625,7 @@ Rectangle {
       onStarted: root.challenge("start")
       onOpened: root.challenge("open")
       onChecked: root.challenge("check")
+      onHinted: root.challenge("hint")
       onEasier: root.challenge("easier")
       onSkipped: root.challenge("skip")
       onNexted: root.challenge("next")

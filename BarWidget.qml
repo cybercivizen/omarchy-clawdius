@@ -1691,7 +1691,7 @@ BarWidget {
     if (action === "settings") root.view = "settings"
     else if (action === "open" && rep && rep.file) root.openChallenge(rep.file, rep.docs || (rep.dir ? rep.dir + "/.docs/instructions.md" : ""))
     else if (action === "review" && rep && rep.dir) root.reviewChallenge(rep)
-    else if (["start", "check", "easier", "skip", "next"].indexOf(action) >= 0) root.runAntirot([action], rep ? rep.lang : "")
+    else if (["start", "check", "hint", "easier", "skip", "next"].indexOf(action) >= 0) root.runAntirot([action], rep ? rep.lang : "")
   }
 
   // Claude looks over the passed rep in the live terminal, read only. A new

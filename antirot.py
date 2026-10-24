@@ -4,6 +4,7 @@
   antirot.py today                  pick today's challenge if there isn't one (and refresh the info)
   antirot.py start                  copy today's challenge into its folder; prints the file to open
   antirot.py check                  run its tests; all passing counts the day
+  antirot.py hint                   a nudge from Claude (Sonnet, no tools) towards the next step, never code
   antirot.py easier | skip          another one for today: a level down, or the same level
   antirot.py next                   chain another challenge once today's is passed
   antirot.py timebox N              minutes a challenge should take: 0 (off), 15, 25 or 45; passes
@@ -53,6 +54,15 @@ REDO_DAYS = 7
 MAX_REDOS = 3
 SKIP_DAYS = 30
 TEST_TIMEOUT = 180
+HINT_TIMEOUT = 90
+HINT_CODE_BYTES = 8000
+# Each hint counts as this many checks towards a pass worth doing again.
+HINT_WEIGHT = 2
+HINT_PROMPT = ("You tutor someone who is relearning to code by hand. They are stuck on an Exercism exercise. "
+               "Given the task, their current code and the last test output, give a hint of one or two sentences "
+               "that points at the concept to think about, the failing case, or where the bug is. Never write code, "
+               "never give the solution or the exact fix, never praise or preamble. If earlier hints are listed, "
+               "go one step more concrete than the last, still without code.")
 # The TypeScript reps share one jest install: these, at the versions the
 # track's exercises ask for.
 JEST_DEPS = ("@exercism/babel-preset-typescript", "@jest/globals", "@types/node", "babel-jest", "core-js",
@@ -388,7 +398,7 @@ def check(state):
         # Wall clock, Start to the passing Check.
         secs = max(1, (t["passedAt"] - t["startedAt"]) // 1000) if t.get("startedAt") else 0
         key = t["lang"] + "/" + t["slug"]
-        if secs and shaky(state, t["lang"], secs, t["checks"]):
+        if secs and shaky(state, t["lang"], secs, t["checks"] + HINT_WEIGHT * t.get("hintCount", 0)):
             n = t.get("round", 0) + 1
             if n <= MAX_REDOS:
                 state["redo"][key] = {"due": (date.today() + timedelta(days=REDO_DAYS)).isoformat(), "round": n}
@@ -412,6 +422,54 @@ def check(state):
             streak["count"] = streak.get("count", 0) + 1 if streak.get("last") == yesterday else 1
             streak["last"] = today_str()
     save(state)
+    return 0
+
+
+def read_text(path, limit=HINT_CODE_BYTES):
+    try:
+        with open(path, errors="replace") as f:
+            return f.read(limit)
+    except OSError:
+        return ""
+
+
+def hint():
+    """Ask Claude for a nudge on today's rep. The slow call runs outside the
+    lock, so Check and Skip aren't held up; the result is kept only if it's
+    still the same rep."""
+    with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        t = load()["today"]
+        if not t or not t.get("dir") or t.get("passedAt"):
+            sys.stderr.write("start today's challenge first\n")
+            return 1
+        key, lang = t["lang"] + "/" + t["slug"], t["lang"]
+        earlier = list(t.get("hints", []))
+        material = ["# Task\n" + read_text(t.get("docs", "")),
+                    "# Their code (%s)\n%s" % (lang, read_text(t.get("file", ""))),
+                    "# Last test output\n" + (t.get("check") or {}).get("tail", "(not run yet)")]
+        if earlier:
+            material.append("# Earlier hints, oldest first\n" + "\n".join("- " + h for h in earlier))
+    try:
+        with tempfile.TemporaryDirectory() as cwd:
+            p = subprocess.run(["claude", "-p", "--model", "sonnet", "--tools", "", "--no-session-persistence",
+                                "--system-prompt", HINT_PROMPT], input="\n\n".join(material), cwd=cwd,
+                               capture_output=True, text=True, timeout=HINT_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        sys.stderr.write("no hint: %s\n" % (e if isinstance(e, OSError) else "Claude took over %ds" % HINT_TIMEOUT))
+        return 1
+    text = p.stdout.strip()
+    if p.returncode != 0 or not text:
+        sys.stderr.write("no hint: %s\n" % (tail(p.stderr, 1) or "empty answer"))
+        return 1
+    with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        state = load()
+        t = state["today"]
+        if t and t["lang"] + "/" + t["slug"] == key:
+            t["hints"] = (t.get("hints", []) + [text])[-3:]
+            t["hintCount"] = t.get("hintCount", 0) + 1
+            save(state)
     return 0
 
 
@@ -471,6 +529,8 @@ def main(args):
     cmd = args[0]
     lang = args[1] if len(args) > 1 else ""
     os.makedirs(STATE_DIR, exist_ok=True)
+    if cmd == "hint":
+        return hint()
     with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = load()
