@@ -372,6 +372,17 @@ Solitude Light both read: orange `#D97757` (`#C15F3C` on light) means Claude
 is doing something, amber needs you, green / red are done / failed, and
 everything else is gray.
 
+#### Themes
+
+Gear → Island → Theme picks the island's look, kept in `prefs.json`
+(`islandLook`). **Soft** is the rounded, airy island. **Compact** is the
+developer look: 6 px corners on the island and 4 px on controls instead of
+pills, a hairline border all round, tighter padding and rows, in line with
+the rest of the bar. `Colors.look` carries it: views take their corner radii
+from `pal.rad()` / `pal.pill()`, so a new view gets both looks by using those
+instead of a bare `radius`. First iteration: shapes and density only; row
+heights inside the views are still the Soft sizes.
+
 ### Clock hover
 
 The bar only lets a plugin look up its *own* widgets, so the clock can't reach

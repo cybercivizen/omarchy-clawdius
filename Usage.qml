@@ -10,6 +10,7 @@ import qs.Commons
 Column {
   id: root
 
+  property QtObject pal
   property var record: null
   property double now: Date.now()
   property color fg: Color.foreground
@@ -167,14 +168,14 @@ Column {
 
             Rectangle {
               anchors.fill: parent
-              radius: height / 2
+              radius: pal.pill(height)
               color: root.track
             }
 
             Rectangle {
               height: parent.height
               width: Math.max(height, parent.width * limit.value)
-              radius: height / 2
+              radius: pal.pill(height)
               color: limit.alarming ? root.urgent : (limit.pace >= 0 && limit.value > limit.pace ? root.accent : root.fg)
               Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
             }
@@ -239,7 +240,7 @@ Column {
             anchors.rightMargin: Style.space(8)
             anchors.verticalCenter: parent.verticalCenter
             height: Style.space(4)
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.track
 
             Rectangle {

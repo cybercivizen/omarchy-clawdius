@@ -91,7 +91,7 @@ Item {
             required property var modelData
             width: Style.space(22)
             height: Style.space(22)
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.pal.alpha(root.pal.fg, stepMouse.containsMouse ? 0.08 : 0)
 
             Icon {
@@ -160,7 +160,7 @@ Item {
                 anchors.centerIn: parent
                 width: Style.space(21)
                 height: Style.space(17)
-                radius: height / 2
+                radius: pal.pill(height)
                 color: parent.modelData.today ? root.pal.crab : "transparent"
               }
 

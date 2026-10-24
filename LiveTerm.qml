@@ -539,7 +539,7 @@ Column {
     signal clicked()
     width: Math.min(chipText.implicitWidth + Style.space(18), maxWidth)
     height: Style.space(24)
-    radius: height / 2
+    radius: root.pal.pill(height)
     color: loud ? root.tint(root.hot, 0.18)
       : open ? root.tint(root.ink, 0.16)
       : clickable && chipMouse.containsMouse ? root.tint(root.ink, 0.12) : root.tint(root.ink, 0.07)
@@ -747,7 +747,7 @@ Column {
         anchors.right: parent.right
         width: copiedText.implicitWidth + Style.space(16)
         height: Style.space(22)
-        radius: height / 2
+        radius: pal.pill(height)
         color: root.tint(root.hot, 0.18)
 
         Text {
@@ -769,7 +769,7 @@ Column {
         anchors.bottom: parent.bottom
         width: jumpRow.implicitWidth + Style.space(24)
         height: Style.space(30)
-        radius: height / 2
+        radius: pal.pill(height)
         color: root.pal ? root.pal.raised : root.screenColor
         border.width: 1
         border.color: jumpMouse.containsMouse ? root.tint(root.hot, 0.6) : root.tint(root.ink, 0.16)
@@ -859,7 +859,7 @@ Column {
     id: composer
     width: parent.width
     height: promptArea.implicitHeight + Style.space(10) * 2
-    radius: Math.min(height / 2, Style.space(22))
+    radius: pal.pill(height)
     color: root.pal ? root.pal.raised : root.tint(root.ink, 0.06)
     border.width: 1
     border.color: !root.alive ? root.tint(root.ink, 0.08)
@@ -882,7 +882,7 @@ Column {
       y: at.y - height - Style.space(6)
       width: Math.min(tipText.implicitWidth + Style.space(14), composer.width)
       height: tipText.implicitHeight + Style.space(8)
-      radius: Style.space(8)
+      radius: pal.rad(Style.space(8))
       z: 20
       color: root.pal ? root.pal.raised : "black"
       border.width: 1
@@ -920,7 +920,7 @@ Column {
             required property string modelData
             implicitWidth: attachText.implicitWidth + Style.space(16)
             implicitHeight: Style.space(24)
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.tint(root.hot, 0.16)
             border.width: 1
             border.color: root.tint(root.hot, 0.4)
@@ -1266,7 +1266,7 @@ Column {
             anchors.verticalCenter: parent.verticalCenter
             implicitWidth: Math.max(height, keyText.implicitWidth + Style.space(10))
             implicitHeight: Style.space(20)
-            radius: Style.space(6)
+            radius: pal.rad(Style.space(6))
             color: hint.clickable && hintMouse.containsMouse ? root.tint(root.ink, 0.10) : "transparent"
             border.width: 1
             border.color: root.tint(root.ink, 0.2)
@@ -1314,6 +1314,7 @@ Column {
     // The open chip's (or the paperclip's) choices: a menu rising from it,
     // over the composer and the terminal, so nothing under it moves.
     PickMenu {
+      pal: root.pal
       id: pickerMenu
       // The anchor's top-right corner, here.
       readonly property point at: root.picker !== "" && root.pickerAnchor

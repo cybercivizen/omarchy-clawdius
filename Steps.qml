@@ -85,7 +85,7 @@ Column {
         visible: step.live
         anchors.fill: parent
         anchors.leftMargin: -Style.space(8)
-        radius: Style.space(10)
+        radius: pal.rad(Style.space(10))
         color: root.pal ? root.pal.alpha(root.pal.crab, root.pal.light ? 0.08 : 0.10) : "transparent"
         border.width: 1
         border.color: root.pal ? root.pal.alpha(root.pal.crab, 0.22) : "transparent"

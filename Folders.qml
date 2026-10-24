@@ -11,6 +11,7 @@ Column {
   id: root
 
   // Each: {cwd, mtime, count, title, sessions: [resumable entries, newest first]}.
+  property QtObject pal
   property var folders: []
   // Session id → "busy" | "waiting" | "idle" for the ones running now.
   property var running: ({})
@@ -91,7 +92,7 @@ Column {
 
       Rectangle {
         anchors.fill: parent
-        radius: Style.space(12)
+        radius: pal.rad(Style.space(12))
         color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, row.open ? 0.05 : headMouse.containsMouse ? 0.07 : 0)
         Behavior on color { ColorAnimation { duration: 120 } }
       }
@@ -158,7 +159,7 @@ Column {
                 anchors.verticalCenter: parent.verticalCenter
                 width: newText.implicitWidth + Style.space(14)
                 height: newText.implicitHeight + Style.space(4)
-                radius: height / 2
+                radius: pal.pill(height)
                 visible: headMouse.containsMouse || newMouse.containsMouse || row.starting
                 color: newMouse.containsMouse ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22) : "transparent"
                 border.width: 1
@@ -235,7 +236,7 @@ Column {
 
               Rectangle {
                 anchors.fill: parent
-                radius: Style.space(8)
+                radius: pal.rad(Style.space(8))
                 color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, lineMouse.containsMouse ? 0.08 : 0)
                 Behavior on color { ColorAnimation { duration: 120 } }
               }

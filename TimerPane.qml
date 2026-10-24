@@ -160,7 +160,7 @@ Item {
             required property int modelData
             width: presetText.implicitWidth + Style.space(18)
             height: Style.space(24)
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.minutes === modelData ? root.pal.alpha(root.pal.fg, 0.14) : root.pal.alpha(root.pal.fg, presetMouse.containsMouse ? 0.08 : 0.04)
 
             Text {
@@ -245,12 +245,12 @@ Item {
           Rectangle {
             width: parent.width
             height: Style.space(3)
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.pal.alpha(root.pal.fg, 0.12)
 
             Rectangle {
               height: parent.height
-              radius: height / 2
+              radius: pal.pill(height)
               width: parent.width * Math.max(0, Math.min(1, entry.remaining / Math.max(1, entry.modelData.len)))
               color: entry.remaining < 60000 ? root.pal.crab : root.pal.fg
             }

@@ -30,6 +30,7 @@ Column {
   property bool terminalOutside: false
 
   signal terminalOutsideSet(bool on)
+  signal lookSet(string look)
   signal nudgeSet(string key, int everyMin)
   signal langToggled(string lang, bool on)
   signal levelSet(string lang, int level)
@@ -108,7 +109,7 @@ Column {
     signal toggled(bool on)
     width: Style.space(36)
     height: Style.space(20)
-    radius: height / 2
+    radius: root.pal.pill(height)
     color: on ? root.pal.primary : root.pal.alpha(root.pal.fg, toggleMouse.containsMouse ? 0.18 : 0.12)
     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -183,6 +184,34 @@ Column {
         on: root.terminalOutside
         onToggled: function(on) { root.terminalOutsideSet(on) }
       }
+    }
+
+    Setting {
+      name: "Theme"
+
+      Repeater {
+        model: [["Soft", "soft"], ["Compact", "dev"]]
+
+        Pill {
+          required property var modelData
+          pal: root.pal
+          dense: true
+          fontFamily: root.fontFamily
+          kind: root.pal.look === modelData[1] ? "primary" : "secondary"
+          label: modelData[0]
+          onClicked: root.lookSet(modelData[1])
+        }
+      }
+    }
+
+    Text {
+      width: parent.width
+      text: "Compact: small corners, hairline borders and tighter rows, to sit with the rest of the bar."
+      textFormat: Text.PlainText
+      wrapMode: Text.Wrap
+      color: root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
     }
   }
 
@@ -379,7 +408,7 @@ Column {
         readonly property bool working: root.busyLang === modelData && root.busy !== ""
         width: parent.width
         height: Style.space(40) + (installText.visible ? installText.implicitHeight + Style.space(4) : 0)
-        radius: Style.space(12)
+        radius: pal.rad(Style.space(12))
         color: root.pal.raised
 
         Row {

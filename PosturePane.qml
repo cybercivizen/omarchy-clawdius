@@ -90,12 +90,12 @@ Item {
       anchors.bottom: parent.bottom
       width: parent.width
       height: Style.space(3)
-      radius: height / 2
+      radius: pal.pill(height)
       color: root.pal.alpha(root.pal.fg, 0.12)
 
       Rectangle {
         height: parent.height
-        radius: height / 2
+        radius: pal.pill(height)
         width: parent.width * (1 - Math.min(1, nudge.leftMs / nudge.span))
         color: root.slump(nudge.info) ? root.pal.crab : root.pal.fg
       }

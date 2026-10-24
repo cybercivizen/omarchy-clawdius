@@ -10,6 +10,7 @@ import qs.Commons
 Rectangle {
   id: root
 
+  property QtObject pal
   property string title: ""
   // {id, label, special?, hint?, tone?}
   property var options: []
@@ -28,7 +29,7 @@ Rectangle {
   readonly property real pad: Style.space(6)
   width: Math.max(menuColumn.implicitWidth, minWidth) + pad * 2
   height: menuColumn.implicitHeight + pad * 2
-  radius: Style.space(12)
+  radius: pal.rad(Style.space(12))
   color: fill
   border.width: 1
   border.color: tint(ink, 0.12)
@@ -87,7 +88,7 @@ Rectangle {
           visible: option.special
           width: menuColumn.width
           height: parent.height
-          radius: Style.space(8)
+          radius: pal.rad(Style.space(8))
           from: root.hot
           to: root.glow
           strength: optionMouse.containsMouse ? 0.32 : 0.2
@@ -98,7 +99,7 @@ Rectangle {
           visible: !option.special
           width: menuColumn.width
           height: parent.height
-          radius: Style.space(8)
+          radius: pal.rad(Style.space(8))
           color: optionMouse.containsMouse ? root.tint(root.ink, 0.08) : "transparent"
           Behavior on color { ColorAnimation { duration: 120 } }
         }

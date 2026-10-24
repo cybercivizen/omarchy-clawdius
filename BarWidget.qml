@@ -54,6 +54,7 @@ BarWidget {
     fg: root.previewTheme === "light" ? "#101315" : root.previewTheme === "dark" ? "#cacccc" : root.fg
     bg: root.previewTheme === "light" ? "#ffffff" : root.previewTheme === "dark" ? "#101315" : Color.background
     crabOverride: String(root.setting("color", "") || "")
+    look: root.islandLook
     barColor: root.previewTheme === "" && root.bar ? root.bar.background : "transparent"
   }
   readonly property color crabColor: theme.crab
@@ -1024,6 +1025,8 @@ BarWidget {
   property bool detailTerminal: false
   // Settings → Island: sessions open (and start) in a terminal window, never in the island.
   property bool terminalOutside: false
+  // Settings → Island → Theme: "soft" or "dev" (compact); Colors.look carries it to every view.
+  property string islandLook: "soft"
   property var chatOverride: ({})
   readonly property bool detailChat: {
     var o = chatOverride[root.liveId || "starting"]
@@ -1592,6 +1595,7 @@ BarWidget {
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
         root.detailTerminal = prefs.detailView === "terminal"
         root.terminalOutside = prefs.terminalOutside === true
+        root.islandLook = prefs.islandLook === "dev" ? "dev" : "soft"
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
         if (/^(auto|plan|acceptEdits|default)$/.test(prefs.quickPermission)) root.quickPermission = prefs.quickPermission
@@ -1603,6 +1607,7 @@ BarWidget {
   }
   onDetailTerminalChanged: prefsSave.restart()
   onTerminalOutsideChanged: prefsSave.restart()
+  onIslandLookChanged: prefsSave.restart()
   onQuickModeChanged: prefsSave.restart()
   onQuickModelChanged: prefsSave.restart()
   onQuickEffortChanged: prefsSave.restart()
@@ -1611,7 +1616,7 @@ BarWidget {
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
+    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
   }
 
   // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
@@ -2053,9 +2058,9 @@ BarWidget {
     property bool dot: false
     property string tip: ""
     signal clicked()
-    width: Style.space(40)
-    height: Style.space(36)
-    radius: height / 2
+    width: theme.dev ? Style.space(34) : Style.space(40)
+    height: theme.dev ? Style.space(28) : Style.space(36)
+    radius: theme.pill(height)
     color: current ? theme.alpha(theme.fg, 0.14) : navMouse.containsMouse ? theme.alpha(theme.fg, 0.07) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -2090,9 +2095,9 @@ BarWidget {
     property string label: ""
     property bool current: false
     signal clicked()
-    width: segmentText.implicitWidth + Style.space(28)
-    height: Style.space(30)
-    radius: height / 2
+    width: segmentText.implicitWidth + (theme.dev ? Style.space(20) : Style.space(28))
+    height: theme.dev ? Style.space(24) : Style.space(30)
+    radius: theme.pill(height)
     color: current ? theme.alpha(theme.fg, 0.14) : segmentMouse.containsMouse ? theme.alpha(theme.fg, 0.06) : "transparent"
 
     Text {
@@ -2117,7 +2122,7 @@ BarWidget {
 
   // A card in the island: one step lighter, a hairline edge.
   component IslandCard: Rectangle {
-    radius: Style.space(24)
+    radius: theme.rad(Style.space(24))
     color: theme.card
     border.width: 1
     border.color: theme.hairline
@@ -2130,7 +2135,10 @@ BarWidget {
     owner: root
     centerOnBar: true
     island: true
-    barPadding: Style.space(4)
+    compact: theme.dev
+    islandRadius: theme.dev ? Style.space(6) : Style.space(30)
+    padding: theme.dev ? Style.space(8) : Style.spacing.popupPadding
+    barPadding: theme.dev ? Style.space(3) : Style.space(4)
     tint: theme.island
     // Pinned (the crab clicked): a click outside closes it. Otherwise it
     // goes when the pointer leaves, whatever was clicked inside. With a live
@@ -2274,7 +2282,7 @@ BarWidget {
         y: toastSlot.height
         visible: !root.peeking
         width: parent.width
-        spacing: Style.space(8)
+        spacing: theme.dev ? Style.space(5) : Style.space(8)
 
         // ---- Nav: views on the left; status, + and back-to-top on the right
         Item {
@@ -2312,7 +2320,7 @@ BarWidget {
               anchors.verticalCenter: parent.verticalCenter
               width: expanded ? nav.width - navLeft.x - x - Style.space(4) : Style.space(40)
               height: Style.space(36)
-              radius: height / 2
+              radius: theme.pill(height)
               color: expanded ? theme.raised : searchMouse.containsMouse ? theme.alpha(theme.fg, 0.07) : "transparent"
               border.width: expanded ? 1 : 0
               border.color: theme.alpha(theme.crab, 0.5)
@@ -2336,7 +2344,7 @@ BarWidget {
                 anchors.verticalCenter: parent.verticalCenter
                 width: chipRow.implicitWidth + Style.space(10) * 2
                 height: Style.space(24)
-                radius: height / 2
+                radius: theme.pill(height)
                 color: theme.alpha(theme.fg, 0.10)
                 border.width: 1
                 border.color: theme.alpha(theme.fg, 0.14)
@@ -2406,7 +2414,7 @@ BarWidget {
                     readonly property var entry: root.recentSearches[index]
                     width: recentRow.implicitWidth + Style.space(10) * 2
                     height: Style.space(24)
-                    radius: height / 2
+                    radius: theme.pill(height)
                     color: recentMouse.containsMouse ? theme.alpha(theme.fg, 0.14) : theme.alpha(theme.fg, 0.07)
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -2529,7 +2537,7 @@ BarWidget {
             Column {
               id: body
               width: parent.width
-              spacing: Style.space(10)
+              spacing: theme.dev ? Style.space(6) : Style.space(10)
               transformOrigin: Item.Top
               transform: Translate { id: bodyShift }
 
@@ -2688,13 +2696,13 @@ BarWidget {
                   x: Style.space(14)
                   y: Style.space(16)
                   width: parent.width - Style.space(28)
-                  spacing: Style.space(10)
+                  spacing: theme.dev ? Style.space(6) : Style.space(10)
 
                   Rectangle {
                     x: Style.space(4)
                     width: segments.implicitWidth + Style.space(6)
                     height: segments.implicitHeight + Style.space(6)
-                    radius: height / 2
+                    radius: theme.pill(height)
                     color: theme.alpha(theme.fg, 0.06)
 
                     Row {
@@ -2734,6 +2742,7 @@ BarWidget {
                   // Resume and History were one list over the same data; the
                   // newest 8 show first, then 25 at a time.
                   Resume {
+                    pal: theme
                     visible: root.sessionsTab === "recent"
                     width: parent.width
                     sessions: root.notRunning
@@ -2749,6 +2758,7 @@ BarWidget {
                   }
 
                   Folders {
+                    pal: theme
                     id: foldersView
                     visible: root.sessionsTab === "folders"
                     width: parent.width
@@ -2780,6 +2790,7 @@ BarWidget {
                   width: parent.width - Style.space(48)
 
                   Usage {
+                    pal: theme
                     visible: !!root.usage
                     width: parent.width
                     record: root.usage
@@ -2821,6 +2832,7 @@ BarWidget {
                   walk: root.walk
                   terminalOutside: root.terminalOutside
                   onTerminalOutsideSet: function(on) { root.terminalOutside = on }
+                  onLookSet: function(look) { root.islandLook = look }
                   busy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   busyLang: root.antirotBusyLang
                   onNudgeSet: function(key, min) { root.setNudge(key, { everyMin: min }) }
