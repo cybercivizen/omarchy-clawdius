@@ -245,6 +245,15 @@ Column {
       busy: root.busy === "hint"
       onClicked: root.hintsGiven ? root.hintOpen = !root.hintOpen : root.hinted()
     }
+    // Still stuck: the next hint goes a step further (antirot.py gives Claude the earlier ones).
+    Pill {
+      visible: root.inProgress && root.hintsGiven > 0 && root.hintOpen
+      pal: root.pal
+      fontFamily: root.fontFamily
+      label: "More hint"
+      busy: root.busy === "hint"
+      onClicked: root.hinted()
+    }
     Pill {
       visible: root.inProgress
       pal: root.pal
