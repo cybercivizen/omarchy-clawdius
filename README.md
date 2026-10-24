@@ -354,13 +354,14 @@ and opens the instructions (`.docs/instructions.md`, the actual task) and the
 stub in the chosen editor (side by side in Neovim/Vim; default
 `omarchy-launch-editor`). **Check** runs the tests (`cargo test`, jest) and
 shows how many pass, with the end of the output. **Stuck?** turns the corner
-card into a help pane (the STUCK tab, only while a rep is in progress; it
-widens and grows to fit, and scrolls past a cap). **Explain** restates the
+card into a help pane (a STUCK tab that exists only while it's shown, **Hide
+help** removes it; it keeps the card's height and scrolls, with a bar, what
+doesn't fit). **Explain** restates the
 task in plain words with worked examples, for when the instructions make no
 sense (**Simpler** tries again); **Hint** gives a nudge from the task, your
 code and the last output: a concept or a place to look, never code, a bit more
-concrete with each **Another hint**, each one counting as two checks towards a
-re-do. Both are one `claude -p` call to Sonnet with no tools (`antirot.py
+concrete with each **More hint**, paged one at a time with ‹ ›, each one
+counting as two checks towards a re-do. Both are one `claude -p` call to Sonnet with no tools (`antirot.py
 explain | hint`), kept in `antirot.json`, so reopening shows them without
 asking again. All passing counts toward
 the day: a ✓, the streak, **Next**, and **Review** (with Claude), a session in
