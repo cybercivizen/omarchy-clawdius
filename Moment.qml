@@ -598,6 +598,7 @@ Rectangle {
   readonly property real paneRight: hasRail ? rail.x - Style.space(16) : width - pad
 
   Today {
+    id: todayPane
     visible: !root.agents && root.mode === "today"
     x: root.pad
     y: Style.space(38)
@@ -610,6 +611,7 @@ Rectangle {
   }
 
   Item {
+    id: antirotPane
     visible: root.mode === "antirot"
     x: root.pad
     y: Style.space(38)
@@ -666,12 +668,32 @@ Rectangle {
   }
 
   // ---- The mode switch, top left
+  readonly property var modeIds: ["agents", "today", "antirot"]
+  property int shownMode: 0
+  onModeChanged: {
+    var i = modeIds.indexOf(mode)
+    if (active && i >= 0 && i !== shownMode) {
+      var pane = mode === "today" ? todayPane : mode === "antirot" ? antirotPane : null
+      var slide = mode === "today" ? todaySlide : antirotSlide
+      if (pane) { slide.dx = (i > shownMode ? 1 : -1) * Style.space(14); slide.restart() }
+    }
+    if (i >= 0) shownMode = i
+  }
+  Slide { id: todaySlide; target: todayPane }
+  Slide { id: antirotSlide; target: antirotPane }
+
+  TabMark {
+    pal: root.pal
+    over: modeRepeater.count > 0 ? modeRepeater.itemAt(Math.max(0, root.modeIds.indexOf(root.mode))) : null
+  }
+
   Row {
     x: root.pad - Style.space(6)
     y: Style.space(10)
     spacing: Style.space(2)
 
     Repeater {
+      id: modeRepeater
       model: [
         { id: "agents", icon: Icons.sessions },
         { id: "today", icon: Icons.calendar },
@@ -684,7 +706,7 @@ Rectangle {
         width: Style.space(26)
         height: Style.space(22)
         radius: pal.pill(height)
-        color: current ? root.pal.alpha(root.pal.fg, 0.14) : root.pal.alpha(root.pal.fg, modeMouse.containsMouse ? 0.06 : 0)
+        color: root.pal.alpha(root.pal.fg, !current && modeMouse.containsMouse ? 0.06 : 0)
 
         Icon {
           anchors.centerIn: parent
