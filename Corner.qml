@@ -55,7 +55,14 @@ Rectangle {
 
   // The new mode's content eases in from the side the tab sits on.
   property int shownIndex: 0
+  property string prevMode: mode
+  // The tab row reflows when Stuck shows or hides, so the highlight snaps
+  // for that instead of gliding along with the shuffle.
+  function snapMark() { cornerMark.glide = false; markGlide.restart() }
+  Timer { id: markGlide; interval: 80; onTriggered: cornerMark.glide = true }
   onModeChanged: {
+    if (mode === "stuck" || prevMode === "stuck") snapMark()
+    prevMode = mode
     var i = modeIndex(mode)
     if (visible && i >= 0 && i !== shownIndex) {
       modeSlide.dx = (i > shownIndex ? 1 : -1) * Style.space(10)
@@ -89,6 +96,7 @@ Rectangle {
     }
 
     TabMark {
+      id: cornerMark
       pal: root.pal
       over: switcher.count > 0 ? switcher.itemAt(Math.max(0, root.modeIndex(root.mode))) : null
     }
@@ -101,6 +109,7 @@ Rectangle {
       Repeater {
         id: switcher
         model: root.modes
+        onCountChanged: root.snapMark()
 
         Rectangle {
           required property var modelData
