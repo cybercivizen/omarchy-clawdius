@@ -36,7 +36,7 @@ Rectangle {
 
   width: Style.space(320)
   height: column.implicitHeight + Style.space(8) * 2
-  radius: Style.space(20)
+  radius: pal.rad(Style.space(20))
   color: pal.raised
   border.width: 1
   border.color: pal.line
@@ -115,7 +115,7 @@ Rectangle {
     y: at.y + Style.space(4)
     width: tipText.implicitWidth + Style.space(10) * 2
     height: tipText.implicitHeight + Style.space(5) * 2
-    radius: height / 2
+    radius: pal.pill(height)
     color: root.pal.raised
     border.width: 1
     border.color: root.pal.line
@@ -143,7 +143,7 @@ Rectangle {
 
     width: (column.width - Style.space(4) * 2) / 3
     height: Style.space(36)
-    radius: Style.space(12)
+    radius: root.pal.rad(Style.space(12))
     color: tileMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : root.pal.alpha(root.pal.fg, 0.03)
 
     Row {
@@ -194,7 +194,7 @@ Rectangle {
 
     width: column.width
     height: Style.space(compact ? 34 : 46)
-    radius: Style.space(12)
+    radius: root.pal.rad(Style.space(12))
     color: itemMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : "transparent"
 
     Row {

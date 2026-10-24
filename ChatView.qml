@@ -449,7 +449,7 @@ Item {
                   required property var modelData
                   width: Math.min(chips.width, chipText.implicitWidth + Style.space(20))
                   height: Style.space(24)
-                  radius: height / 2
+                  radius: pal.pill(height)
                   color: root.pal.alpha(root.pal.crab, hit.containsMouse ? 0.26 : 0.14)
 
                   Text {
@@ -592,7 +592,7 @@ Item {
   Rectangle {
     visible: jump.visible
     anchors.fill: jump
-    radius: height / 2
+    radius: pal.pill(height)
     color: root.pal.card
   }
 
@@ -633,7 +633,7 @@ Item {
     anchors.rightMargin: root.gutter
     anchors.bottomMargin: Style.space(8)
     height: Style.space(34)
-    radius: Style.space(12)
+    radius: pal.rad(Style.space(12))
     color: root.pal.alpha(root.pal.needsYou, 0.14)
     border.width: 1
     border.color: root.pal.alpha(root.pal.needsYou, 0.5)
@@ -665,6 +665,7 @@ Item {
 
   // What to link: a menu rising from the paperclip, over the conversation.
   PickMenu {
+    pal: root.pal
     visible: root.linkMenu
     z: 10
     x: Math.max(0, composer.x + attach.x + attach.width - width)
@@ -757,7 +758,7 @@ Item {
     anchors.rightMargin: root.gutter
     anchors.bottomMargin: Style.space(4) + (infoLine.visible ? infoLine.height + Style.space(2) : 0)
     height: Math.min(composerText.implicitHeight, composerText.lineStep * 6) + Style.space(22) + thumbs.height
-    radius: Style.space(18)
+    radius: pal.rad(Style.space(18))
     color: root.pal.well
     border.width: 1
     border.color: root.pal.hairline

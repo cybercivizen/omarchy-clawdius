@@ -43,7 +43,7 @@ Rectangle {
     pad + badge.width + Style.space(12) + Math.max(titleRow.implicitWidth, textLine.implicitWidth)
       + (meta ? Style.space(20) + metaText.implicitWidth : 0) + Style.space(8) + closeButton.width + pad))
 
-  radius: Style.space(20)
+  radius: pal.rad(Style.space(20))
   color: framed && pal ? pal.mix(pal.card, tone, pal.light ? 0.06 : 0.08) : "transparent"
   Behavior on color { ColorAnimation { duration: 200 } }
 

@@ -145,7 +145,7 @@ Column {
     visible: root.inProgress && !!root.check && root.check.tail !== ""
     width: parent.width
     height: tailText.implicitHeight + Style.space(16)
-    radius: Style.space(10)
+    radius: pal.rad(Style.space(10))
     color: root.pal.well
 
     Text {

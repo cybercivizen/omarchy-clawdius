@@ -56,7 +56,7 @@ Rectangle {
   // How full the context is, against the auto-compact window.
   readonly property real contextUsed: s.contextWindow > 0 ? Math.min(1, (s.context || 0) / s.contextWindow) : 0
 
-  radius: Style.space(24)
+  radius: pal.rad(Style.space(24))
   color: pal.card
   border.width: 1
   border.color: pal.hairline
@@ -187,7 +187,7 @@ Rectangle {
           y: Style.space(4) - Style.space(3)
           width: newRow.implicitWidth + Style.space(12)
           height: newRow.implicitHeight + Style.space(6)
-          radius: Style.space(6)
+          radius: pal.rad(Style.space(6))
           color: root.pal.secondary
           opacity: (newMouse.containsMouse || newHover.hovered) ? 1 : 0
         }
@@ -329,7 +329,7 @@ Rectangle {
       y: line.height + Style.space(6)
       width: tipText.width + Style.space(14)
       height: tipText.implicitHeight + Style.space(8)
-      radius: Style.space(8)
+      radius: pal.rad(Style.space(8))
       color: root.pal.raised
       border.width: 1
       border.color: root.pal.line
@@ -394,14 +394,14 @@ Rectangle {
 
         Rectangle {
           anchors.fill: parent
-          radius: height / 2
+          radius: pal.pill(height)
           color: root.pal.alpha(root.pal.fg, 0.14)
         }
 
         Rectangle {
           height: parent.height
           width: Math.max(height, parent.width * root.contextUsed)
-          radius: height / 2
+          radius: pal.pill(height)
           color: root.contextUsed >= 0.9 ? root.pal.failed : root.contextUsed >= 0.7 ? root.pal.crab : root.pal.fg
           Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         }
@@ -477,7 +477,7 @@ Rectangle {
     z: 5
     width: term.width
     height: Math.max(term.height, approval.implicitHeight + Style.space(18) * 2)
-    radius: Style.space(18)
+    radius: pal.rad(Style.space(18))
     color: root.pal.card
 
     Approval {

@@ -56,7 +56,7 @@ Item {
   Rectangle {
     anchors.fill: parent
     anchors.margins: -Style.space(6)
-    radius: Style.space(14)
+    radius: pal.rad(Style.space(14))
     color: root.pal ? root.pal.alpha(root.pal.fg, mouse.containsMouse ? 0.04 : 0) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
   }
@@ -119,14 +119,14 @@ Item {
 
           Rectangle {
             anchors.fill: parent
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.pal.alpha(root.pal.fg, 0.14)
           }
 
           Rectangle {
             height: parent.height
             width: Math.max(height, parent.width * limit.value)
-            radius: height / 2
+            radius: pal.pill(height)
             color: limit.alarming ? root.pal.failed : limit.ahead ? root.pal.crab : root.pal.fg
             Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
           }

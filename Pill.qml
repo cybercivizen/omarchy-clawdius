@@ -32,7 +32,7 @@ Rectangle {
 
   implicitHeight: Style.space(dense ? 24 : compact ? 30 : 36)
   implicitWidth: iconOnly ? implicitHeight : row.implicitWidth + Style.space(dense ? 18 : compact ? 24 : 32)
-  radius: height / 2
+  radius: pal.pill(height)
   color: !pal ? "transparent"
     : primary ? (hovered ? pal.mix(pal.primary, pal.light ? "#ffffff" : "#000000", 0.12) : pal.primary)
     : kind === "quiet" ? (hovered ? pal.alpha(pal.fg, 0.06) : "transparent")
@@ -121,7 +121,7 @@ Rectangle {
     y: root.tooltipAbove ? -height - Style.space(6) : parent.height + Style.space(6)
     width: tipText.implicitWidth + Style.space(14)
     height: tipText.implicitHeight + Style.space(8)
-    radius: Style.space(8)
+    radius: pal.rad(Style.space(8))
     z: 20
     color: root.pal ? root.pal.raised : "black"
     border.width: 1

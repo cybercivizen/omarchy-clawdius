@@ -107,7 +107,7 @@ Rectangle {
       : "idle " + Format.ago(now, x.since)
   }
 
-  radius: Style.space(24)
+  radius: pal.rad(Style.space(24))
   color: pal ? pal.card : "transparent"
   border.width: 1
   border.color: pal ? pal.hairline : "transparent"
@@ -318,14 +318,14 @@ Rectangle {
         Rectangle {
           width: parent.width
           height: Style.space(6)
-          radius: height / 2
+          radius: pal.pill(height)
           color: root.pal.alpha(root.pal.limit, 0.18)
 
           Rectangle {
             readonly property double windowMs: /week|7-day/i.test(limited.spent ? limited.spent.label || "" : "") ? 7 * 86400000 : 5 * 3600000
             width: parent.width * Math.max(0.03, Math.min(1, 1 - (limited.resetsAt - root.now) / windowMs))
             height: parent.height
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.pal.limit
           }
         }
@@ -677,7 +677,7 @@ Rectangle {
         readonly property bool current: root.mode === modelData.id
         width: Style.space(26)
         height: Style.space(22)
-        radius: height / 2
+        radius: pal.pill(height)
         color: current ? root.pal.alpha(root.pal.fg, 0.14) : root.pal.alpha(root.pal.fg, modeMouse.containsMouse ? 0.06 : 0)
 
         Icon {
@@ -746,7 +746,7 @@ Rectangle {
           readonly property bool hovered: peek.session && peek.session.id === modelData.id && peek.shown
           width: Style.space(48)
           height: Style.space(34)
-          radius: Style.space(12)
+          radius: pal.rad(Style.space(12))
           color: hovered ? root.pal.alpha(root.pal.fg, 0.10)
             : modelData.waiting ? root.pal.alpha(root.pal.needsYou, 0.08)
             : "transparent"
@@ -776,7 +776,7 @@ Rectangle {
             anchors.topMargin: -Style.space(5)
             width: ageText.implicitWidth + Style.space(5) * 2
             height: ageText.implicitHeight + Style.space(1) * 2
-            radius: height / 2
+            radius: pal.pill(height)
             color: root.pal.raised
             border.width: 1
             border.color: railItem.modelData.waiting ? root.pal.alpha(root.pal.needsYou, 0.6)
@@ -825,7 +825,7 @@ Rectangle {
         visible: root.railMore > 0
         width: Style.space(48)
         height: Style.space(28)
-        radius: Style.space(10)
+        radius: pal.rad(Style.space(10))
         color: moreMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : "transparent"
 
         Text {
@@ -876,7 +876,7 @@ Rectangle {
     height: peekColumn.implicitHeight + Style.space(14) * 2
     x: rail.x - width - Style.space(6) + (shown ? 0 : Style.space(8))
     y: Math.max(Style.space(8), Math.min(anchorY - Style.space(4), root.height - height - Style.space(8)))
-    radius: Style.space(16)
+    radius: pal.rad(Style.space(16))
     color: root.pal.raised
     border.width: 1
     border.color: root.pal.line

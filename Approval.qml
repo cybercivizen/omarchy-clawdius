@@ -224,7 +224,7 @@ Column {
             width: Math.min(Math.max(optionLabel.implicitWidth, Math.min(optionNote.implicitWidth, Style.space(240))) + Style.space(14) * 2,
                             (question.width - Style.space(6)) / 2)
             height: optionColumn.implicitHeight + Style.space(9) * 2
-            radius: Style.space(14)
+            radius: pal.rad(Style.space(14))
             color: picked ? root.pal.alpha(root.pal.needsYou, 0.16)
               : optionMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.10) : root.pal.alpha(root.pal.fg, 0.05)
             border.width: 1
@@ -281,7 +281,7 @@ Column {
     visible: root.planning && !!root.request && (root.request.plan || "") !== ""
     width: parent.width
     height: Math.min(planText.implicitHeight + Style.space(12) * 2, Style.space(520))
-    radius: Style.space(12)
+    radius: pal.rad(Style.space(12))
     color: root.pal.well
     border.width: 1
     border.color: root.pal.alpha(root.pal.fg, 0.10)
@@ -328,7 +328,7 @@ Column {
     visible: !!root.request && (root.request.detail !== "" || root.diff.length > 0)
     width: root.diff.length > 0 ? parent.width : Math.min(parent.width, detailText.implicitWidth + Style.space(14) * 2)
     height: detailColumn.implicitHeight + Style.space(10) * 2
-    radius: Style.space(12)
+    radius: pal.rad(Style.space(12))
     color: root.pal.well
     border.width: 1
     border.color: root.pal.alpha(root.pal.fg, 0.10)

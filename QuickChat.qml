@@ -165,7 +165,7 @@ Rectangle {
 
   readonly property real inset: compact ? Style.space(4) : Style.space(14)
   height: column.implicitHeight + inset * 2
-  radius: Style.space(20)
+  radius: pal.rad(Style.space(20))
   color: compact ? "transparent" : pal.card
   border.width: compact ? 0 : 1
   border.color: pal.alpha(pal.crab, 0.35)
@@ -186,7 +186,7 @@ Rectangle {
         id: toggle
         width: toggleRow.implicitWidth + Style.space(4) * 2
         height: Style.space(32)
-        radius: height / 2
+        radius: pal.pill(height)
         color: root.pal.alpha(root.pal.fg, 0.06)
 
         Row {
@@ -305,7 +305,7 @@ Rectangle {
     Rectangle {
       width: parent.width
       height: Math.max(Style.space(28), shown.implicitHeight) + Style.space(10) * 2
-      radius: Math.min(height / 2, Style.space(22))
+      radius: pal.pill(height)
       color: root.pal.raised
       border.width: 1
       border.color: root.pal.alpha(root.pal.crab, 0.55)
@@ -410,6 +410,7 @@ Rectangle {
   // the bar, so there's no room to rise as the live view's do. Lined up with
   // the chip's right edge, the folder's on its left.
   PickMenu {
+    pal: root.pal
     id: menu
     parent: root.menuLayer || root
     readonly property point at: root.picker !== "" && root.pickerAnchor
@@ -445,7 +446,7 @@ Rectangle {
     anchors.verticalCenter: parent.verticalCenter
     width: chipRow.implicitWidth + Style.space(12) * 2
     height: Style.space(26)
-    radius: height / 2
+    radius: root.pal.pill(height)
     color: open ? root.pal.alpha(root.pal.fg, 0.14)
       : chipMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.10) : root.pal.alpha(root.pal.fg, 0.06)
     Behavior on color { ColorAnimation { duration: 120 } }
@@ -502,7 +503,7 @@ Rectangle {
 
     width: segRow.implicitWidth + Style.space(12) * 2
     height: Style.space(26)
-    radius: height / 2
+    radius: root.pal.pill(height)
     color: on ? root.pal.alpha(root.pal.fg, 0.14) : segMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.06) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
 

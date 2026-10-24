@@ -16,6 +16,15 @@ QtObject {
   // surface. Transparent (a theme preview) falls back to the mix below.
   property color barColor: "transparent"
 
+  // The island's look: "soft" (rounded, airy) or "dev" (compact, small corners,
+  // hairline borders, tight rows, like the rest of Omarchy's bar and TUIs).
+  property string look: "soft"
+  readonly property bool dev: look === "dev"
+  // A corner radius: kept as drawn, or cut to a few pixels in the dev look.
+  function rad(n) { return dev ? (n >= Style.space(16) ? Style.space(12) : n >= Style.space(10) ? Style.space(9) : n) : n }
+  // A pill's radius from its height: a stadium, or a small rounded rectangle.
+  function pill(h) { return dev ? Math.min(h / 2, Style.space(10)) : h / 2 }
+
   function luminance(c) {
     function ch(v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
     return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b)

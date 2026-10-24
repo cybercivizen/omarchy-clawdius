@@ -20,7 +20,7 @@ Rectangle {
   readonly property string home: Quickshell.env("HOME") || ""
 
   height: column.implicitHeight + Style.space(18) * 2
-  radius: Style.space(20)
+  radius: pal.rad(Style.space(20))
   color: pal.card
   border.width: 1
   border.color: pal.alpha(pal.needsYou, 0.45)
@@ -69,7 +69,7 @@ Rectangle {
     Rectangle {
       width: Math.min(parent.width, dirText.implicitWidth + Style.space(14) * 2)
       height: dirText.implicitHeight + Style.space(10) * 2
-      radius: Style.space(12)
+      radius: pal.rad(Style.space(12))
       color: root.pal.well
       border.width: 1
       border.color: root.pal.alpha(root.pal.fg, 0.10)

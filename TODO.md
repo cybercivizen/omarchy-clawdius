@@ -182,3 +182,4 @@ renders, but nobody has clicked or typed through it yet.
       not checked. Open: image paste, Up / Down history, code-block
       background.
 - [x] Chat view: model, effort and mode line under the composer; the conversation is the default for every session, the terminal choice is remembered.
+- [ ] Compact theme, next pass: shrink row heights and gaps inside each view (Sessions, Detail, Chat, Search), square the crab's nav dot, check the light theme.

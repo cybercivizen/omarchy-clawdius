@@ -93,7 +93,7 @@ Column {
       // Hover to see it's clickable; a session waiting on you stays lit.
       Rectangle {
         anchors.fill: parent
-        radius: Style.space(16)
+        radius: pal.rad(Style.space(16))
         color: sessionRow.s.waiting ? root.pal.alpha(root.pal.needsYou, rowMouse.containsMouse ? 0.14 : 0.08)
           : root.pal.alpha(root.pal.fg, rowMouse.containsMouse ? 0.07 : sessionRow.s.busy ? 0.04 : 0)
         border.width: sessionRow.s.waiting || sessionRow.live ? 1 : 0

@@ -10,6 +10,7 @@ import qs.Commons
 Column {
   id: root
 
+  property QtObject pal
   property var sessions: []
   property double now: Date.now()
   property color fg: Color.foreground
@@ -99,7 +100,7 @@ Column {
 
       Rectangle {
         anchors.fill: parent
-        radius: Style.space(12)
+        radius: pal.rad(Style.space(12))
         color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, rowMouse.containsMouse ? 0.07 : 0)
         Behavior on color { ColorAnimation { duration: 120 } }
       }

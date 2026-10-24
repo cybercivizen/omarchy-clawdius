@@ -183,7 +183,7 @@ Item {
             readonly property bool on: index === root.selected
             width: Style.space(70)
             height: Style.space(76)
-            radius: Style.space(16)
+            radius: pal.rad(Style.space(16))
             color: on ? root.pal.alpha(root.pal.fg, 0.10) : tileMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.06) : "transparent"
             Behavior on color { ColorAnimation { duration: 100 } }
 
@@ -313,7 +313,7 @@ Item {
                 required property var modelData
                 width: Math.min(tabRow.implicitWidth + Style.space(10) * 2, tabStrip.width)
                 height: tabStrip.chipHeight
-                radius: height / 2
+                radius: pal.pill(height)
                 color: tabMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.12) : root.pal.alpha(root.pal.fg, 0.06)
                 border.width: 1
                 border.color: tabMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.16) : "transparent"
@@ -419,7 +419,7 @@ Item {
           readonly property bool on: index === root.selected
           width: parent.width
           height: Style.space(44)
-          radius: Style.space(14)
+          radius: pal.rad(Style.space(14))
           color: on ? root.pal.alpha(root.pal.fg, 0.10) : rowMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.05) : "transparent"
 
           readonly property string kind: modelData.kind || "app"
@@ -529,7 +529,7 @@ Item {
       visible: root.chip !== "" || root.commandHint
       width: parent.width
       height: Style.space(48)
-      radius: Style.space(14)
+      radius: pal.rad(Style.space(14))
       color: root.pal.alpha(root.pal.fg, 0.05)
 
       Row {

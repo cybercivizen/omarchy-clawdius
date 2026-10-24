@@ -37,7 +37,7 @@ Rectangle {
   readonly property real slot: Style.space(110)
 
   implicitHeight: pad * 2 + header.height + Style.space(14) + slot
-  radius: Style.space(24)
+  radius: pal.rad(Style.space(24))
   color: pal ? pal.card : "transparent"
   border.width: 1
   border.color: pal ? pal.hairline : "transparent"
@@ -72,7 +72,7 @@ Rectangle {
           readonly property bool current: root.mode === modelData.id
           width: Style.space(26)
           height: Style.space(22)
-          radius: height / 2
+          radius: pal.pill(height)
           color: current ? root.pal.alpha(root.pal.fg, 0.14) : root.pal.alpha(root.pal.fg, switchMouse.containsMouse ? 0.06 : 0)
           Behavior on color { ColorAnimation { duration: 120 } }
 
