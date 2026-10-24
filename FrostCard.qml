@@ -28,8 +28,6 @@ PopupWindow {
   property int barPadding: padding
   property bool island: false
   property real islandRadius: Style.space(30)
-  // The compact look: a hairline border all round (the island is drawn like a panel of the bar).
-  property bool compact: false
   property int contentWidth: Style.space(280)
   property int maxContentWidth: contentWidth
   property int contentHeight: Style.space(200)
@@ -229,8 +227,8 @@ PopupWindow {
     bottomLeftRadius: root.island && root.fromBottom ? 0 : radius
     bottomRightRadius: root.island && root.fromBottom ? 0 : radius
     color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
-    border.width: root.island && !root.compact ? 0 : 1
-    border.color: Qt.rgba(root.edge.r, root.edge.g, root.edge.b, root.compact ? 0.14 : 0.16)
+    border.width: root.island ? 0 : 1
+    border.color: Qt.rgba(root.edge.r, root.edge.g, root.edge.b, 0.16)
     clip: true
 
     // Hyprland's blur switches on at full strength as soon as the glass is

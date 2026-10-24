@@ -2135,7 +2135,6 @@ BarWidget {
     owner: root
     centerOnBar: true
     island: true
-    compact: theme.dev
     islandRadius: theme.dev ? Style.space(12) : Style.space(30)
     padding: theme.dev ? Style.space(12) : Style.spacing.popupPadding
     barPadding: theme.dev ? Style.space(4) : Style.space(4)

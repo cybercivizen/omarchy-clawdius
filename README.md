@@ -377,7 +377,7 @@ everything else is gray.
 Gear → Island → Theme picks the island's look, kept in `prefs.json`
 (`islandLook`). **Soft** is the rounded, airy island. **Compact** is the
 developer look: 12 px corners on the island and cards (as the bar's other popups), 10 px max on controls instead of
-pills, a hairline border all round, tighter padding and rows, in line with
+pills, tighter padding and rows, in line with
 the rest of the bar. `Colors.look` carries it: views take their corner radii
 from `pal.rad()` / `pal.pill()`, so a new view gets both looks by using those
 instead of a bare `radius`. First iteration: shapes and density only; row
