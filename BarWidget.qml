@@ -2622,7 +2622,7 @@ BarWidget {
                 id: home
                 visible: root.view === "home"
                 width: parent.width
-                readonly property bool glanceShown: root.moment.kind === "working" || root.moment.kind === "idle"
+                readonly property bool glanceShown: ["working", "idle", "done"].indexOf(root.moment.kind) >= 0
                 height: visible ? Math.max(momentCard.implicitHeight, glanceShown ? glance.implicitHeight : 0) : 0
 
                 Moment {
