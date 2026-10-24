@@ -308,7 +308,11 @@ buffer squashed into the new size.
   plan, 5-hour and weekly limits (orange when ahead of the pace tick, red at
   90%), today's tokens / prompts / sessions, tokens per model, last 7 days.
 - **Settings** (the gear): settings that live in the island rather than in
-  `shell.json`, one section per feature (`Settings.qml`). For now, **Anti-rot**:
+  `shell.json`, one section per feature, each folding on a click (`Settings.qml`).
+  **Island** has one switch, *Terminals outside the island*: on, opening a
+  session (or starting one) opens a real terminal window instead of the island's
+  conversation and live terminal; the sessions, folders, approvals and usage
+  stay. **Anti-rot** (folded to start with):
   challenges a day (1–3), each language's on/off switch, its level (− / +, 1–10), and its
   state: ready, not set up (**Set up**), or the toolchain it still needs,
   with the install command. Below them, the **editor** challenges open in

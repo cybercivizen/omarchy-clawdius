@@ -784,6 +784,7 @@ BarWidget {
   function launchInCard(command, label, title) {
     var re = /(omarchy-launch-tui\s+(--app-id=\S+\s+)?)?\{live\}\s+launch/
     if (!re.test(command)) { launch(command); return }
+    if (root.terminalOutside) { root.openInTerminal(command); return }
     if (startProcess.running) return
     root.startingLabel = label
     root.autoOpened = false
@@ -1011,7 +1012,7 @@ BarWidget {
   // terminal one comes forward.
   function openSession(s) {
     if (!s) return
-    if (!s.jobId) { root.focusSession(s); return }
+    if (!s.jobId || root.terminalOutside) { root.focusSession(s); return }
     root.liveId = s.jobId
     root.view = "detail"
     root.autoOpened = false
@@ -1021,6 +1022,8 @@ BarWidget {
   // (the Detail view's button, kept in prefs.json). "Answer in terminal" shows
   // the terminal for that session only.
   property bool detailTerminal: false
+  // Settings → Island: sessions open (and start) in a terminal window, never in the island.
+  property bool terminalOutside: false
   property var chatOverride: ({})
   readonly property bool detailChat: {
     var o = chatOverride[root.liveId || "starting"]
@@ -1588,6 +1591,7 @@ BarWidget {
         var prefs = JSON.parse(text()) || {}
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
         root.detailTerminal = prefs.detailView === "terminal"
+        root.terminalOutside = prefs.terminalOutside === true
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
         if (/^(auto|plan|acceptEdits|default)$/.test(prefs.quickPermission)) root.quickPermission = prefs.quickPermission
@@ -1598,6 +1602,7 @@ BarWidget {
     }
   }
   onDetailTerminalChanged: prefsSave.restart()
+  onTerminalOutsideChanged: prefsSave.restart()
   onQuickModeChanged: prefsSave.restart()
   onQuickModelChanged: prefsSave.restart()
   onQuickEffortChanged: prefsSave.restart()
@@ -1606,7 +1611,7 @@ BarWidget {
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
+    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
   }
 
   // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
@@ -2814,6 +2819,8 @@ BarWidget {
                   antirot: root.antirot
                   posture: root.posture
                   walk: root.walk
+                  terminalOutside: root.terminalOutside
+                  onTerminalOutsideSet: function(on) { root.terminalOutside = on }
                   busy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   busyLang: root.antirotBusyLang
                   onNudgeSet: function(key, min) { root.setNudge(key, { everyMin: min }) }
