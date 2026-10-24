@@ -181,3 +181,4 @@ renders, but nobody has clicked or typed through it yet.
       toggle to the terminal. Seen rendered in the dark theme; light theme
       not checked. Open: image paste, Up / Down history, code-block
       background.
+- [x] Chat view: model, effort and mode line under the composer; the conversation is the default for every session, the terminal choice is remembered.

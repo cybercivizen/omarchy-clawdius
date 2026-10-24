@@ -678,6 +678,74 @@ Item {
     onPicked: function(id) { root.linkMenu = false; root.browse(id) }
   }
 
+  // ---- Model, effort and mode: one quiet line under the composer
+
+  function modelName(id) {
+    var m = /^claude-([a-z]+)-(\d+)(?:-(\d+))?/.exec(id || "")
+    if (!m) return id || ""
+    return m[1].charAt(0).toUpperCase() + m[1].slice(1) + " " + m[2] + (m[3] && m[3].length < 3 ? "." + m[3] : "")
+  }
+
+  function effortName(e) {
+    e = String(e || "")
+    return e === "xhigh" ? "Extra high" : e ? e.charAt(0).toUpperCase() + e.slice(1) : ""
+  }
+
+  function modeName(mode) {
+    var key = String(mode || "").replace(/\s+/g, "").toLowerCase()
+    var names = { auto: "Auto mode", plan: "Plan mode", acceptedits: "Accept edits", bypasspermissions: "Bypass permissions",
+                  bypass: "Bypass permissions", default: "Ask before edits", dontask: "Don't ask" }
+    return names[key] || (mode ? String(mode) : "")
+  }
+
+  readonly property string modelLabel: {
+    var m = modelName(root.s.model)
+    return /^opusplan/i.test(String(root.s.modelSetting || "")) ? "Opus Plan" + (m ? " · " + m : "") : m
+  }
+  readonly property string effortLevel: String(root.s.effort || "").toLowerCase()
+  readonly property string modeLabel: modeName(root.s.mode)
+
+  Row {
+    id: infoLine
+    visible: root.modelLabel !== "" || root.effortLevel !== "" || root.modeLabel !== ""
+    anchors.left: composer.left
+    anchors.leftMargin: Style.space(16)
+    anchors.top: composer.bottom
+    anchors.topMargin: Style.space(1)
+    spacing: Style.space(6)
+
+    Text {
+      visible: root.modelLabel !== ""
+      text: root.modelLabel
+      textFormat: Text.PlainText
+      color: root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+    }
+    Text {
+      visible: root.effortLevel !== ""
+      text: "· " + root.effortName(root.effortLevel) + " effort"
+      textFormat: Text.PlainText
+      color: root.pal.effort(root.effortLevel)
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+    }
+    Text {
+      visible: root.modeLabel !== ""
+      text: "· " + root.modeLabel
+      textFormat: Text.PlainText
+      color: /plan|bypass/i.test(root.modeLabel) ? root.pal.crab : root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.send({ keys: ["BTab"] })
+      }
+    }
+  }
+
   // ---- Composer
 
   Rectangle {
@@ -687,7 +755,7 @@ Item {
     anchors.bottom: parent.bottom
     anchors.leftMargin: root.gutter
     anchors.rightMargin: root.gutter
-    anchors.bottomMargin: Style.space(4)
+    anchors.bottomMargin: Style.space(4) + (infoLine.visible ? infoLine.height + Style.space(2) : 0)
     height: Math.min(composerText.implicitHeight, composerText.lineStep * 6) + Style.space(22) + thumbs.height
     radius: Style.space(18)
     color: root.pal.well

@@ -4,8 +4,10 @@ import "Icons.js" as Icons
 import "Timers.js" as Timers
 
 // The gear's view: settings that live in the island rather than shell.json.
-// One section per feature, stacked; a new setting is a new section here.
+// One section per feature, stacked and foldable; a new setting is a new
+// section here.
 //
+//   Island      where sessions open: in the island, or in a terminal window.
 //   Move        how often the sit-up and the stand-up-and-walk nudges ring
 //               (the switches are on Home's Move card).
 //   Anti-rot    how many challenges a day, which languages are in the rotation,
@@ -24,7 +26,10 @@ Column {
   // {on, everyMin, …} of the two nudges, as BarWidget keeps them.
   property var posture: ({ everyMin: 30 })
   property var walk: ({ everyMin: 60 })
+  // Sessions open in a terminal window, never in the island.
+  property bool terminalOutside: false
 
+  signal terminalOutsideSet(bool on)
   signal nudgeSet(string key, int everyMin)
   signal langToggled(string lang, bool on)
   signal levelSet(string lang, int level)
@@ -56,6 +61,77 @@ Column {
     font.letterSpacing: 0.8
   }
 
+  // A section: a header that folds its body.
+  component Section: Column {
+    id: section
+    property string title: ""
+    property bool open: true
+    default property alias content: body.data
+    width: parent.width
+    spacing: Style.space(6)
+
+    MouseArea {
+      width: parent.width
+      height: Style.space(24)
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: section.open = !section.open
+
+      Caption {
+        anchors.verticalCenter: parent.verticalCenter
+        text: section.title
+      }
+
+      Icon {
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        d: Icons.chevron
+        size: Style.space(14)
+        color: parent.containsMouse ? root.pal.fg : root.pal.muted
+        rotation: section.open ? 0 : -90
+      }
+    }
+
+    Column {
+      id: body
+      visible: section.open
+      width: parent.width
+      spacing: Style.space(6)
+    }
+  }
+
+  // An on / off switch.
+  component Toggle: Rectangle {
+    id: toggle
+    property bool on: false
+    property bool busy: false
+    signal toggled(bool on)
+    width: Style.space(36)
+    height: Style.space(20)
+    radius: height / 2
+    color: on ? root.pal.primary : root.pal.alpha(root.pal.fg, toggleMouse.containsMouse ? 0.18 : 0.12)
+    Behavior on color { ColorAnimation { duration: 120 } }
+
+    Rectangle {
+      x: toggle.on ? parent.width - width - Style.space(3) : Style.space(3)
+      anchors.verticalCenter: parent.verticalCenter
+      width: parent.height - Style.space(6)
+      height: width
+      radius: width / 2
+      color: toggle.on ? root.pal.primaryInk : root.pal.fg
+      Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+    }
+
+    MouseArea {
+      id: toggleMouse
+      anchors.fill: parent
+      enabled: !toggle.busy
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: toggle.toggled(!toggle.on)
+    }
+  }
+
   // A setting: its name, then its choices on the same line.
   component Setting: Flow {
     property string name: ""
@@ -74,12 +150,45 @@ Column {
     }
   }
 
-  // ---- Move
-  Column {
-    width: parent.width
-    spacing: Style.space(6)
+  // ---- Island
+  Section {
+    title: "ISLAND"
 
-    Caption { text: "MOVE" }
+    Text {
+      width: parent.width
+      text: "Sessions still show here, with approvals and usage. On, opening one (or starting one) puts it in a terminal window instead of the island."
+      textFormat: Text.PlainText
+      wrapMode: Text.Wrap
+      color: root.pal.muted
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+    }
+
+    Item {
+      width: parent.width
+      height: Style.space(24)
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Terminals outside the island"
+        textFormat: Text.PlainText
+        color: root.pal.fg
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Toggle {
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        on: root.terminalOutside
+        onToggled: function(on) { root.terminalOutsideSet(on) }
+      }
+    }
+  }
+
+  // ---- Move
+  Section {
+    title: "MOVE"
 
     Text {
       width: parent.width
@@ -169,11 +278,9 @@ Column {
   }
 
   // ---- Anti-rot
-  Column {
-    width: parent.width
-    spacing: Style.space(6)
-
-    Caption { text: "ANTI-ROT" }
+  Section {
+    title: "ANTI-ROT"
+    open: false
 
     Text {
       width: parent.width
@@ -385,35 +492,11 @@ Column {
             }
           }
 
-          // On / off.
-          Rectangle {
-            id: toggle
-            readonly property bool on: !!langRow.prefs.on
+          Toggle {
             anchors.verticalCenter: parent.verticalCenter
-            width: Style.space(36)
-            height: Style.space(20)
-            radius: height / 2
-            color: on ? root.pal.primary : root.pal.alpha(root.pal.fg, toggleMouse.containsMouse ? 0.18 : 0.12)
-            Behavior on color { ColorAnimation { duration: 120 } }
-
-            Rectangle {
-              x: toggle.on ? parent.width - width - Style.space(3) : Style.space(3)
-              anchors.verticalCenter: parent.verticalCenter
-              width: parent.height - Style.space(6)
-              height: width
-              radius: width / 2
-              color: toggle.on ? root.pal.primaryInk : root.pal.fg
-              Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-            }
-
-            MouseArea {
-              id: toggleMouse
-              anchors.fill: parent
-              enabled: !langRow.working
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.langToggled(langRow.modelData, !toggle.on)
-            }
+            on: !!langRow.prefs.on
+            busy: langRow.working
+            onToggled: function(on) { root.langToggled(langRow.modelData, on) }
           }
         }
       }
