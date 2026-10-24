@@ -2058,8 +2058,8 @@ BarWidget {
     property bool dot: false
     property string tip: ""
     signal clicked()
-    width: theme.dev ? Style.space(34) : Style.space(40)
-    height: theme.dev ? Style.space(28) : Style.space(36)
+    width: theme.dev ? Style.space(36) : Style.space(40)
+    height: theme.dev ? Style.space(30) : Style.space(36)
     radius: theme.pill(height)
     color: current ? theme.alpha(theme.fg, 0.14) : navMouse.containsMouse ? theme.alpha(theme.fg, 0.07) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
@@ -2136,9 +2136,9 @@ BarWidget {
     centerOnBar: true
     island: true
     compact: theme.dev
-    islandRadius: theme.dev ? Style.space(6) : Style.space(30)
-    padding: theme.dev ? Style.space(8) : Style.spacing.popupPadding
-    barPadding: theme.dev ? Style.space(3) : Style.space(4)
+    islandRadius: theme.dev ? Style.space(12) : Style.space(30)
+    padding: theme.dev ? Style.space(12) : Style.spacing.popupPadding
+    barPadding: theme.dev ? Style.space(4) : Style.space(4)
     tint: theme.island
     // Pinned (the crab clicked): a click outside closes it. Otherwise it
     // goes when the pointer leaves, whatever was clicked inside. With a live

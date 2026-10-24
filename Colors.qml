@@ -21,9 +21,9 @@ QtObject {
   property string look: "soft"
   readonly property bool dev: look === "dev"
   // A corner radius: kept as drawn, or cut to a few pixels in the dev look.
-  function rad(n) { return dev ? Math.min(n, n >= Style.space(16) ? Style.space(6) : Style.space(4)) : n }
+  function rad(n) { return dev ? (n >= Style.space(16) ? Style.space(12) : n >= Style.space(10) ? Style.space(9) : n) : n }
   // A pill's radius from its height: a stadium, or a small rounded rectangle.
-  function pill(h) { return dev ? Math.min(h / 2, Style.space(4)) : h / 2 }
+  function pill(h) { return dev ? Math.min(h / 2, Style.space(10)) : h / 2 }
 
   function luminance(c) {
     function ch(v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
