@@ -27,16 +27,30 @@ Rectangle {
   signal nudgeEdited(string key, var patch)
   signal nudged(string key)
 
-  readonly property var modes: [
-    { id: "limits", name: "LIMITS", icon: Icons.limits },
-    { id: "timer", name: "TIMER", icon: Icons.timer },
-    { id: "posture", name: "MOVE", icon: Icons.posture }
-  ]
+  // today's rep, as antirot.py writes it, and the action it's running.
+  property var rep: null
+  property string antirotBusy: ""
+  // Stuck (help with the rep) only while there's a rep in progress.
+  readonly property bool stuckAvailable: !!rep && !!rep.startedAt && !rep.passedAt
+  readonly property var modes: {
+    var m = [
+      { id: "limits", name: "LIMITS", icon: Icons.limits },
+      { id: "timer", name: "TIMER", icon: Icons.timer },
+      { id: "posture", name: "MOVE", icon: Icons.posture }
+    ]
+    return stuckAvailable ? m.concat([{ id: "stuck", name: "STUCK", icon: Icons.help }]) : m
+  }
   readonly property real pad: Style.space(18)
-  // The content's height in every mode: Limits' two bars set it.
+  // The content's height in the other modes: Limits' two bars set it. Stuck
+  // grows to its text, up to a cap, then scrolls.
   readonly property real slot: Style.space(110)
+  readonly property real stuckCap: Style.space(300)
+  readonly property real slotNow: mode === "stuck" ? Math.max(slot, Math.min(stuckPane.implicitHeight, stuckCap)) : slot
 
-  implicitHeight: pad * 2 + header.height + Style.space(14) + slot
+  signal explainAsked(bool again)
+  signal hintAsked()
+
+  implicitHeight: pad * 2 + header.height + Style.space(14) + slotNow
   radius: pal.rad(Style.space(24))
   color: pal ? pal.card : "transparent"
   border.width: 1
@@ -51,7 +65,7 @@ Rectangle {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      text: root.mode === "timer" ? "TIMER" : root.mode === "posture" ? "MOVE" : "LIMITS"
+      text: root.mode === "timer" ? "TIMER" : root.mode === "posture" ? "MOVE" : root.mode === "stuck" ? "STUCK" : "LIMITS"
       textFormat: Text.PlainText
       color: root.pal.muted
       font.family: root.fontFamily
@@ -100,7 +114,7 @@ Rectangle {
     x: root.pad
     y: root.pad + header.height + Style.space(14)
     width: parent.width - root.pad * 2
-    height: root.slot
+    height: root.slotNow
 
     Glance {
       id: glance
@@ -136,6 +150,26 @@ Rectangle {
       now: root.now
       onEdited: function(key, patch) { root.nudgeEdited(key, patch) }
       onNudged: function(key) { root.nudged(key) }
+    }
+
+    Flickable {
+      visible: root.mode === "stuck"
+      width: parent.width
+      height: parent.height
+      contentHeight: stuckPane.implicitHeight
+      boundsBehavior: Flickable.StopAtBounds
+      clip: true
+
+      Stuck {
+        id: stuckPane
+        width: parent.width
+        pal: root.pal
+        fontFamily: root.fontFamily
+        rep: root.rep
+        busy: root.antirotBusy
+        onExplainAsked: function(again) { root.explainAsked(again) }
+        onHintAsked: root.hintAsked()
+      }
     }
 
   }

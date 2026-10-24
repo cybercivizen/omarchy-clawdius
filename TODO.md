@@ -184,3 +184,4 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Chat view: model, effort and mode line under the composer; the conversation is the default for every session, the terminal choice is remembered.
 - [ ] Compact theme, next pass: shrink row heights and gaps inside each view (Sessions, Detail, Chat, Search), square the crab's nav dot, check the light theme.
 - [x] Anti-rot: Hint button. Sonnet (no tools) nudges towards the next step without code, a bit more concrete each press; each counts as two checks towards a re-do.
+- [x] Anti-rot: one "Stuck?" pill opens the corner card's STUCK tab: Explain (the task in plain words with examples) and Hint / Another hint, replacing the hint pills on the main card.
