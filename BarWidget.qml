@@ -1966,7 +1966,20 @@ BarWidget {
   }
 
   // A new view starts at its top.
-  onSessionsTabChanged: cardFlick.contentY = 0
+  property int shownSessionsTab: 0
+  onSessionsTabChanged: {
+    cardFlick.contentY = 0
+    var i = ["live", "recent", "folders"].indexOf(sessionsTab)
+    var slide = sessionsTab === "live" ? liveSlide : sessionsTab === "recent" ? recentSlide : foldersSlide
+    if (card.visible && i !== shownSessionsTab) {
+      slide.dx = (i > shownSessionsTab ? 1 : -1) * Style.space(14)
+      slide.restart()
+    }
+    shownSessionsTab = i
+  }
+  Slide { id: liveSlide; target: liveList }
+  Slide { id: recentSlide; target: recentList }
+  Slide { id: foldersSlide; target: foldersView }
 
   // ---- Home's moment: the one most pressing thing (Moment.qml shows it).
   //      1 a permission prompt (oldest first), 2 a session blocked on you
@@ -2105,7 +2118,7 @@ BarWidget {
     width: segmentText.implicitWidth + (theme.dev ? Style.space(20) : Style.space(28))
     height: theme.dev ? Style.space(24) : Style.space(30)
     radius: theme.pill(height)
-    color: current ? theme.alpha(theme.fg, 0.14) : segmentMouse.containsMouse ? theme.alpha(theme.fg, 0.06) : "transparent"
+    color: !current && segmentMouse.containsMouse ? theme.alpha(theme.fg, 0.06) : "transparent"
 
     Text {
       id: segmentText
@@ -2671,6 +2684,7 @@ BarWidget {
                   visible: home.glanceShown
                   anchors.right: parent.right
                   width: Style.space(root.cornerMode === "stuck" ? 340 : 268)
+                  Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
                   height: parent.height
                   pal: theme
                   record: root.usage
@@ -2716,21 +2730,28 @@ BarWidget {
                     radius: theme.pill(height)
                     color: theme.alpha(theme.fg, 0.06)
 
+                    TabMark {
+                      pal: theme
+                      over: root.sessionsTab === "live" ? segLive : root.sessionsTab === "recent" ? segRecent : segFolders
+                    }
+
                     Row {
                       id: segments
                       anchors.centerIn: parent
                       spacing: Style.space(2)
                       Segment {
+                        id: segLive
                         label: "Live" + (root.sessions.length ? "  " + root.sessions.length : "")
                         current: root.sessionsTab === "live"
                         onClicked: root.sessionsTab = "live"
                       }
-                      Segment { label: "Recent"; current: root.sessionsTab === "recent"; onClicked: root.sessionsTab = "recent" }
-                      Segment { label: "Folders"; current: root.sessionsTab === "folders"; onClicked: root.sessionsTab = "folders" }
+                      Segment { id: segRecent; label: "Recent"; current: root.sessionsTab === "recent"; onClicked: root.sessionsTab = "recent" }
+                      Segment { id: segFolders; label: "Folders"; current: root.sessionsTab === "folders"; onClicked: root.sessionsTab = "folders" }
                     }
                   }
 
                   Sessions {
+                    id: liveList
                     visible: root.sessionsTab === "live"
                     width: parent.width
                     pal: theme
@@ -2753,6 +2774,7 @@ BarWidget {
                   // Resume and History were one list over the same data; the
                   // newest 8 show first, then 25 at a time.
                   Resume {
+                    id: recentList
                     pal: theme
                     visible: root.sessionsTab === "recent"
                     width: parent.width

@@ -48,6 +48,23 @@ Rectangle {
   signal explainAsked(bool again)
   signal hintAsked()
 
+  function modeIndex(id) {
+    for (var i = 0; i < modes.length; i++) if (modes[i].id === id) return i
+    return -1
+  }
+
+  // The new mode's content eases in from the side the tab sits on.
+  property int shownIndex: 0
+  onModeChanged: {
+    var i = modeIndex(mode)
+    if (visible && i >= 0 && i !== shownIndex) {
+      modeSlide.dx = (i > shownIndex ? 1 : -1) * Style.space(10)
+      modeSlide.restart()
+    }
+    if (i >= 0) shownIndex = i
+  }
+  Slide { id: modeSlide; target: stack }
+
   implicitHeight: pad * 2 + header.height + Style.space(14) + slot
   radius: pal.rad(Style.space(24))
   color: pal ? pal.card : "transparent"
@@ -71,12 +88,18 @@ Rectangle {
       font.letterSpacing: 0.8
     }
 
+    TabMark {
+      pal: root.pal
+      over: switcher.count > 0 ? switcher.itemAt(Math.max(0, root.modeIndex(root.mode))) : null
+    }
+
     Row {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(2)
 
       Repeater {
+        id: switcher
         model: root.modes
 
         Rectangle {
@@ -85,7 +108,7 @@ Rectangle {
           width: Style.space(26)
           height: Style.space(22)
           radius: pal.pill(height)
-          color: current ? root.pal.alpha(root.pal.fg, 0.14) : root.pal.alpha(root.pal.fg, switchMouse.containsMouse ? 0.06 : 0)
+          color: root.pal.alpha(root.pal.fg, !current && switchMouse.containsMouse ? 0.06 : 0)
           Behavior on color { ColorAnimation { duration: 120 } }
 
           Icon {

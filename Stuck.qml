@@ -32,11 +32,33 @@ Item {
   // What just arrived is what to look at.
   onExplainTextChanged: if (explainText) tab = "explain"
   onHintTotalChanged: if (hintTotal) { tab = "hint"; page = Math.max(0, hints.length - 1) }
-  onTabChanged: flick.contentY = 0
-  onPageChanged: flick.contentY = 0
+  // What's shown eases in: a tab from below, a hint page from the side it
+  // lies on. Not while the first tab and page are being picked.
+  property bool settled: false
+  property int shownPage: 0
+  onTabChanged: {
+    flick.contentY = 0
+    if (settled) { textSlide.dx = 0; textSlide.dy = Style.space(6); textSlide.restart() }
+  }
+  onPageChanged: {
+    flick.contentY = 0
+    if (settled && page !== shownPage) {
+      textSlide.dx = (page > shownPage ? 1 : -1) * Style.space(14)
+      textSlide.dy = 0
+      textSlide.restart()
+    }
+    shownPage = page
+  }
   Component.onCompleted: {
     page = Math.max(0, hints.length - 1)
     if (!explainText && hintTotal) tab = "hint"
+    settled = true
+  }
+  Slide { id: textSlide; target: flick }
+
+  TabMark {
+    pal: root.pal
+    over: tabRepeater.count > 0 ? tabRepeater.itemAt(root.tab === "hint" ? 1 : 0) : null
   }
 
   Row {
@@ -44,6 +66,7 @@ Item {
     spacing: Style.space(2)
 
     Repeater {
+      id: tabRepeater
       model: [{ id: "explain", name: "Explain" }, { id: "hint", name: "Hint" }]
 
       Rectangle {
@@ -52,7 +75,7 @@ Item {
         width: tabLabel.implicitWidth + Style.space(18)
         height: Style.space(22)
         radius: pal.pill(height)
-        color: current ? root.pal.alpha(root.pal.fg, 0.14) : root.pal.alpha(root.pal.fg, tabMouse.containsMouse ? 0.06 : 0)
+        color: root.pal.alpha(root.pal.fg, !current && tabMouse.containsMouse ? 0.06 : 0)
         Behavior on color { ColorAnimation { duration: 120 } }
 
         Text {
