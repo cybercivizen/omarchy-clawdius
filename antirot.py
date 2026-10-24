@@ -5,6 +5,7 @@
   antirot.py start                  copy today's challenge into its folder; prints the file to open
   antirot.py check                  run its tests; all passing counts the day
   antirot.py hint                   a nudge from Claude (Sonnet, no tools) towards the next step, never code
+  antirot.py explain [again]        the task in plain words with worked examples; again for a plainer take
   antirot.py easier | skip          another one for today: a level down, or the same level
   antirot.py next                   chain another challenge once today's is passed
   antirot.py timebox N              minutes a challenge should take: 0 (off), 15, 25 or 45; passes
@@ -56,6 +57,15 @@ SKIP_DAYS = 30
 TEST_TIMEOUT = 180
 HINT_TIMEOUT = 90
 HINT_CODE_BYTES = 8000
+HINT_TEST_BYTES = 6000
+MAX_HINTS = 6
+EXPLAIN_PROMPT = ("You explain programming exercises to someone who finds the task itself confusing. Given the "
+                  "task text and its tests, restate the problem in plain words, define any term it assumes the "
+                  "reader knows, and give one or two small worked examples (input, then expected output) in fenced "
+                  "code blocks, taking them from the tests where they fit. Use short paragraphs, no headings. "
+                  "Never suggest an approach or algorithm for solving it and never write solution code. If a "
+                  "previous explanation is included, it didn't land: be plainer and more concrete, with a "
+                  "different example.")
 # Each hint counts as this many checks towards a pass worth doing again.
 HINT_WEIGHT = 2
 HINT_PROMPT = ("You tutor someone who is relearning to code by hand. They are stuck on an Exercism exercise. "
@@ -433,10 +443,10 @@ def read_text(path, limit=HINT_CODE_BYTES):
         return ""
 
 
-def hint():
-    """Ask Claude for a nudge on today's rep. The slow call runs outside the
-    lock, so Check and Skip aren't held up; the result is kept only if it's
-    still the same rep."""
+def ask(kind, again=False):
+    """Ask Claude about today's rep: a `hint`, or an `explain`ation of the task
+    (`again` for a plainer one). The slow call runs outside the lock, so Check
+    and Skip aren't held up; the answer is kept only if it's still the same rep."""
     with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         t = load()["today"]
@@ -444,31 +454,40 @@ def hint():
             sys.stderr.write("start today's challenge first\n")
             return 1
         key, lang = t["lang"] + "/" + t["slug"], t["lang"]
-        earlier = list(t.get("hints", []))
-        material = ["# Task\n" + read_text(t.get("docs", "")),
-                    "# Their code (%s)\n%s" % (lang, read_text(t.get("file", ""))),
-                    "# Last test output\n" + (t.get("check") or {}).get("tail", "(not run yet)")]
-        if earlier:
-            material.append("# Earlier hints, oldest first\n" + "\n".join("- " + h for h in earlier))
+        material = ["# Task\n" + read_text(t.get("docs", ""))]
+        if kind == "explain":
+            tests = exercise_meta(lang, t["slug"]).get("files", {}).get("test", [])
+            material.append("# Its tests\n" + "\n".join(read_text(os.path.join(t["dir"], f), HINT_TEST_BYTES) for f in tests))
+            if again and t.get("explain"):
+                material.append("# Your last explanation, which didn't land\n" + t["explain"])
+        else:
+            material += ["# Their code (%s)\n%s" % (lang, read_text(t.get("file", ""))),
+                         "# Last test output\n" + (t.get("check") or {}).get("tail", "(not run yet)")]
+            if t.get("hints"):
+                material.append("# Earlier hints, oldest first\n" + "\n".join("- " + h for h in t["hints"]))
+    prompt = EXPLAIN_PROMPT if kind == "explain" else HINT_PROMPT
     try:
         with tempfile.TemporaryDirectory() as cwd:
             p = subprocess.run(["claude", "-p", "--model", "sonnet", "--tools", "", "--no-session-persistence",
-                                "--system-prompt", HINT_PROMPT], input="\n\n".join(material), cwd=cwd,
+                                "--system-prompt", prompt], input="\n\n".join(material), cwd=cwd,
                                capture_output=True, text=True, timeout=HINT_TIMEOUT)
     except (OSError, subprocess.TimeoutExpired) as e:
-        sys.stderr.write("no hint: %s\n" % (e if isinstance(e, OSError) else "Claude took over %ds" % HINT_TIMEOUT))
+        sys.stderr.write("no %s: %s\n" % (kind, e if isinstance(e, OSError) else "Claude took over %ds" % HINT_TIMEOUT))
         return 1
     text = p.stdout.strip()
     if p.returncode != 0 or not text:
-        sys.stderr.write("no hint: %s\n" % (tail(p.stderr, 1) or "empty answer"))
+        sys.stderr.write("no %s: %s\n" % (kind, tail(p.stderr, 1) or "empty answer"))
         return 1
     with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = load()
         t = state["today"]
         if t and t["lang"] + "/" + t["slug"] == key:
-            t["hints"] = (t.get("hints", []) + [text])[-3:]
-            t["hintCount"] = t.get("hintCount", 0) + 1
+            if kind == "explain":
+                t["explain"] = text
+            else:
+                t["hints"] = (t.get("hints", []) + [text])[-MAX_HINTS:]
+                t["hintCount"] = t.get("hintCount", 0) + 1
             save(state)
     return 0
 
@@ -529,8 +548,8 @@ def main(args):
     cmd = args[0]
     lang = args[1] if len(args) > 1 else ""
     os.makedirs(STATE_DIR, exist_ok=True)
-    if cmd == "hint":
-        return hint()
+    if cmd in ("hint", "explain"):
+        return ask(cmd, args[1:] == ["again"])
     with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = load()

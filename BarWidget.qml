@@ -1334,6 +1334,10 @@ BarWidget {
   // The stand-up-and-walk nudge: the same shape, a longer wait.
   property var walk: ({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
   property string cornerMode: "limits"
+  // The corner mode to come back to from Stuck, which isn't remembered.
+  property string lastCornerMode: "limits"
+  readonly property bool repInProgress: !!root.antirot && !!root.antirot.today && !!root.antirot.today.startedAt && !root.antirot.today.passedAt
+  onRepInProgressChanged: if (!repInProgress && cornerMode === "stuck") cornerMode = lastCornerMode
   // Home's main card: agents | today | antirot. What needs you shows Agents
   // whatever was picked; the pick comes back after. A finished turn doesn't
   // force it: the Agents tab wears a green dot instead.
@@ -1356,7 +1360,8 @@ BarWidget {
         root.posture = Object.assign({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.posture || {})
         root.walk = Object.assign({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.walk || {})
         // The Anti-rot tab moved to the main card.
-        root.cornerMode = !d.mode || d.mode === "antirot" ? "limits" : d.mode
+        root.lastCornerMode = !d.mode || d.mode === "antirot" || d.mode === "stuck" ? "limits" : d.mode
+        if (root.cornerMode !== "stuck") root.cornerMode = root.lastCornerMode
         root.mainMode = d.main || "agents"
       } catch (e) { console.warn("clawdius timers parse", e) }
     }
@@ -1365,7 +1370,7 @@ BarWidget {
   Timer {
     id: timersSave
     interval: 300
-    onTriggered: timersFile.setText(JSON.stringify({ timers: root.timers, posture: root.posture, walk: root.walk, mode: root.cornerMode, main: root.mainMode }))
+    onTriggered: timersFile.setText(JSON.stringify({ timers: root.timers, posture: root.posture, walk: root.walk, mode: root.lastCornerMode, main: root.mainMode }))
   }
 
   function addTimer(kind, label, at, len) {
@@ -1395,6 +1400,7 @@ BarWidget {
 
   function pickCorner(mode) {
     root.cornerMode = mode
+    if (mode !== "stuck") root.lastCornerMode = mode
     timersSave.restart()
   }
 
@@ -1691,7 +1697,8 @@ BarWidget {
     if (action === "settings") root.view = "settings"
     else if (action === "open" && rep && rep.file) root.openChallenge(rep.file, rep.docs || (rep.dir ? rep.dir + "/.docs/instructions.md" : ""))
     else if (action === "review" && rep && rep.dir) root.reviewChallenge(rep)
-    else if (["start", "check", "hint", "easier", "skip", "next"].indexOf(action) >= 0) root.runAntirot([action], rep ? rep.lang : "")
+    else if (action === "stuck") root.cornerMode = root.cornerMode === "stuck" ? root.lastCornerMode : "stuck"
+    else if (["start", "check", "easier", "skip", "next"].indexOf(action) >= 0) root.runAntirot([action], rep ? rep.lang : "")
   }
 
   // Claude looks over the passed rep in the live terminal, read only. A new
@@ -2644,6 +2651,7 @@ BarWidget {
                   antirot: root.antirot
                   challengeBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   mode: root.mainShown
+                  stuckOpen: root.cornerMode === "stuck"
                   weather: root.weather
                   onModePicked: function(mode) { root.pickMain(mode) }
                   onChallenge: function(action) { root.challengeAction(action) }
@@ -2662,13 +2670,17 @@ BarWidget {
                   id: glance
                   visible: home.glanceShown
                   anchors.right: parent.right
-                  width: Style.space(268)
+                  width: Style.space(root.cornerMode === "stuck" ? 340 : 268)
                   height: parent.height
                   pal: theme
                   record: root.usage
                   now: root.now
                   fontFamily: root.fontFamily
                   mode: root.cornerMode
+                  rep: root.antirot ? root.antirot.today : null
+                  antirotBusy: root.antirotBusy
+                  onExplainAsked: function(again) { root.runAntirot(again ? ["explain", "again"] : ["explain"], root.antirot.today.lang) }
+                  onHintAsked: root.runAntirot(["hint"], root.antirot.today.lang)
                   timers: root.timers
                   posture: root.posture
                   walk: root.walk

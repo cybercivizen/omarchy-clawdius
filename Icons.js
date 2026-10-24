@@ -34,4 +34,5 @@ var minus = "M5 12h14"
 // The nav's Settings: a cog, its teeth as short spokes.
 var gear = "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6M12 5.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"
 // A fold arrow, pointing down.
-var chevron = "M6 9l6 6 6-6"
+var help = "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"
+var chevron ="M6 9l6 6 6-6"

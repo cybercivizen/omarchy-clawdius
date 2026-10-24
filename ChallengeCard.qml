@@ -17,13 +17,15 @@ Column {
   // antirot.json, as antirot.py writes it.
   property var antirot: null
   property double now: Date.now()
-  // The antirot.py action running: "" | start | check | hint | easier | skip | next | set | setup
+  // The antirot.py action running: "" | start | check | easier | skip | next | set | setup
   property string busy: ""
+  // The corner card is showing Stuck (explain / hints).
+  property bool stuckOpen: false
 
   signal started()
   signal opened()
   signal checked()
-  signal hinted()
+  signal stuck()
   signal easier()
   signal skipped()
   signal nexted()
@@ -58,12 +60,6 @@ Column {
   readonly property int minutesIn: rep && rep.startedAt ? Math.floor((now - rep.startedAt) / 60000) : 0
   readonly property bool over: inProgress && timeBox > 0 && minutesIn >= timeBox
   readonly property int streak: antirot ? antirot.streakNow || 0 : 0
-
-  // Hints already fetched for this rep are kept: the pill shows or hides the
-  // last one, it doesn't ask again.
-  readonly property int hintsGiven: rep && rep.hintCount ? rep.hintCount : 0
-  property bool hintOpen: false
-  onHintsGivenChanged: hintOpen = hintsGiven > 0
 
   function langName(lang) { return info[lang] ? info[lang].name : lang }
 
@@ -147,28 +143,6 @@ Column {
     }
   }
 
-  // Claude's latest nudge, while it's in progress.
-  Rectangle {
-    visible: root.inProgress && root.hintOpen && !!root.rep.hints && root.rep.hints.length > 0
-    width: parent.width
-    height: hintText.implicitHeight + Style.space(16)
-    radius: pal.rad(Style.space(10))
-    color: root.pal.well
-
-    Text {
-      id: hintText
-      x: Style.space(10)
-      y: Style.space(8)
-      width: parent.width - Style.space(20)
-      text: root.rep && root.rep.hints && root.rep.hints.length ? root.rep.hints[root.rep.hints.length - 1] : ""
-      textFormat: Text.PlainText
-      wrapMode: Text.Wrap
-      color: root.pal.strong
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-    }
-  }
-
   // The last check's output, while it isn't passing.
   Rectangle {
     visible: root.inProgress && !!root.check && root.check.tail !== ""
@@ -239,20 +213,11 @@ Column {
       visible: root.inProgress
       pal: root.pal
       fontFamily: root.fontFamily
-      label: root.hintsGiven ? (root.hintOpen ? "Hide hint" : "Show hint") : "Hint"
-      tooltip: root.hintsGiven ? "" : "A nudge from Claude, no code"
+      icon: Icons.help
+      label: root.stuckOpen ? "Hide help" : "Stuck?"
+      tooltip: "Explain the task, or a hint"
       tooltipAbove: true
-      busy: root.busy === "hint"
-      onClicked: root.hintsGiven ? root.hintOpen = !root.hintOpen : root.hinted()
-    }
-    // Still stuck: the next hint goes a step further (antirot.py gives Claude the earlier ones).
-    Pill {
-      visible: root.inProgress && root.hintsGiven > 0 && root.hintOpen
-      pal: root.pal
-      fontFamily: root.fontFamily
-      label: "More hint"
-      busy: root.busy === "hint"
-      onClicked: root.hinted()
+      onClicked: root.stuck()
     }
     Pill {
       visible: root.inProgress

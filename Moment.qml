@@ -47,6 +47,8 @@ Rectangle {
   // antirot.json (antirot.py), for today's rep in the idle moment; null: no reps yet.
   property var antirot: null
   property string challengeBusy: ""
+  // The corner card is on Stuck, for the card's "Stuck?" pill.
+  property bool stuckOpen: false
   // agents | today | antirot: what the card shows (BarWidget forces agents
   // while a moment needs you). Weather.js parse(), for Today.
   property string mode: "agents"
@@ -65,7 +67,7 @@ Rectangle {
   signal newChat()
   signal pinned(var session)
   signal moreSessions()
-  // ChallengeCard's: start | open | check | hint | easier | skip | next | review | settings
+  // ChallengeCard's: start | open | check | stuck | easier | skip | next | review | settings
   signal challenge(string action)
   // An alarm for when the spent limit resets.
   signal alarmRequested(double at, string label)
@@ -624,10 +626,11 @@ Rectangle {
       antirot: root.antirot
       now: root.now
       busy: root.challengeBusy
+      stuckOpen: root.stuckOpen
       onStarted: root.challenge("start")
       onOpened: root.challenge("open")
       onChecked: root.challenge("check")
-      onHinted: root.challenge("hint")
+      onStuck: root.challenge("stuck")
       onEasier: root.challenge("easier")
       onSkipped: root.challenge("skip")
       onNexted: root.challenge("next")
