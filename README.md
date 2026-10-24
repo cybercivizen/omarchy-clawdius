@@ -356,7 +356,8 @@ stub in the chosen editor (side by side in Neovim/Vim; default
 shows how many pass, with the end of the output. **Hint** asks Sonnet (no
 tools, one `claude -p` call) for a nudge from the task, your code and the last
 output: a concept or a place to look, never code, a bit more concrete each
-press; each one counts as two checks towards a re-do. All passing counts toward
+press; each one counts as two checks towards a re-do. The island grows to
+fit it, and once there is one the pill only shows or hides it. All passing counts toward
 the day: a ✓, the streak, **Next**, and **Review** (with Claude), a session in
 the live view that can read but not edit (`--disallowedTools Edit,Write,…`).
 It's asked to teach rather than fix, and to compare with Exercism's own

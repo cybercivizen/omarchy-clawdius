@@ -59,6 +59,12 @@ Column {
   readonly property bool over: inProgress && timeBox > 0 && minutesIn >= timeBox
   readonly property int streak: antirot ? antirot.streakNow || 0 : 0
 
+  // Hints already fetched for this rep are kept: the pill shows or hides the
+  // last one, it doesn't ask again.
+  readonly property int hintsGiven: rep && rep.hintCount ? rep.hintCount : 0
+  property bool hintOpen: false
+  onHintsGivenChanged: hintOpen = hintsGiven > 0
+
   function langName(lang) { return info[lang] ? info[lang].name : lang }
 
   spacing: Style.space(14)
@@ -143,7 +149,7 @@ Column {
 
   // Claude's latest nudge, while it's in progress.
   Rectangle {
-    visible: root.inProgress && !!root.rep.hints && root.rep.hints.length > 0
+    visible: root.inProgress && root.hintOpen && !!root.rep.hints && root.rep.hints.length > 0
     width: parent.width
     height: hintText.implicitHeight + Style.space(16)
     radius: pal.rad(Style.space(10))
@@ -157,8 +163,6 @@ Column {
       text: root.rep && root.rep.hints && root.rep.hints.length ? root.rep.hints[root.rep.hints.length - 1] : ""
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
-      maximumLineCount: 4
-      elide: Text.ElideRight
       color: root.pal.strong
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
@@ -235,11 +239,11 @@ Column {
       visible: root.inProgress
       pal: root.pal
       fontFamily: root.fontFamily
-      label: "Hint"
-      tooltip: "A nudge from Claude, no code"
+      label: root.hintsGiven ? (root.hintOpen ? "Hide hint" : "Show hint") : "Hint"
+      tooltip: root.hintsGiven ? "" : "A nudge from Claude, no code"
       tooltipAbove: true
       busy: root.busy === "hint"
-      onClicked: root.hinted()
+      onClicked: root.hintsGiven ? root.hintOpen = !root.hintOpen : root.hinted()
     }
     Pill {
       visible: root.inProgress
