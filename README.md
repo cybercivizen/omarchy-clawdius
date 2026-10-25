@@ -100,6 +100,8 @@ The crab shows the most pressing thing going on, in this order:
 
 It sweats (a drop runs down its side) once the 5-hour limit is 90% spent.
 
+On a machine that isn't the desktop (`~/dotfiles/.machine` is anything but `desktop`, or missing) the crab on the bar holds still: no typing, bobbing, blinking or sweat drop, only the orange/gray color change. Each step of those redraws the whole bar, which a laptop's integrated GPU feels for as long as a session works. The crabs inside the island still move.
+
 ### The island
 
 Near-black, hung straight off the bar,
