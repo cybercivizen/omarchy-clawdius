@@ -993,7 +993,8 @@ Rectangle {
           fontFamily: root.fontFamily
           dense: true
           kind: "quiet"
-          label: starred ? "★ Pinned" : "☆ Pin"
+          label: starred ? "★" : "☆"
+          tooltip: starred ? "Unpin" : "Pin"
           onClicked: if (peek.session) root.starToggled(peek.session)
         }
 

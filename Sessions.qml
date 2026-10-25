@@ -26,6 +26,7 @@ Column {
   // Job id → why the last sleep sweep left it running, and when idle ones go.
   property var awake: ({})
   property int idleStopMinutes: 30
+  property string emptyText: "No Claude sessions running.\nStart one with + above."
 
   // A row was clicked.
   signal opened(var session)
@@ -64,12 +65,12 @@ Column {
   }
 
   Text {
-    visible: root.sessions.length === 0
+    visible: root.sessions.length === 0 && root.emptyText !== ""
     width: parent.width
     topPadding: Style.space(14)
     bottomPadding: Style.space(14)
     horizontalAlignment: Text.AlignHCenter
-    text: "No Claude sessions running.\nStart one with + above."
+    text: root.emptyText
     textFormat: Text.PlainText
     color: root.pal.muted
     font.family: root.fontFamily
@@ -150,7 +151,7 @@ Column {
               Text {
                 id: nameText
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(implicitWidth, rowColumn.width - whenText.implicitWidth - Style.space(90))
+                width: Math.min(implicitWidth, rowColumn.width - whenText.implicitWidth - pinButton.width - Style.space(90))
                 text: sessionRow.s.name
                 textFormat: Text.PlainText
                 elide: Text.ElideRight
@@ -184,7 +185,8 @@ Column {
 
             Text {
               id: whenText
-              anchors.right: parent.right
+              anchors.right: pinButton.left
+              anchors.rightMargin: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
               // Stop takes this spot while the row is hovered.
               opacity: stopButton.visible ? 0 : 1
@@ -201,7 +203,8 @@ Column {
 
             Pill {
               id: stopButton
-              anchors.right: parent.right
+              anchors.right: pinButton.left
+              anchors.rightMargin: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
               visible: sessionRow.stoppable && (rowMouse.containsMouse || hovered)
               pal: root.pal
@@ -211,15 +214,15 @@ Column {
               onClicked: root.stopRequested(sessionRow.s)
             }
 
-            // Pin: always shown filled when pinned, else on hover. Left of Stop
-            // (or of the time when there is no Stop).
+            // Pin: filled when pinned, else shown on hover. It holds the right
+            // edge so it stays put while Stop and the time swap beside it.
             Pill {
               id: pinButton
               readonly property bool starred: root.starredIds.indexOf(sessionRow.s.id) >= 0
-              anchors.right: stopButton.visible ? stopButton.left : whenText.left
-              anchors.rightMargin: Style.space(6)
+              anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              visible: starred || rowMouse.containsMouse || hovered || stopButton.hovered
+              opacity: starred || rowMouse.containsMouse || hovered ? 1 : 0
+              enabled: opacity > 0
               pal: root.pal
               fontFamily: root.fontFamily
               compact: true
@@ -231,7 +234,7 @@ Column {
 
             // Beside Stop: why the sleep sweep hasn't stopped it.
             Text {
-              anchors.right: pinButton.visible ? pinButton.left : stopButton.left
+              anchors.right: stopButton.left
               anchors.rightMargin: Style.space(10)
               anchors.verticalCenter: parent.verticalCenter
               visible: stopButton.visible && text !== ""

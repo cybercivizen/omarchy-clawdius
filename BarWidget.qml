@@ -91,7 +91,6 @@ BarWidget {
   readonly property var idleSessions: {
     var idle = sessions.filter(function(s) { return !s.busy && !s.waiting })
     var shown = idleExpanded ? idle.slice() : idle.slice(0, maxIdle)
-    idle.forEach(function(s) { if (isStarred(s.id) && shown.indexOf(s) < 0) shown.push(s) })
     var live = idle.filter(function(s) { return s.jobId && s.jobId === liveId })
     if (live.length && shown.indexOf(live[0]) < 0) shown.push(live[0])
     return shown
@@ -112,6 +111,8 @@ BarWidget {
     if (!s || !s.id) return
     starredIds = isStarred(s.id) ? starredIds.filter(function(i) { return i !== s.id }) : starredIds.concat([s.id])
   }
+  readonly property var pinnedLive: sessions.filter(function(s) { return isStarred(s.id) })
+  readonly property var pinnedResumable: notRunning.filter(function(r) { return isStarred(r.id) })
   // Stable: starred first, the rest keep their order.
   function starFirst(list) {
     return list.filter(function(s) { return isStarred(s.id) }).concat(list.filter(function(s) { return !isStarred(s.id) }))
@@ -1837,12 +1838,7 @@ BarWidget {
     for (var i = 0; i < feedSessions.length; i++) live[feedSessions[i].id] = true
     return resumable.filter(function(r) { return !live[r.id] })
   }
-  // Starred ones come first and don't count against the 8.
-  readonly property var resumableIdle: {
-    var ok = notRunning.filter(function(r) { return !r.missing })
-    var starred = ok.filter(function(r) { return isStarred(r.id) })
-    return starred.concat(ok.filter(function(r) { return !isStarred(r.id) }).slice(0, 8))
-  }
+  readonly property var resumableIdle: notRunning.filter(function(r) { return !r.missing }).slice(0, 8)
   readonly property var history: {
     var inResume = {}
     for (var i = 0; i < resumableIdle.length; i++) inResume[resumableIdle[i].id] = true
@@ -1989,8 +1985,8 @@ BarWidget {
   property int shownSessionsTab: 0
   onSessionsTabChanged: {
     cardFlick.contentY = 0
-    var i = ["live", "recent", "folders"].indexOf(sessionsTab)
-    var slide = sessionsTab === "live" ? liveSlide : sessionsTab === "recent" ? recentSlide : foldersSlide
+    var i = ["live", "pinned", "recent", "folders"].indexOf(sessionsTab)
+    var slide = sessionsTab === "live" ? liveSlide : sessionsTab === "pinned" ? pinnedSlide : sessionsTab === "recent" ? recentSlide : foldersSlide
     if (card.visible && i !== shownSessionsTab) {
       slide.dx = (i > shownSessionsTab ? 1 : -1) * Style.space(14)
       slide.restart()
@@ -1998,6 +1994,7 @@ BarWidget {
     shownSessionsTab = i
   }
   Slide { id: liveSlide; target: liveList }
+  Slide { id: pinnedSlide; target: pinnedView }
   Slide { id: recentSlide; target: recentList }
   Slide { id: foldersSlide; target: foldersView }
 
@@ -2754,7 +2751,7 @@ BarWidget {
 
                     TabMark {
                       pal: theme
-                      over: root.sessionsTab === "live" ? segLive : root.sessionsTab === "recent" ? segRecent : segFolders
+                      over: root.sessionsTab === "live" ? segLive : root.sessionsTab === "pinned" ? segPinned : root.sessionsTab === "recent" ? segRecent : segFolders
                     }
 
                     Row {
@@ -2767,6 +2764,13 @@ BarWidget {
                         current: root.sessionsTab === "live"
                         onClicked: root.sessionsTab = "live"
                       }
+                      Segment {
+                        id: segPinned
+                        readonly property int count: root.pinnedLive.length + root.pinnedResumable.length
+                        label: "Pinned" + (count ? "  " + count : "")
+                        current: root.sessionsTab === "pinned"
+                        onClicked: root.sessionsTab = "pinned"
+                      }
                       Segment { id: segRecent; label: "Recent"; current: root.sessionsTab === "recent"; onClicked: root.sessionsTab = "recent" }
                       Segment { id: segFolders; label: "Folders"; current: root.sessionsTab === "folders"; onClicked: root.sessionsTab = "folders" }
                     }
@@ -2777,7 +2781,7 @@ BarWidget {
                     visible: root.sessionsTab === "live"
                     width: parent.width
                     pal: theme
-                    sessions: root.starFirst(root.activeSessions.concat(root.idleSessions))
+                    sessions: root.activeSessions.concat(root.idleSessions)
                     hiddenIdle: root.hiddenIdle
                     idleCount: root.idleCount
                     idleLimit: root.maxIdle
@@ -2802,10 +2806,10 @@ BarWidget {
                     pal: theme
                     visible: root.sessionsTab === "recent"
                     width: parent.width
-                    sessions: root.starFirst(root.notRunning)
+                    sessions: root.notRunning
                     starredIds: root.starredIds
                     emptyText: root.resumable.length ? "No earlier conversations." : "No conversations found."
-                    firstPage: 8 + root.notRunning.filter(function(r) { return root.isStarred(r.id) }).length
+                    firstPage: 8
                     pageSize: 25
                     now: root.now
                     fg: theme.fg
@@ -2814,6 +2818,65 @@ BarWidget {
                     fontFamily: root.fontFamily
                     onActivated: function(r) { root.resumeSession(r) }
                     onStarRequested: function(r) { root.toggleStar(r) }
+                  }
+
+                  // Pinned: the pinned sessions, running ones first, then the
+                  // ones that aren't running.
+                  Column {
+                    id: pinnedView
+                    visible: root.sessionsTab === "pinned"
+                    width: parent.width
+                    spacing: Style.space(2)
+
+                    Text {
+                      visible: root.pinnedLive.length + root.pinnedResumable.length === 0
+                      width: parent.width
+                      topPadding: Style.space(14)
+                      bottomPadding: Style.space(14)
+                      horizontalAlignment: Text.AlignHCenter
+                      text: "Nothing pinned yet.\nHover a session and click ☆."
+                      textFormat: Text.PlainText
+                      color: theme.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+
+                    Sessions {
+                      visible: root.pinnedLive.length > 0
+                      width: parent.width
+                      pal: theme
+                      sessions: root.pinnedLive
+                      emptyText: ""
+                      hiddenIdle: 0
+                      idleCount: 0
+                      idleLimit: 1000
+                      now: root.now
+                      active: card.visible && pinnedView.visible
+                      fontFamily: root.fontFamily
+                      liveId: root.liveId
+                      awake: root.awake
+                      idleStopMinutes: root.idleStopMinutes
+                      onOpened: function(s) { root.openSession(s) }
+                      onStopRequested: function(s) { root.stopSession(s) }
+                      onStarRequested: function(s) { root.toggleStar(s) }
+                      starredIds: root.starredIds
+                    }
+
+                    Resume {
+                      visible: root.pinnedResumable.length > 0
+                      pal: theme
+                      width: parent.width
+                      sessions: root.pinnedResumable
+                      starredIds: root.starredIds
+                      emptyText: ""
+                      now: root.now
+                      fg: theme.fg
+                      mutedFg: theme.muted
+                      accent: theme.done
+                      fontFamily: root.fontFamily
+                      onActivated: function(r) { root.resumeSession(r) }
+                      onStarRequested: function(r) { root.toggleStar(r) }
+                    }
                   }
 
                   Folders {

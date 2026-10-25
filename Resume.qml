@@ -78,7 +78,7 @@ Column {
   }
 
   Text {
-    visible: root.sessions.length === 0
+    visible: root.sessions.length === 0 && root.emptyText !== ""
     width: parent.width
     topPadding: Style.space(6)
     bottomPadding: Style.space(6)
@@ -149,7 +149,7 @@ Column {
             anchors.right: whenText.left
             anchors.rightMargin: Style.space(8)
             anchors.verticalCenter: parent.verticalCenter
-            visible: starred || rowMouse.containsMouse || starMouse.containsMouse
+            opacity: starred || rowMouse.containsMouse || starMouse.containsMouse ? 1 : 0
             text: starred ? "★" : "☆"
             color: starred || starMouse.containsMouse ? root.fg : root.mutedFg
             font.family: root.fontFamily

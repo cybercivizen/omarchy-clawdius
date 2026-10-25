@@ -158,11 +158,12 @@ buffer squashed into the new size.
   turn started while it works or waits, since it went idle otherwise).
   Hovering one peeks at it (state, folder, current step, Deny / Allow if it's
   waiting); a click pins it to the card, a double-click opens its terminal.
-  Its tooltip has a **Pin** button (☆/★): a pinned session stays on the rail
+  Its tooltip has a ☆/★ pin button: a pinned session stays on the rail
   (starred crab, first). The same ☆ is on Sessions → Live and Recent rows
-  (shown on hover, filled when pinned): pinned sessions sort first and aren't
-  cut by `maxIdleSessions` or Recent's first page. Stored as `starredIds` in
-  `prefs.json` (called "starred" in code; `pin` already means card focus).
+  (shown on hover, filled when pinned, fixed at the row's right edge), and
+  Sessions → **Pinned** lists them all: running ones, then the rest. Stored as
+  `starredIds` in `prefs.json` (called "starred" in code; `pin` already means
+  card focus).
   On the working and idle moments a switchable **corner card** sits beside it
   (the three icons at its top right; the choice is remembered):
   - **Limits**: the 5-hour window and the week, with a pace tick; clicking it
