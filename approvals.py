@@ -211,14 +211,19 @@ def hook():
     except ValueError:
         return
     tool = payload.get("tool_name", "")
+    event = payload.get("hook_event_name") or "PermissionRequest"
     try:
         os.makedirs(RUNTIME, exist_ok=True)
         with open(HOOK_LOG, "a") as f:
-            f.write("%s %s %s\n" % (time.strftime("%H:%M:%S"), payload.get("hook_event_name", ""), tool))
+            f.write("%s %s %s\n" % (time.strftime("%H:%M:%S"), event, tool))
         if os.path.getsize(HOOK_LOG) > 20000:
             os.replace(HOOK_LOG, HOOK_LOG + ".old")
     except OSError:
         pass
+    # A PermissionRequest answer leaves the plan dialog open in the terminal, so
+    # the plan card goes through PreToolUse; everything else stays PermissionRequest.
+    if (event == "PreToolUse") != (tool == PLAN_TOOL):
+        return
     pid = read_json(WATCHER_PID)
     if not isinstance(pid, int) or not pid_alive(pid):
         return   # nobody is watching: Claude asks in the terminal as usual
@@ -272,6 +277,16 @@ def hook():
         cleanup()
 
     choice = (answer or {}).get("choice")
+    if event == "PreToolUse":
+        if choice in ("allow", "always"):
+            out = {"permissionDecision": "allow", "updatedInput": inp}
+        elif choice == "deny":
+            out = {"permissionDecision": "deny",
+                   "permissionDecisionReason": "The user wants to keep planning. Ask them what to change."}
+        else:
+            return   # "terminal", timeout or no widget: the normal dialog
+        print(json.dumps({"hookSpecificOutput": dict(out, hookEventName="PreToolUse")}))
+        return
     if choice == "answer" and tool == QUESTION_TOOL and isinstance(answer.get("answers"), dict):
         decision = {"behavior": "allow", "updatedInput": dict(inp, answers=answer["answers"])}
     elif choice == "deny" and tool == PLAN_TOOL:
@@ -344,16 +359,20 @@ def install(remove=False):
     settings = read_json(SETTINGS, {})
     backup = SETTINGS + ".bak-" + time.strftime("%Y%m%d-%H%M%S")
     shutil.copy2(SETTINGS, backup)
-    entries = [e for e in settings.setdefault("hooks", {}).get("PermissionRequest", []) if not is_ours(e)]
-    if not remove:
-        # Our own wait ends at WAIT_SEC; Claude's timeout sits just above it.
-        entries.append({"hooks": [{"type": "command", "command": hook_command(), "timeout": WAIT_SEC + 30}]})
-    if entries:
-        settings["hooks"]["PermissionRequest"] = entries
-    else:
-        settings["hooks"].pop("PermissionRequest", None)
-        if not settings["hooks"]:
-            settings.pop("hooks")
+    for event, matcher in (("PermissionRequest", None), ("PreToolUse", PLAN_TOOL)):
+        entries = [e for e in settings.setdefault("hooks", {}).get(event, []) if not is_ours(e)]
+        if not remove:
+            # Our own wait ends at WAIT_SEC; Claude's timeout sits just above it.
+            entry = {"hooks": [{"type": "command", "command": hook_command(), "timeout": WAIT_SEC + 30}]}
+            if matcher:
+                entry["matcher"] = matcher
+            entries.append(entry)
+        if entries:
+            settings["hooks"][event] = entries
+        else:
+            settings["hooks"].pop(event, None)
+    if not settings["hooks"]:
+        settings.pop("hooks")
     write_atomic(SETTINGS, settings, indent=2)
     print(("Removed" if remove else "Installed") + " the crab approval hook. Backup: " + backup)
 
