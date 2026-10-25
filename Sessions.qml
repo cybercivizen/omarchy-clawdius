@@ -32,6 +32,10 @@ Column {
   // Stop on an idle background row: end its process, keep the conversation.
   signal stopRequested(var session)
   signal idleToggled()
+  // The pin button on a row: toggle it pinned.
+  signal starRequested(var session)
+  // Ids of pinned sessions (prefs.json).
+  property var starredIds: []
 
   readonly property string home: Quickshell.env("HOME") || ""
 
@@ -207,9 +211,27 @@ Column {
               onClicked: root.stopRequested(sessionRow.s)
             }
 
+            // Pin: always shown filled when pinned, else on hover. Left of Stop
+            // (or of the time when there is no Stop).
+            Pill {
+              id: pinButton
+              readonly property bool starred: root.starredIds.indexOf(sessionRow.s.id) >= 0
+              anchors.right: stopButton.visible ? stopButton.left : whenText.left
+              anchors.rightMargin: Style.space(6)
+              anchors.verticalCenter: parent.verticalCenter
+              visible: starred || rowMouse.containsMouse || hovered || stopButton.hovered
+              pal: root.pal
+              fontFamily: root.fontFamily
+              compact: true
+              kind: "quiet"
+              label: starred ? "★" : "☆"
+              tooltip: starred ? "Unpin" : "Pin"
+              onClicked: root.starRequested(sessionRow.s)
+            }
+
             // Beside Stop: why the sleep sweep hasn't stopped it.
             Text {
-              anchors.right: stopButton.left
+              anchors.right: pinButton.visible ? pinButton.left : stopButton.left
               anchors.rightMargin: Style.space(10)
               anchors.verticalCenter: parent.verticalCenter
               visible: stopButton.visible && text !== ""

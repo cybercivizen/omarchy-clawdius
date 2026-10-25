@@ -66,6 +66,9 @@ Rectangle {
   signal terminal(var session)
   signal newChat()
   signal pinned(var session)
+  // The tooltip's Pin button: toggle the session pinned (persisted). starredIds are the pinned ids.
+  signal starToggled(var session)
+  property var starredIds: []
   signal moreSessions()
   // ChallengeCard's: start | open | check | stuck | easier | skip | next | review | settings
   signal challenge(string action)
@@ -822,6 +825,18 @@ Rectangle {
             }
           }
 
+          Text {
+            visible: root.starredIds.indexOf(railItem.modelData.id) >= 0
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.leftMargin: -Style.space(3)
+            anchors.topMargin: -Style.space(5)
+            text: "★"
+            color: root.pal.crab
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
           HoverHandler {
             onHoveredChanged: {
               if (hovered) peek.show(railItem.modelData, railItem.y + railColumn.y + rail.y)
@@ -935,7 +950,7 @@ Rectangle {
 
         Row {
           spacing: Style.space(8)
-          width: parent.width - peekState.implicitWidth - Style.space(8)
+          width: parent.width - peekState.implicitWidth - peekStar.width - Style.space(12)
 
           Rectangle {
             anchors.verticalCenter: parent.verticalCenter
@@ -965,6 +980,21 @@ Rectangle {
             label: "bg"
             fontFamily: root.fontFamily
           }
+        }
+
+        // Pin: keeps this session on the rail and at the top of Live.
+        Pill {
+          id: peekStar
+          readonly property bool starred: !!peek.session && root.starredIds.indexOf(peek.session.id) >= 0
+          anchors.right: peekState.left
+          anchors.rightMargin: Style.space(4)
+          anchors.verticalCenter: parent.verticalCenter
+          pal: root.pal
+          fontFamily: root.fontFamily
+          dense: true
+          kind: "quiet"
+          label: starred ? "★ Pinned" : "☆ Pin"
+          onClicked: if (peek.session) root.starToggled(peek.session)
         }
 
         Text {

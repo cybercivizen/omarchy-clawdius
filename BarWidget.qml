@@ -91,6 +91,7 @@ BarWidget {
   readonly property var idleSessions: {
     var idle = sessions.filter(function(s) { return !s.busy && !s.waiting })
     var shown = idleExpanded ? idle.slice() : idle.slice(0, maxIdle)
+    idle.forEach(function(s) { if (isStarred(s.id) && shown.indexOf(s) < 0) shown.push(s) })
     var live = idle.filter(function(s) { return s.jobId && s.jobId === liveId })
     if (live.length && shown.indexOf(live[0]) < 0) shown.push(live[0])
     return shown
@@ -103,6 +104,18 @@ BarWidget {
   }
   // The live session has a prompt waiting: its card (Detail) is taller for a plan.
   readonly property bool liveAsk: !!liveSession && requests.some(function(r) { return r.sessionId === liveSession.id && r.tool === "ExitPlanMode" })
+  // Starred (pinned) sessions: ids kept in prefs.json. Named "starred" because
+  // pinnedId/pinSession already mean the card's transient focus.
+  property var starredIds: []
+  function isStarred(id) { return starredIds.indexOf(id) >= 0 }
+  function toggleStar(s) {
+    if (!s || !s.id) return
+    starredIds = isStarred(s.id) ? starredIds.filter(function(i) { return i !== s.id }) : starredIds.concat([s.id])
+  }
+  // Stable: starred first, the rest keep their order.
+  function starFirst(list) {
+    return list.filter(function(s) { return isStarred(s.id) }).concat(list.filter(function(s) { return !isStarred(s.id) }))
+  }
   readonly property int hiddenIdle: Math.max(0, sessions.length - activeSessions.length - idleSessions.length)
 
   // ---- Moods. The crab shows the most pressing thing going on:
@@ -1605,6 +1618,7 @@ BarWidget {
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
         if (/^(auto|plan|acceptEdits|default)$/.test(prefs.quickPermission)) root.quickPermission = prefs.quickPermission
+        if (Array.isArray(prefs.starredIds)) root.starredIds = prefs.starredIds.filter(function(i) { return typeof i === "string" })
         if (Array.isArray(prefs.recentSearches)) root.recentSearches = prefs.recentSearches.filter(function(r) {
           return r && (r.kind === "terminal" || r.kind === "google") && typeof r.text === "string" && r.text !== ""
         }).slice(0, 8)
@@ -1619,10 +1633,11 @@ BarWidget {
   onQuickEffortChanged: prefsSave.restart()
   onQuickPermissionChanged: prefsSave.restart()
   onRecentSearchesChanged: prefsSave.restart()
+  onStarredIdsChanged: prefsSave.restart()
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
+    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches, starredIds: root.starredIds }))
   }
 
   // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
@@ -1822,7 +1837,12 @@ BarWidget {
     for (var i = 0; i < feedSessions.length; i++) live[feedSessions[i].id] = true
     return resumable.filter(function(r) { return !live[r.id] })
   }
-  readonly property var resumableIdle: notRunning.filter(function(r) { return !r.missing }).slice(0, 8)
+  // Starred ones come first and don't count against the 8.
+  readonly property var resumableIdle: {
+    var ok = notRunning.filter(function(r) { return !r.missing })
+    var starred = ok.filter(function(r) { return isStarred(r.id) })
+    return starred.concat(ok.filter(function(r) { return !isStarred(r.id) }).slice(0, 8))
+  }
   readonly property var history: {
     var inResume = {}
     for (var i = 0; i < resumableIdle.length; i++) inResume[resumableIdle[i].id] = true
@@ -2050,7 +2070,7 @@ BarWidget {
   // feed's order). Four fit; "+N" opens Sessions.
   readonly property var railAll: {
     var main = moment.session ? moment.session.id : ""
-    return sessions.filter(function(s) { return s.id !== main })
+    return starFirst(sessions.filter(function(s) { return s.id !== main }))
   }
   readonly property var railSessions: railAll.slice(0, 4)
 
@@ -2676,6 +2696,8 @@ BarWidget {
                   onTerminal: function(s) { root.focusSession(s) }
                   onNewChat: root.openView("quick")
                   onPinned: function(s) { root.pinSession(s) }
+                  onStarToggled: function(s) { root.toggleStar(s) }
+                  starredIds: root.starredIds
                   onMoreSessions: { root.view = "sessions"; root.sessionsTab = "live" }
                 }
 
@@ -2755,7 +2777,7 @@ BarWidget {
                     visible: root.sessionsTab === "live"
                     width: parent.width
                     pal: theme
-                    sessions: root.activeSessions.concat(root.idleSessions)
+                    sessions: root.starFirst(root.activeSessions.concat(root.idleSessions))
                     hiddenIdle: root.hiddenIdle
                     idleCount: root.idleCount
                     idleLimit: root.maxIdle
@@ -2769,6 +2791,8 @@ BarWidget {
                     idleStopMinutes: root.idleStopMinutes
                     onOpened: function(s) { root.openSession(s) }
                     onStopRequested: function(s) { root.stopSession(s) }
+                    onStarRequested: function(s) { root.toggleStar(s) }
+                    starredIds: root.starredIds
                   }
 
                   // Resume and History were one list over the same data; the
@@ -2778,9 +2802,10 @@ BarWidget {
                     pal: theme
                     visible: root.sessionsTab === "recent"
                     width: parent.width
-                    sessions: root.notRunning
+                    sessions: root.starFirst(root.notRunning)
+                    starredIds: root.starredIds
                     emptyText: root.resumable.length ? "No earlier conversations." : "No conversations found."
-                    firstPage: 8
+                    firstPage: 8 + root.notRunning.filter(function(r) { return root.isStarred(r.id) }).length
                     pageSize: 25
                     now: root.now
                     fg: theme.fg
@@ -2788,6 +2813,7 @@ BarWidget {
                     accent: theme.done
                     fontFamily: root.fontFamily
                     onActivated: function(r) { root.resumeSession(r) }
+                    onStarRequested: function(r) { root.toggleStar(r) }
                   }
 
                   Folders {

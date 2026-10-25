@@ -30,6 +30,9 @@ Column {
 
   // A row was clicked: reopen that session in its own directory.
   signal activated(var session)
+  // The pin on a row: toggle it pinned. starredIds are the pinned ids.
+  signal starRequested(var session)
+  property var starredIds: []
 
   spacing: Style.space(2)
 
@@ -129,7 +132,7 @@ Column {
           Text {
             id: titleText
             anchors.left: parent.left
-            anchors.right: whenText.left
+            anchors.right: starText.left
             anchors.rightMargin: Style.space(8)
             text: row.modelData.title
             textFormat: Text.PlainText
@@ -137,6 +140,29 @@ Column {
             color: root.fg
             font.family: root.fontFamily
             font.pixelSize: Style.font.body
+          }
+
+          // Pin: filled and always shown when pinned, else on row hover.
+          Text {
+            id: starText
+            readonly property bool starred: root.starredIds.indexOf(row.modelData.id) >= 0
+            anchors.right: whenText.left
+            anchors.rightMargin: Style.space(8)
+            anchors.verticalCenter: parent.verticalCenter
+            visible: starred || rowMouse.containsMouse || starMouse.containsMouse
+            text: starred ? "★" : "☆"
+            color: starred || starMouse.containsMouse ? root.fg : root.mutedFg
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+
+            MouseArea {
+              id: starMouse
+              anchors.fill: parent
+              anchors.margins: -Style.space(6)
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.starRequested(row.modelData)
+            }
           }
 
           Text {
