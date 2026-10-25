@@ -7,7 +7,8 @@ import "Timers.js" as Timers
 // One section per feature, stacked and foldable; a new setting is a new
 // section here.
 //
-//   Island      where sessions open: in the island, or in a terminal window.
+//   Island      where sessions open: in the island, or in a terminal window;
+//               and its look (Soft, Compact, Dense).
 //   Move        how often the sit-up and the stand-up-and-walk nudges ring
 //               (the switches are on Home's Move card).
 //   Anti-rot    how many challenges a day, which languages are in the rotation,
@@ -52,7 +53,7 @@ Column {
   readonly property int timeBox: antirot ? antirot.timeBox || 0 : 0
   readonly property int streak: antirot ? antirot.streakNow || 0 : 0
 
-  spacing: Style.space(12)
+  spacing: root.pal.sp(12)
 
   component Caption: Text {
     textFormat: Text.PlainText
@@ -190,7 +191,7 @@ Column {
       name: "Theme"
 
       Repeater {
-        model: [["Soft", "soft"], ["Compact", "dev"]]
+        model: [["Soft", "soft"], ["Compact", "dev"], ["Dense", "dense"]]
 
         Pill {
           required property var modelData
@@ -206,7 +207,7 @@ Column {
 
     Text {
       width: parent.width
-      text: "Compact: small corners, hairline borders and tighter rows, to sit with the rest of the bar."
+      text: "Compact: small corners and hairline borders, to sit with the rest of the bar. Dense: Compact with less padding, one-line lists and a narrower island."
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
       color: root.pal.muted

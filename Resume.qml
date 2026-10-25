@@ -76,12 +76,15 @@ Column {
     if (cwd === home) return "~"
     return cwd.indexOf(home + "/") === 0 ? "~/" + cwd.slice(home.length + 1) : cwd
   }
+  function rowFolder(s) {
+    return s.missing ? (s.cwd ? folder(s.cwd) + " · folder gone" : "folder unknown") : folder(s.cwd)
+  }
 
   Text {
     visible: root.sessions.length === 0 && root.emptyText !== ""
     width: parent.width
-    topPadding: Style.space(6)
-    bottomPadding: Style.space(6)
+    topPadding: root.pal.sp(6)
+    bottomPadding: root.pal.sp(6)
     horizontalAlignment: Text.AlignHCenter
     text: root.emptyText
     textFormat: Text.PlainText
@@ -96,8 +99,8 @@ Column {
     Item {
       id: row
       required property var modelData
-      readonly property real padH: Style.space(10)
-      readonly property real padV: Style.space(6)
+      readonly property real padH: root.pal.sp(10)
+      readonly property real padV: root.pal.sp(6)
       width: root.width
       height: rowColumn.implicitHeight + padV * 2
 
@@ -132,7 +135,7 @@ Column {
           Text {
             id: titleText
             anchors.left: parent.left
-            anchors.right: starText.left
+            anchors.right: inlineMeta.left
             anchors.rightMargin: Style.space(8)
             text: row.modelData.title
             textFormat: Text.PlainText
@@ -140,6 +143,38 @@ Column {
             color: root.fg
             font.family: root.fontFamily
             font.pixelSize: Style.font.body
+          }
+
+          // Dense: the folder and the cache note join the title's line, and
+          // the second line goes. The title gives way first.
+          Row {
+            id: inlineMeta
+            visible: root.pal.dense
+            anchors.right: starText.left
+            anchors.rightMargin: visible ? Style.space(8) : 0
+            anchors.verticalCenter: parent.verticalCenter
+            width: visible ? implicitWidth : 0
+            spacing: Style.space(8)
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              width: Math.min(implicitWidth, rowColumn.width * 0.3)
+              text: root.rowFolder(row.modelData)
+              textFormat: Text.PlainText
+              elide: Text.ElideMiddle
+              color: root.mutedFg
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.cacheText(row.modelData)
+              textFormat: Text.PlainText
+              color: root.cacheLeft(row.modelData) > 0 ? root.accent : root.mutedFg
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
           }
 
           // Pin: filled and always shown when pinned, else on row hover.
@@ -178,6 +213,7 @@ Column {
 
         Item {
           readonly property bool cached: root.cacheLeft(row.modelData) > 0
+          visible: !root.pal.dense
           width: parent.width
           height: folderText.implicitHeight
 
@@ -186,8 +222,7 @@ Column {
             anchors.left: parent.left
             anchors.right: cacheText.left
             anchors.rightMargin: Style.space(8)
-            text: row.modelData.missing ? (row.modelData.cwd ? root.folder(row.modelData.cwd) + " · folder gone" : "folder unknown")
-              : root.folder(row.modelData.cwd)
+            text: root.rowFolder(row.modelData)
             textFormat: Text.PlainText
             elide: Text.ElideMiddle
             color: root.mutedFg
@@ -213,7 +248,7 @@ Column {
   Item {
     visible: root.pageSize > 0 && root.sessions.length > root.shown
     width: parent.width
-    height: moreText.implicitHeight + Style.space(12)
+    height: moreText.implicitHeight + root.pal.sp(12)
 
     Text {
       id: moreText

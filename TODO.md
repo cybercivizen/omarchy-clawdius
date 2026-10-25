@@ -187,3 +187,5 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Anti-rot: one "Stuck?" pill opens the corner card's STUCK tab: Explain (the task in plain words with examples) and Hint / Another hint, replacing the hint pills on the main card.
 - [x] Anti-rot Stuck: the tab only exists while shown, keeps the card's height (no island growth), hints paged with ‹ › and a More hint button, a scroll bar for long text.
 - [x] Pin a session (☆ on Live/Recent rows and the card tooltip): pinned sessions sort first and are never cut; saved as `starredIds` in prefs.json.
+- [x] Dense theme (Gear → Island → Theme): Compact plus `pal.sp()` padding at ~70%, 34 px nav, 780 px island, smaller Home crab and rail, smaller pills, one-line Recent and Folders rows. Seen rendered (Home, Recent, Stats) in the dark theme.
+- [ ] Dense, next pass: Detail, Chat, Search, QuickChat, Approval and the live terminal still use the Compact sizes; light theme not checked.

@@ -315,7 +315,7 @@ buffer squashed into the new size.
   90%), today's tokens / prompts / sessions, tokens per model, last 7 days.
 - **Settings** (the gear): settings that live in the island rather than in
   `shell.json`, one section per feature, each folding on a click (`Settings.qml`).
-  **Island** has one switch, *Terminals outside the island*: on, opening a
+  **Island** has the theme (Soft, Compact, Dense; see Themes) and one switch, *Terminals outside the island*: on, opening a
   session (or starting one) opens a real terminal window instead of the island's
   conversation and live terminal; the sessions, folders, approvals and usage
   stay. **Anti-rot** (folded to start with):
@@ -394,10 +394,17 @@ Gear → Island → Theme picks the island's look, kept in `prefs.json`
 (`islandLook`). **Soft** is the rounded, airy island. **Compact** is the
 developer look: 12 px corners on the island and cards (as the bar's other popups), 10 px max on controls instead of
 pills, tighter padding and rows, in line with
-the rest of the bar. `Colors.look` carries it: views take their corner radii
-from `pal.rad()` / `pal.pill()`, so a new view gets both looks by using those
-instead of a bare `radius`. First iteration: shapes and density only; row
-heights inside the views are still the Soft sizes.
+the rest of the bar. **Dense** (`"dense"`) is Compact made smaller: about 70%
+of the padding, gaps and row heights, a 34 px nav, a 780 px island instead of
+948, a smaller Home crab and rail, pills a step down (24 px floor), and Recent
+and Folders rows on one line (folder and meta beside the title). Text stays
+the same size. `Colors.look` carries it: views take their corner radii
+from `pal.rad()` / `pal.pill()`, so a new view gets every look by using those
+instead of a bare `radius`; `pal.dev` is true for Compact and Dense, and
+padding or gaps go through `pal.sp(px)` (as `Style.space`, cut down in Dense;
+not for icons, pixel art or text). Compact still uses the Soft row heights
+inside the views; Dense covers Home, the corner card, Sessions, Stats and
+Settings so far.
 
 ### Clock hover
 

@@ -80,7 +80,7 @@ Rectangle {
   readonly property bool tall: kind === "approval" && !!moment.request && moment.request.tool === "ExitPlanMode"
   readonly property var s: moment && moment.session ? moment.session : null
   readonly property string home: Quickshell.env("HOME") || ""
-  readonly property real pad: Style.space(26)
+  readonly property real pad: pal.sp(26)
   readonly property bool hasRail: railSessions.length > 0
 
   readonly property string crabMood: kind === "approval" || kind === "waiting" ? "waiting"
@@ -121,8 +121,8 @@ Rectangle {
   // another mode is up (pulsing orange, or green for a finish).
   readonly property bool anyWorking: kind === "working" || railSessions.some(x => x.busy)
 
-  implicitHeight: Math.max(Style.space(204), agents ? body.implicitHeight + pad * 2 : 0,
-    mode === "antirot" ? repCard.implicitHeight + Style.space(38 + 12 + 12) : 0, railColumn.implicitHeight + Style.space(20))
+  implicitHeight: Math.max(pal.sp(204), agents ? body.implicitHeight + pad * 2 : 0,
+    mode === "antirot" ? repCard.implicitHeight + Style.space(38) + pal.sp(12 + 12) : 0, railColumn.implicitHeight + pal.sp(20))
 
   // ---- The glow: a wide arc of the state color rising from the bottom edge,
   //      clipped to the card's rounded corners by drawing it in their shape.
@@ -170,7 +170,7 @@ Rectangle {
     Crab {
       id: crab
       pal: root.pal
-      unit: Style.spaceReal(6)
+      unit: Style.spaceReal(root.pal.dense ? 4 : 6)
       mood: root.crabMood
       color: root.kind === "idle" || root.kind === "failed" || root.kind === "limited" ? root.pal.idleCrab : root.pal.crab
       badge: root.badge
@@ -237,8 +237,8 @@ Rectangle {
   Item {
     id: body
     visible: root.agents
-    x: crabSlot.x + crabSlot.width + Style.space(28)
-    width: (root.hasRail ? rail.x - Style.space(16) : root.width - root.pad) - x
+    x: crabSlot.x + crabSlot.width + pal.sp(28)
+    width: (root.hasRail ? rail.x - pal.sp(16) : root.width - root.pad) - x
     height: parent.height
     implicitHeight: approval.visible ? approval.implicitHeight
       : limited.visible ? limited.implicitHeight
@@ -268,7 +268,7 @@ Rectangle {
       visible: root.kind === "limited"
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      spacing: pal.sp(12)
       readonly property var ev: visible ? root.moment.event || {} : {}
       // The limit that's spent, and when it frees up; none on record means
       // only Claude Code's own line (its ev.text) says when.
@@ -319,7 +319,7 @@ Rectangle {
       Column {
         visible: !!limited.spent
         width: parent.width
-        spacing: Style.space(6)
+        spacing: pal.sp(6)
 
         Rectangle {
           width: parent.width
@@ -349,7 +349,7 @@ Rectangle {
       }
 
       Row {
-        spacing: Style.space(8)
+        spacing: pal.sp(8)
         Pill {
           visible: !!root.s && !!root.s.jobId
           pal: root.pal
@@ -382,7 +382,7 @@ Rectangle {
       visible: root.kind === "done" || root.kind === "failed"
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      spacing: pal.sp(12)
       readonly property var ev: visible ? root.moment.event || {} : {}
 
       SessionLine {
@@ -409,7 +409,7 @@ Rectangle {
       }
 
       Row {
-        spacing: Style.space(8)
+        spacing: pal.sp(8)
         // A background session opens up close in the island; one in a
         // terminal window only has its terminal to go to.
         Pill {
@@ -444,7 +444,7 @@ Rectangle {
       visible: root.kind === "working" && !!root.s
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      spacing: pal.sp(12)
 
       SessionLine {
         dotColor: root.pal.crab
@@ -498,7 +498,7 @@ Rectangle {
       visible: root.kind === "waiting" && !!root.s
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      spacing: pal.sp(12)
 
       SessionLine {
         dotColor: root.pal.needsYou
@@ -522,7 +522,7 @@ Rectangle {
       }
 
       Row {
-        spacing: Style.space(8)
+        spacing: pal.sp(8)
         Pill {
           pal: root.pal
           fontFamily: root.fontFamily
@@ -546,11 +546,11 @@ Rectangle {
       visible: root.kind === "idle"
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(14)
+      spacing: pal.sp(14)
 
       Column {
         width: parent.width
-        spacing: Style.space(5)
+        spacing: pal.sp(5)
 
         Text {
           width: parent.width
@@ -598,7 +598,7 @@ Rectangle {
   }
 
   // ---- Today and Anti-rot: the other two modes, up to the rail
-  readonly property real paneRight: hasRail ? rail.x - Style.space(16) : width - pad
+  readonly property real paneRight: hasRail ? rail.x - pal.sp(16) : width - pad
 
   Today {
     id: todayPane
@@ -619,7 +619,7 @@ Rectangle {
     x: root.pad
     y: Style.space(38)
     width: root.paneRight - x
-    height: parent.height - y - Style.space(12)
+    height: parent.height - y - pal.sp(12)
 
     ChallengeCard {
       id: repCard
@@ -648,7 +648,7 @@ Rectangle {
       visible: !root.antirot
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(10)
+      spacing: pal.sp(10)
 
       Text {
         width: parent.width
@@ -749,21 +749,21 @@ Rectangle {
     id: rail
     visible: root.hasRail
     anchors.right: parent.right
-    anchors.rightMargin: Style.space(12)
+    anchors.rightMargin: pal.sp(12)
     anchors.top: parent.top
-    anchors.topMargin: Style.space(12)
-    width: Style.space(48) + Style.space(12)
+    anchors.topMargin: pal.sp(12)
+    width: Style.space(48) + pal.sp(12)
     height: railColumn.implicitHeight
 
     Rectangle {
       width: 1
-      height: Math.max(railColumn.implicitHeight, root.height - Style.space(24))
+      height: Math.max(railColumn.implicitHeight, root.height - pal.sp(24))
       color: root.pal.hairline
     }
 
     Column {
       id: railColumn
-      x: Style.space(12)
+      x: pal.sp(12)
       spacing: Style.space(4)
 
       Repeater {
@@ -776,7 +776,7 @@ Rectangle {
           required property int index
           readonly property bool hovered: peek.session && peek.session.id === modelData.id && peek.shown
           width: Style.space(48)
-          height: Style.space(34)
+          height: root.pal.dense ? Style.space(28) : Style.space(34)
           radius: pal.rad(Style.space(12))
           color: hovered ? root.pal.alpha(root.pal.fg, 0.10)
             : modelData.waiting ? root.pal.alpha(root.pal.needsYou, 0.08)
@@ -867,7 +867,7 @@ Rectangle {
       Rectangle {
         visible: root.railMore > 0
         width: Style.space(48)
-        height: Style.space(28)
+        height: root.pal.dense ? Style.space(24) : Style.space(28)
         radius: pal.rad(Style.space(10))
         color: moreMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : "transparent"
 
@@ -942,14 +942,14 @@ Rectangle {
       x: Style.space(16)
       y: Style.space(14)
       width: parent.width - Style.space(16) * 2
-      spacing: Style.space(8)
+      spacing: pal.sp(8)
 
       Item {
         width: parent.width
         height: peekName.implicitHeight
 
         Row {
-          spacing: Style.space(8)
+          spacing: pal.sp(8)
           width: parent.width - peekState.implicitWidth - peekStar.width - Style.space(12)
 
           Rectangle {
@@ -1039,7 +1039,7 @@ Rectangle {
       // A question needs its options: those are on the main card.
       Row {
         visible: !!peek.request && peek.request.tool !== "AskUserQuestion"
-        spacing: Style.space(6)
+        spacing: pal.sp(6)
         topPadding: Style.space(2)
         Pill { pal: root.pal; fontFamily: root.fontFamily; compact: true; label: "Deny"; onClicked: root.answered(peek.request, "deny", null) }
         Pill { pal: root.pal; fontFamily: root.fontFamily; compact: true; kind: "primary"; label: "Allow"; onClicked: root.answered(peek.request, "allow", null) }
@@ -1067,7 +1067,7 @@ Rectangle {
     property string caption: ""
     property int elideCaption: Text.ElideRight
     width: parent ? parent.width : 0
-    spacing: Style.space(8)
+    spacing: pal.sp(8)
 
     Rectangle {
       id: lineDot
