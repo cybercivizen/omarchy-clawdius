@@ -103,6 +103,20 @@ BarWidget {
   }
   // The live session has a prompt waiting: its card (Detail) is taller for a plan.
   readonly property bool liveAsk: !!liveSession && requests.some(function(r) { return r.sessionId === liveSession.id && r.tool === "ExitPlanMode" })
+  // Starred (pinned) sessions: ids kept in prefs.json. Named "starred" because
+  // pinnedId/pinSession already mean the card's transient focus.
+  property var starredIds: []
+  function isStarred(id) { return starredIds.indexOf(id) >= 0 }
+  function toggleStar(s) {
+    if (!s || !s.id) return
+    starredIds = isStarred(s.id) ? starredIds.filter(function(i) { return i !== s.id }) : starredIds.concat([s.id])
+  }
+  readonly property var pinnedLive: sessions.filter(function(s) { return isStarred(s.id) })
+  readonly property var pinnedResumable: notRunning.filter(function(r) { return isStarred(r.id) })
+  // Stable: starred first, the rest keep their order.
+  function starFirst(list) {
+    return list.filter(function(s) { return isStarred(s.id) }).concat(list.filter(function(s) { return !isStarred(s.id) }))
+  }
   readonly property int hiddenIdle: Math.max(0, sessions.length - activeSessions.length - idleSessions.length)
 
   // ---- Moods. The crab shows the most pressing thing going on:
@@ -1605,6 +1619,7 @@ BarWidget {
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
         if (/^(auto|plan|acceptEdits|default)$/.test(prefs.quickPermission)) root.quickPermission = prefs.quickPermission
+        if (Array.isArray(prefs.starredIds)) root.starredIds = prefs.starredIds.filter(function(i) { return typeof i === "string" })
         if (Array.isArray(prefs.recentSearches)) root.recentSearches = prefs.recentSearches.filter(function(r) {
           return r && (r.kind === "terminal" || r.kind === "google") && typeof r.text === "string" && r.text !== ""
         }).slice(0, 8)
@@ -1619,10 +1634,11 @@ BarWidget {
   onQuickEffortChanged: prefsSave.restart()
   onQuickPermissionChanged: prefsSave.restart()
   onRecentSearchesChanged: prefsSave.restart()
+  onStarredIdsChanged: prefsSave.restart()
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches }))
+    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches, starredIds: root.starredIds }))
   }
 
   // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
@@ -1969,8 +1985,8 @@ BarWidget {
   property int shownSessionsTab: 0
   onSessionsTabChanged: {
     cardFlick.contentY = 0
-    var i = ["live", "recent", "folders"].indexOf(sessionsTab)
-    var slide = sessionsTab === "live" ? liveSlide : sessionsTab === "recent" ? recentSlide : foldersSlide
+    var i = ["live", "pinned", "recent", "folders"].indexOf(sessionsTab)
+    var slide = sessionsTab === "live" ? liveSlide : sessionsTab === "pinned" ? pinnedSlide : sessionsTab === "recent" ? recentSlide : foldersSlide
     if (card.visible && i !== shownSessionsTab) {
       slide.dx = (i > shownSessionsTab ? 1 : -1) * Style.space(14)
       slide.restart()
@@ -1978,6 +1994,7 @@ BarWidget {
     shownSessionsTab = i
   }
   Slide { id: liveSlide; target: liveList }
+  Slide { id: pinnedSlide; target: pinnedView }
   Slide { id: recentSlide; target: recentList }
   Slide { id: foldersSlide; target: foldersView }
 
@@ -2050,7 +2067,7 @@ BarWidget {
   // feed's order). Four fit; "+N" opens Sessions.
   readonly property var railAll: {
     var main = moment.session ? moment.session.id : ""
-    return sessions.filter(function(s) { return s.id !== main })
+    return starFirst(sessions.filter(function(s) { return s.id !== main }))
   }
   readonly property var railSessions: railAll.slice(0, 4)
 
@@ -2676,6 +2693,8 @@ BarWidget {
                   onTerminal: function(s) { root.focusSession(s) }
                   onNewChat: root.openView("quick")
                   onPinned: function(s) { root.pinSession(s) }
+                  onStarToggled: function(s) { root.toggleStar(s) }
+                  starredIds: root.starredIds
                   onMoreSessions: { root.view = "sessions"; root.sessionsTab = "live" }
                 }
 
@@ -2732,7 +2751,7 @@ BarWidget {
 
                     TabMark {
                       pal: theme
-                      over: root.sessionsTab === "live" ? segLive : root.sessionsTab === "recent" ? segRecent : segFolders
+                      over: root.sessionsTab === "live" ? segLive : root.sessionsTab === "pinned" ? segPinned : root.sessionsTab === "recent" ? segRecent : segFolders
                     }
 
                     Row {
@@ -2744,6 +2763,13 @@ BarWidget {
                         label: "Live" + (root.sessions.length ? "  " + root.sessions.length : "")
                         current: root.sessionsTab === "live"
                         onClicked: root.sessionsTab = "live"
+                      }
+                      Segment {
+                        id: segPinned
+                        readonly property int count: root.pinnedLive.length + root.pinnedResumable.length
+                        label: "Pinned" + (count ? "  " + count : "")
+                        current: root.sessionsTab === "pinned"
+                        onClicked: root.sessionsTab = "pinned"
                       }
                       Segment { id: segRecent; label: "Recent"; current: root.sessionsTab === "recent"; onClicked: root.sessionsTab = "recent" }
                       Segment { id: segFolders; label: "Folders"; current: root.sessionsTab === "folders"; onClicked: root.sessionsTab = "folders" }
@@ -2769,6 +2795,8 @@ BarWidget {
                     idleStopMinutes: root.idleStopMinutes
                     onOpened: function(s) { root.openSession(s) }
                     onStopRequested: function(s) { root.stopSession(s) }
+                    onStarRequested: function(s) { root.toggleStar(s) }
+                    starredIds: root.starredIds
                   }
 
                   // Resume and History were one list over the same data; the
@@ -2779,6 +2807,7 @@ BarWidget {
                     visible: root.sessionsTab === "recent"
                     width: parent.width
                     sessions: root.notRunning
+                    starredIds: root.starredIds
                     emptyText: root.resumable.length ? "No earlier conversations." : "No conversations found."
                     firstPage: 8
                     pageSize: 25
@@ -2788,6 +2817,66 @@ BarWidget {
                     accent: theme.done
                     fontFamily: root.fontFamily
                     onActivated: function(r) { root.resumeSession(r) }
+                    onStarRequested: function(r) { root.toggleStar(r) }
+                  }
+
+                  // Pinned: the pinned sessions, running ones first, then the
+                  // ones that aren't running.
+                  Column {
+                    id: pinnedView
+                    visible: root.sessionsTab === "pinned"
+                    width: parent.width
+                    spacing: Style.space(2)
+
+                    Text {
+                      visible: root.pinnedLive.length + root.pinnedResumable.length === 0
+                      width: parent.width
+                      topPadding: Style.space(14)
+                      bottomPadding: Style.space(14)
+                      horizontalAlignment: Text.AlignHCenter
+                      text: "Nothing pinned yet.\nHover a session and click ☆."
+                      textFormat: Text.PlainText
+                      color: theme.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+
+                    Sessions {
+                      visible: root.pinnedLive.length > 0
+                      width: parent.width
+                      pal: theme
+                      sessions: root.pinnedLive
+                      emptyText: ""
+                      hiddenIdle: 0
+                      idleCount: 0
+                      idleLimit: 1000
+                      now: root.now
+                      active: card.visible && pinnedView.visible
+                      fontFamily: root.fontFamily
+                      liveId: root.liveId
+                      awake: root.awake
+                      idleStopMinutes: root.idleStopMinutes
+                      onOpened: function(s) { root.openSession(s) }
+                      onStopRequested: function(s) { root.stopSession(s) }
+                      onStarRequested: function(s) { root.toggleStar(s) }
+                      starredIds: root.starredIds
+                    }
+
+                    Resume {
+                      visible: root.pinnedResumable.length > 0
+                      pal: theme
+                      width: parent.width
+                      sessions: root.pinnedResumable
+                      starredIds: root.starredIds
+                      emptyText: ""
+                      now: root.now
+                      fg: theme.fg
+                      mutedFg: theme.muted
+                      accent: theme.done
+                      fontFamily: root.fontFamily
+                      onActivated: function(r) { root.resumeSession(r) }
+                      onStarRequested: function(r) { root.toggleStar(r) }
+                    }
                   }
 
                   Folders {

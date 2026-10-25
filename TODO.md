@@ -186,3 +186,4 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Anti-rot: Hint button. Sonnet (no tools) nudges towards the next step without code, a bit more concrete each press; each counts as two checks towards a re-do.
 - [x] Anti-rot: one "Stuck?" pill opens the corner card's STUCK tab: Explain (the task in plain words with examples) and Hint / Another hint, replacing the hint pills on the main card.
 - [x] Anti-rot Stuck: the tab only exists while shown, keeps the card's height (no island growth), hints paged with ‹ › and a More hint button, a scroll bar for long text.
+- [x] Pin a session (☆ on Live/Recent rows and the card tooltip): pinned sessions sort first and are never cut; saved as `starredIds` in prefs.json.
