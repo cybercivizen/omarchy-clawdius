@@ -58,6 +58,17 @@ BarWidget {
     barColor: root.previewTheme === "" && root.bar ? root.bar.background : "transparent"
   }
   readonly property color crabColor: theme.crab
+  // The desktop's bar crab types, bobs and blinks. Every step redraws the
+  // bar, and the laptop's GPU can't afford that for as long as Claude works:
+  // there the crab holds one pose and only changes color. Empty until
+  // ~/dotfiles/.machine is read, which counts as laptop.
+  property string machine: ""
+  readonly property bool still: machine !== "desktop"
+  FileView {
+    path: Quickshell.env("HOME") + "/dotfiles/.machine"
+    printErrors: false
+    onLoaded: root.machine = text().trim()
+  }
   // IPC themePreview: draw the island in Solitude Light / Dark without
   // switching the desktop's theme.
   property string previewTheme: ""
@@ -571,11 +582,12 @@ BarWidget {
         color: root.mood === "idle" || root.mood === "sleep" ? theme.idleCrab : root.crabColor
         mood: root.mood
         sweat: root.sweating
-        animate: root.revealed
+        animate: root.revealed && !root.still
         Behavior on color { ColorAnimation { duration: 200 } }
 
         transform: Translate {
-          y: glyph.mood === "typing" && glyph.step % 2 === 1 ? -glyph.unit * 0.5
+          y: !glyph.animate ? 0
+            : glyph.mood === "typing" && glyph.step % 2 === 1 ? -glyph.unit * 0.5
             : glyph.mood === "done" && glyph.step % 2 === 0 ? -glyph.unit
             : 0
         }
