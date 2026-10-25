@@ -23,6 +23,7 @@ import uuid
 RUNTIME = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "clawdius")
 REQUESTS = os.path.join(RUNTIME, "requests")
 WATCHER_PID = os.path.join(RUNTIME, "watcher.pid")
+HOOK_LOG = os.path.join(RUNTIME, "hook.log")   # one line per hook call: which prompts reach the hook
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
 WAIT_SEC = 300          # then the terminal prompt takes over
 POLL_SEC = 0.15
@@ -210,6 +211,14 @@ def hook():
     except ValueError:
         return
     tool = payload.get("tool_name", "")
+    try:
+        os.makedirs(RUNTIME, exist_ok=True)
+        with open(HOOK_LOG, "a") as f:
+            f.write("%s %s %s\n" % (time.strftime("%H:%M:%S"), payload.get("hook_event_name", ""), tool))
+        if os.path.getsize(HOOK_LOG) > 20000:
+            os.replace(HOOK_LOG, HOOK_LOG + ".old")
+    except OSError:
+        pass
     pid = read_json(WATCHER_PID)
     if not isinstance(pid, int) or not pid_alive(pid):
         return   # nobody is watching: Claude asks in the terminal as usual
