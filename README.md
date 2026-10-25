@@ -557,7 +557,10 @@ watching, after 5 minutes, or on any error.
 and options, and the answer goes back as an allow whose `updatedInput` adds
 `answers` (question → label, several picks joined with ", "), the way the
 Agent SDK answers it. `ExitPlanMode` shows the plan: Approve plan allows it,
-Keep planning denies it with a note to ask what to change. Options show
+Keep planning denies it with a note to ask what to change. The plan goes
+through a `PreToolUse` hook (matcher `ExitPlanMode`, added by `install`)
+instead of `PermissionRequest`, because answering a `PermissionRequest` left
+the plan dialog open in the terminal. Options show
 their full text, and the plan is formatted Markdown in a scrolling box
 (the island grows taller for it). In a session's live view the same card covers the terminal while
 that session has a prompt waiting; Terminal there hands it back to Claude's
