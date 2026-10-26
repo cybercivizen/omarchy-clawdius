@@ -372,7 +372,9 @@ stub in the chosen editor (side by side in Neovim/Vim; default
 shows how many pass, with the end of the output. **Stuck?** turns the corner
 card into a help pane (a STUCK tab that exists only while it's shown, **Hide
 help** removes it; it keeps the card's height and scrolls, with a bar, what
-doesn't fit). **Explain** restates the
+doesn't fit; in the dense look the island grows taller while it's open, so
+there's room to read). Another main tab or corner tab hides the help, and
+going back to Anti-rot brings it back. **Explain** restates the
 task in plain words with worked examples, for when the instructions make no
 sense (**Simpler** tries again); **Hint** gives a nudge from the task, your
 code and the last output: a concept or a place to look, never code, a bit more
