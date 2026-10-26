@@ -49,6 +49,8 @@ Rectangle {
   property string challengeBusy: ""
   // The corner card is on Stuck, for the card's "Stuck?" pill.
   property bool stuckOpen: false
+  // Sessions open in a terminal window, so "Open" and "Open terminal" would be one button.
+  property bool terminalOutside: false
   // agents | today | antirot: what the card shows (BarWidget forces agents
   // while a moment needs you). Weather.js parse(), for Today.
   property string mode: "agents"
@@ -258,6 +260,7 @@ Rectangle {
       request: visible ? root.moment.request : null
       sessionName: visible ? (root.s ? root.s.name : root.moment.name || "") : ""
       background: !!root.s && root.s.kind === "bg"
+      terminalOutside: root.terminalOutside
       more: visible ? root.moment.more || 0 : 0
       onAnswered: function(choice, answers) { root.answered(root.moment.request, choice, answers) }
       onOpened: if (root.s) root.opened(root.s)
@@ -432,7 +435,7 @@ Rectangle {
         // A background session opens up close in the island; one in a
         // terminal window only has its terminal to go to.
         Pill {
-          visible: !!root.s && !!root.s.jobId
+          visible: !!root.s && !!root.s.jobId && !root.terminalOutside
           compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
@@ -445,8 +448,8 @@ Rectangle {
           compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
-          kind: root.s && root.s.jobId ? "secondary" : "primary"
-          label: "Open terminal"
+          kind: root.s && root.s.jobId && !root.terminalOutside ? "secondary" : "primary"
+          label: root.terminalOutside ? "Open" : "Open terminal"
           onClicked: root.terminal(root.s)
         }
         Pill {
@@ -570,11 +573,11 @@ Rectangle {
           pal: root.pal
           fontFamily: root.fontFamily
           kind: "primary"
-          label: root.s && root.s.jobId ? "Answer here" : "Open terminal"
+          label: root.s && root.s.jobId && !root.terminalOutside ? "Answer here" : root.terminalOutside ? "Open" : "Open terminal"
           onClicked: root.opened(root.s)
         }
         Pill {
-          visible: !!root.s && !!root.s.jobId
+          visible: !!root.s && !!root.s.jobId && !root.terminalOutside
           compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily

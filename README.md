@@ -326,7 +326,8 @@ buffer squashed into the new size.
   `shell.json`, one section per feature, each folding on a click (`Settings.qml`).
   **Island** has the theme (Soft, Compact, Dense; see Themes) and one switch, *Terminals outside the island*: on, opening a
   session (or starting one) opens a real terminal window instead of the island's
-  conversation and live terminal; the sessions, folders, approvals and usage
+  conversation and live terminal, and the cards show a single **Open** button
+  rather than Open plus Open terminal; the sessions, folders, approvals and usage
   stay. **Anti-rot** (folded to start with):
   challenges a day (1–3), each language's on/off switch, its level (− / +, 1–10), and its
   state: ready, not set up (**Set up**), or the toolchain it still needs,
