@@ -13,6 +13,20 @@ session opens up close in the island).
 A community plugin for [Omarchy](https://omarchy.org). Not made by or
 affiliated with Anthropic; Claude and Clawd are theirs.
 
+## What's in it
+
+- **Claude Code at a glance**: approve or deny requests, answer Claude's
+  questions, see finished turns, live and recent sessions, usage limits.
+- **Chat and Code** in the island, with a live terminal for background
+  sessions.
+- **Search** (Alt+Space): apps, sums, commands, browser tabs, Google.
+- **Today**: a calendar with week numbers and the weather.
+- **Timers and alarms**, with a chime when they ring.
+- **Move**: sit-up-straight and walk nudges; the crab sits tall, slumps and
+  stretches.
+- **Anti-rot**: small hand-written Exercism exercises to keep your skills up
+  while Claude writes the code (see [Anti-rot](#anti-rot)).
+
 ## See it in action
 
 [![The island asking to approve a command, with the limits beside it](preview.png)](brag.mp4)
@@ -36,7 +50,8 @@ Pick `center` when it asks where on the bar: the crab sits beside the clock.
 - [Claude Code](https://claude.com/claude-code), the `claude` command,
   signed in. Omarchy doesn't install it for you. Without it the crab just
   sits there with nothing to show.
-- Optional: `gh` for the GitHub button on a session, `code` for the VS Code
+- Optional: `git` and network access for Anti-rot's exercises (Exercism, over
+  GitHub); `gh` for the GitHub button on a session, `code` for the VS Code
   button, `zenity` (`sudo pacman -S zenity`) for the file and folder pickers
   (Open folder, New folder, Clone repo, the paperclip). Without it they show a
   desktop notification saying so.
@@ -44,8 +59,11 @@ Pick `center` when it asks where on the bar: the crab sits beside the clock.
 It works with any clock, or none: hovering the middle of the bar opens the
 island.
 
-The plugin installs nothing and leaves your settings alone. The only thing it
-makes outside its own folder is `~/chat`, the first time you start a Chat.
+The plugin installs nothing and leaves your settings alone. Outside its own
+folder it makes `~/chat` (the first time you start a Chat), `~/Work/antirot`
+and Exercism's tracks under `$XDG_DATA_HOME/clawdius` (only once you turn
+Anti-rot on; its toolchains, like Node or Rust, are yours to install), and
+small state, cache and weather files under `clawdius/` XDG folders.
 
 ### Set it up
 
