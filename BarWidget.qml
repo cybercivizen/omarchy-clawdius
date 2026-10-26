@@ -1363,7 +1363,14 @@ BarWidget {
   // The corner mode to come back to from Stuck, which isn't remembered.
   property string lastCornerMode: "limits"
   readonly property bool repInProgress: !!root.antirot && !!root.antirot.today && !!root.antirot.today.startedAt && !root.antirot.today.passedAt
-  onRepInProgressChanged: if (!repInProgress && cornerMode === "stuck") cornerMode = lastCornerMode
+  // Stuck's help, asked for with the rep's "Stuck?" pill. It shows over the
+  // corner while Anti-rot is the main card; another main tab or corner tab
+  // hides it (helpAway), and Anti-rot coming back brings it back.
+  property bool helpOpen: false
+  property bool helpAway: false
+  readonly property bool stuckShown: helpOpen && repInProgress && mainShown === "antirot" && !helpAway
+  readonly property string cornerShown: stuckShown ? "stuck" : cornerMode
+  onRepInProgressChanged: if (!repInProgress) helpOpen = false
   // Home's main card: agents | today | antirot. What needs you shows Agents
   // whatever was picked; the pick comes back after. A finished turn doesn't
   // force it: the Agents tab wears a green dot instead.
@@ -1387,7 +1394,7 @@ BarWidget {
         root.walk = Object.assign({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false }, d.walk || {})
         // The Anti-rot tab moved to the main card.
         root.lastCornerMode = !d.mode || d.mode === "antirot" || d.mode === "stuck" ? "limits" : d.mode
-        if (root.cornerMode !== "stuck") root.cornerMode = root.lastCornerMode
+        root.cornerMode = root.lastCornerMode
         root.mainMode = d.main || "agents"
       } catch (e) { console.warn("clawdius timers parse", e) }
     }
@@ -1425,13 +1432,16 @@ BarWidget {
   }
 
   function pickCorner(mode) {
+    if (mode === "stuck") { root.helpAway = false; return }
     root.cornerMode = mode
-    if (mode !== "stuck") root.lastCornerMode = mode
+    root.lastCornerMode = mode
+    root.helpAway = true
     timersSave.restart()
   }
 
   function pickMain(mode) {
     root.mainMode = mode
+    if (mode === "antirot") root.helpAway = false
     timersSave.restart()
   }
 
@@ -1725,7 +1735,10 @@ BarWidget {
     if (action === "settings") root.view = "settings"
     else if (action === "open" && rep && rep.file) root.openChallenge(rep.file, rep.docs || (rep.dir ? rep.dir + "/.docs/instructions.md" : ""))
     else if (action === "review" && rep && rep.dir) root.reviewChallenge(rep)
-    else if (action === "stuck") root.cornerMode = root.cornerMode === "stuck" ? root.lastCornerMode : "stuck"
+    else if (action === "stuck") {
+      root.helpOpen = !root.stuckShown
+      root.helpAway = false
+    }
     else if (["start", "check", "easier", "skip", "next"].indexOf(action) >= 0) root.runAntirot([action], rep ? rep.lang : "")
   }
 
@@ -2676,7 +2689,10 @@ BarWidget {
                 readonly property bool glanceShown: ["working", "idle", "done"].indexOf(root.moment.kind) >= 0
                 // Dense: always the corner card's height, so Home keeps one size
                 // whatever the main card shows.
-                height: visible ? Math.max(momentCard.implicitHeight, glanceShown || theme.dense ? glance.implicitHeight : 0) : 0
+                // Help showing: the dense look grows to fit a good amount of it.
+                property real helpExtra: theme.dense && root.stuckShown ? Style.space(110) : 0
+                Behavior on helpExtra { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+                height: visible ? Math.max(momentCard.implicitHeight, glanceShown || theme.dense ? glance.implicitHeight : 0) + helpExtra : 0
 
                 Moment {
                   id: momentCard
@@ -2697,7 +2713,7 @@ BarWidget {
                   antirot: root.antirot
                   challengeBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   mode: root.mainShown
-                  stuckOpen: root.cornerMode === "stuck"
+                  stuckOpen: root.stuckShown
                   terminalOutside: root.terminalOutside
                   weather: root.weather
                   onModePicked: function(mode) { root.pickMain(mode) }
@@ -2719,14 +2735,14 @@ BarWidget {
                   id: glance
                   visible: home.glanceShown
                   anchors.right: parent.right
-                  width: Style.space(root.cornerMode === "stuck" ? (theme.dense ? 300 : 340) : (theme.dense ? 232 : 268))
+                  width: Style.space(root.stuckShown ? (theme.dense ? 300 : 340) : (theme.dense ? 232 : 268))
                   Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
                   height: parent.height
                   pal: theme
                   record: root.usage
                   now: root.now
                   fontFamily: root.fontFamily
-                  mode: root.cornerMode
+                  mode: root.cornerShown
                   rep: root.antirot ? root.antirot.today : null
                   antirotBusy: root.antirotBusy
                   onExplainAsked: function(again) { root.runAntirot(again ? ["explain", "again"] : ["explain"], root.antirot.today.lang) }
