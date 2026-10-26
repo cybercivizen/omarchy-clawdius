@@ -179,7 +179,7 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Chat sessions open as a conversation (ChatView.qml, `live.py chat`):
       speech bubbles with tails, tool lines, typing dots, link chips, a
       toggle to the terminal. Seen rendered in the dark theme; light theme
-      not checked. Open: image paste, Up / Down history, code-block
+      not checked. Open: Up / Down history, code-block
       background.
 - [x] Chat view: model, effort and mode line under the composer; the conversation is the default for every session, the terminal choice is remembered.
 - [ ] Compact theme, next pass: shrink row heights and gaps inside each view (Sessions, Detail, Chat, Search), square the crab's nav dot, check the light theme.
@@ -192,3 +192,4 @@ renders, but nobody has clicked or typed through it yet.
 - [ ] Dense, next pass: Detail, Chat, Search, QuickChat, Approval and the live terminal still use the Compact sizes; light theme not checked.
 - [x] Dense: Home one height in every mode (the corner card's), Anti-rot buttons at the bottom, smaller text in the working view. Home's working view (all looks) folds "Thinking…" into the newest step and drops the quoted note.
 - [x] Home frame: session line fixed at the top, buttons / footer at the bottom (done, working, waiting); thinking shows only the elapsed time; Dense: finished and waiting text body-size, filling the frame.
+- [x] Chat (new chat): Ctrl+V attaches a clipboard image (thumbnails over the composer), sent as `@path` in the first prompt; the path stays out of the bubble.

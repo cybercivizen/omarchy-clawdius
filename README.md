@@ -263,6 +263,11 @@ buffer squashed into the new size.
   folder the session will start in. In Code, the folder by the toggle opens
   one too: the Code folder, the last folder Claude worked in, or Open folder…
   (zenity); that choice lasts until the shell restarts.
+  **Ctrl+V** with an image on the clipboard saves it under
+  `$XDG_RUNTIME_DIR/clawdius/paste/` (`live.py grab`) and shows it as a
+  thumbnail over the composer (× or Backspace on an empty prompt takes it
+  off); Enter sends it with the message as an `@path`, which Claude attaches
+  as an image, and the conversation leaves the path out of your bubble.
   **Opus Plan** stands out in both views' model menus: its row sits on a
   crab-to-purple sweep (`Shimmer.qml`) that drifts in steps while the menu is
   open. On a model chip it shows still and drifts only while pointed at or
@@ -537,7 +542,7 @@ offers "Answer in terminal", which shows the terminal for that session only.
 `live.py chat JOB` feeds it: the same hidden tmux pane as `view` (it takes
 the replies and sees the dialog), but what goes out is read from the
 transcript, one JSON line per message, so nothing is captured or drawn per
-frame. Not yet: image paste, prompt history (Up / Down), live token
+frame. Not yet: prompt history (Up / Down), live token
 streaming (a reply lands whole, per block).
 
 ### Idle sessions go to sleep
