@@ -245,9 +245,9 @@ buffer squashed into the new size.
 - **Chat** (the nav's chat icon, Home's New chat, or **Super+Alt+C**): a
   composer with Clawd peeking up from the island's bottom-left edge. In Code, the
   permission mode (auto, plan, accept edits, ask) sits beside the folder; a click
-  cycles to the next one. It's kept in prefs.json; picking Opus Plan sets it to plan. Chat or
+  or ⇧Tab cycles to the next one, as in the CLI. It's kept in prefs.json; picking Opus Plan sets it to plan. Chat or
   Code, whichever you used last (`~/.local/state/clawdius/prefs.json`;
-  Tab or a click switches): Enter starts that session with the message as
+  Tab or a click switches, ⇧Tab never does): Enter starts that session with the message as
   its first prompt (`claude --bg -- '<message>'`) and goes straight to its
   live view; Shift+Enter is a new line, Esc clears it (or closes the island
   when empty). The text behaves like an input: an I-beam over it, click to

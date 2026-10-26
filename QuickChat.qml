@@ -109,6 +109,15 @@ Rectangle {
     root.focusRequested()
   }
 
+  // Straight to the next permission mode, as ⇧Tab does in a live session.
+  // The mode chip's click and ⇧Tab here both call it.
+  function cyclePermission() {
+    root.picker = ""
+    for (var i = 0; i < root.permissions.length; i++)
+      if (root.permissions[i].id === root.permission) break
+    root.permissionPicked(root.permissions[(i + 1) % root.permissions.length].id)
+  }
+
   readonly property var pickerOptions: {
     if (picker === "model") return models
     if (picker === "effort") return efforts
@@ -281,14 +290,7 @@ Rectangle {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          // Straight to the next mode, as ⇧Tab does in a live session.
-          onClicked: {
-            root.picker = ""
-            for (var i = 0; i < root.permissions.length; i++)
-              if (root.permissions[i].id === root.permission) break
-            root.permissionPicked(root.permissions[(i + 1) % root.permissions.length].id)
-            root.focusRequested()
-          }
+          onClicked: { root.cyclePermission(); root.focusRequested() }
         }
       }
 
@@ -296,7 +298,7 @@ Rectangle {
         id: hint
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        text: root.compact && root.text === "" ? "Tab switch · Esc close" : "Tab switch · Esc clear"
+        text: "Tab switch · " + (root.mode === "code" ? "⇧Tab mode · " : "") + (root.compact && root.text === "" ? "Esc close" : "Esc clear")
         textFormat: Text.PlainText
         color: root.pal.dim
         font.family: root.fontFamily
