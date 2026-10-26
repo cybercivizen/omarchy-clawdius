@@ -788,6 +788,7 @@ BarWidget {
   property var pendingSession: null
   // The command being started, for the terminal fallback below.
   property string pendingCommand: ""
+  property string pendingStdin: ""
   // Why the last start didn't make it into the card, shown for a while.
   property string startNotice: ""
   // The start a folder's missing trust stopped, while the card asks about
@@ -807,10 +808,12 @@ BarWidget {
   }
 
   // label: the button showing its spinner meanwhile; title: the terminal's name until the feed has one.
-  function launchInCard(command, label, title) {
+  // prompt: the first message, sent over stdin (never in a command line, where
+  // other accounts' `ps` would read it).
+  function launchInCard(command, label, title, prompt) {
     var re = /(omarchy-launch-tui\s+(--app-id=\S+\s+)?)?\{live\}\s+launch/
     if (!re.test(command)) { launch(command); return }
-    if (root.terminalOutside) { root.openInTerminal(command); return }
+    if (root.terminalOutside) { root.openInTerminal(command, prompt); return }
     if (startProcess.running) return
     root.startingLabel = label
     root.autoOpened = false
@@ -819,14 +822,18 @@ BarWidget {
     root.newMenuOpen = false
     root.view = "detail"
     root.pendingCommand = command
+    root.pendingStdin = prompt || ""
     root.pendingLabel = label
     root.pendingTitle = title || ""
-    startProcess.command = ["bash", "-lc", root.withDir(command).replace(re, "python3 -I '" + root.livePath + "' start")]
+    startProcess.command = ["bash", "-lc", root.withDir(command).replace(re, "python3 -I '" + root.livePath + "' start" + (prompt ? " --stdin-prompt" : ""))]
+    startProcess.stdinEnabled = true
     startProcess.running = true
+    if (prompt) { startProcess.write(prompt); startProcess.stdinEnabled = false }
   }
 
   Process {
     id: startProcess
+    stdinEnabled: true
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -859,9 +866,10 @@ BarWidget {
   function startFailed(text) {
     var trust = /not trusted/i.test(text)
     var command = root.pendingCommand
+    var prompt = root.pendingStdin
     var dir = root.commandDir(command)
     if (trust && dir !== "" && dir !== Quickshell.env("HOME")) {
-      root.trustAsk = { dir: dir, command: command, label: root.pendingLabel, title: root.pendingTitle }
+      root.trustAsk = { dir: dir, command: command, prompt: prompt, label: root.pendingLabel, title: root.pendingTitle }
       root.pinned = true
       root.open()
       return
@@ -870,14 +878,34 @@ BarWidget {
       ? "Claude Code won't run sessions in the home folder in the background, so it opened in a terminal."
       : "Couldn't start: " + (text.trim().split("\n")[0] || "claude --bg failed")
     noticeClear.restart()
-    if (trust) root.openInTerminal(command)
+    if (trust) root.openInTerminal(command, prompt)
   }
 
-  function openInTerminal(command) {
+  function openInTerminal(command, prompt) {
     // Resume rows' commands have no terminal of their own.
     if (!/omarchy-launch-tui/.test(command))
       command = command.replace(/\{live\}\s+launch/, "omarchy-launch-tui --app-id=org.omarchy.agent {live} launch")
-    root.launch(command)
+    if (!prompt) { root.launch(command); return }
+    // A terminal window takes no stdin: the prompt waits in a private file.
+    stashProcess.command = ["python3", "-I", root.livePath, "stash"]
+    stashProcess.pendingCommand = command
+    stashProcess.stdinEnabled = true
+    stashProcess.running = true
+    stashProcess.write(prompt)
+    stashProcess.stdinEnabled = false
+  }
+
+  Process {
+    id: stashProcess
+    property string pendingCommand: ""
+    stdinEnabled: true
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var path = text.trim()
+        if (path) root.launch(stashProcess.pendingCommand.replace(/\{live\}\s+launch/, "{live} launch --prompt-file " + root.shellQuote(path)))
+      }
+    }
   }
 
   // Trust.qml's answer: save the trust and start again, or not.
@@ -890,7 +918,7 @@ BarWidget {
       return
     }
     root.trustAsk = null
-    if (choice === "terminal") root.openInTerminal(ask.command)
+    if (choice === "terminal") root.openInTerminal(ask.command, ask.prompt)
   }
 
   Process {
@@ -900,7 +928,7 @@ BarWidget {
       var ask = root.trustAsk
       root.trustAsk = null
       if (!ask) return
-      if (code === 0) { root.launchInCard(ask.command, ask.label, ask.title); return }
+      if (code === 0) { root.launchInCard(ask.command, ask.label, ask.title, ask.prompt); return }
       root.startNotice = "Couldn't save the folder's trust: " + (trustErr.text.trim() || "live.py trust failed")
       noticeClear.restart()
     }
@@ -1228,11 +1256,11 @@ BarWidget {
     // Claude attaches an @-mentioned image as it does a pasted one.
     var prompt = images.map(function(p) { return "@" + p + " " }).join("") + text
     var shown = text || (images.length > 1 ? images.length + " images" : "Image")
-    var command = base + model + effort + " -- " + root.shellQuote(prompt)
+    var command = base + model + effort
     liveKeys.field.text = ""
     root.quickImages = []
     root.pendingPrompt = code ? "" : shown
-    root.launchInCard(command, code ? "Code" : "Chat", shown.split("\n")[0].slice(0, 60))
+    root.launchInCard(command, code ? "Code" : "Chat", shown.split("\n")[0].slice(0, 60), prompt)
   }
 
   // ---- Search. Typing `/ ` or `/g ` at the start turns it into a chip;
