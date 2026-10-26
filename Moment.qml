@@ -122,7 +122,8 @@ Rectangle {
   readonly property bool anyWorking: kind === "working" || railSessions.some(x => x.busy)
 
   implicitHeight: Math.max(pal.sp(204), agents ? body.implicitHeight + pad * 2 : 0,
-    mode === "antirot" ? repCard.implicitHeight + Style.space(38) + pal.sp(12 + 12) : 0, railColumn.implicitHeight + pal.sp(20))
+    mode === "antirot" ? repCard.implicitHeight + paneY + pal.sp(12 + (pal.dense ? 0 : 12)) : 0,
+    mode === "today" ? paneY + todayPane.implicitHeight + pal.sp(12) : 0, railColumn.implicitHeight + pal.sp(20))
 
   // ---- The glow: a wide arc of the state color rising from the bottom edge,
   //      clipped to the card's rounded corners by drawing it in their shape.
@@ -599,14 +600,19 @@ Rectangle {
 
   // ---- Today and Anti-rot: the other two modes, up to the rail
   readonly property real paneRight: hasRail ? rail.x - pal.sp(16) : width - pad
+  // Under the mode switch; in the dense look on its row, the pane's first
+  // line (the month, the challenge's caption) indented past it.
+  readonly property real paneY: pal.dense ? modeRow.y : Style.space(38)
+  readonly property real headInset: pal.dense ? modeRow.x + modeRow.width - pad + Style.space(10) : 0
 
   Today {
     id: todayPane
     visible: !root.agents && root.mode === "today"
     x: root.pad
-    y: Style.space(38)
+    y: root.paneY
     width: root.paneRight - x
     height: implicitHeight
+    headInset: root.headInset
     pal: root.pal
     fontFamily: root.fontFamily
     now: root.now
@@ -617,7 +623,7 @@ Rectangle {
     id: antirotPane
     visible: root.mode === "antirot"
     x: root.pad
-    y: Style.space(38)
+    y: root.paneY
     width: root.paneRight - x
     height: parent.height - y - pal.sp(12)
 
@@ -625,7 +631,10 @@ Rectangle {
       id: repCard
       visible: !!root.antirot
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
+      // Centred; dense: from the top, so the caption sits on the mode switch's
+      // row. (A y binding: an anchor dropped at runtime leaves the old y.)
+      y: pal.dense ? 0 : Math.round((parent.height - height) / 2)
+      headInset: root.headInset
       pal: root.pal
       fontFamily: root.fontFamily
       antirot: root.antirot
@@ -691,8 +700,9 @@ Rectangle {
   }
 
   Row {
+    id: modeRow
     x: root.pad - Style.space(6)
-    y: Style.space(10)
+    y: pal.sp(10)
     spacing: Style.space(2)
 
     Repeater {

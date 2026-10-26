@@ -15,6 +15,10 @@ Item {
   property double now: Date.now()
   // Weather.js parse(): {temp, feels, desc, icon, place, days}
   property var weather: null
+  // Dense look: the head sits on the mode switch's row, the month's title
+  // this far in; rows and the weather are tighter, to fit Home's height.
+  property real headInset: 0
+  readonly property bool dense: !!pal && pal.dense
 
   readonly property var today: new Date(now)
   readonly property string todayKey: Calendar.dateKey(today.getFullYear(), today.getMonth(), today.getDate())
@@ -25,9 +29,11 @@ Item {
   readonly property real weatherW: Style.space(210)
   readonly property real calW: Math.max(Style.space(25) * 8, width - weatherW - Style.space(36) - 1)
   readonly property real cell: calW / 8
-  readonly property real rowH: Style.space(19)
+  readonly property real rowH: Style.space(dense ? 15 : 19)
+  readonly property real headGap: Style.space(dense ? 2 : 6)
+  readonly property real dayNamesH: Style.space(dense ? 12 : 14)
 
-  implicitHeight: Style.space(22) + Style.space(6) + Style.space(14) + rowH * 6
+  implicitHeight: Style.space(22) + headGap + dayNamesH + rowH * 6
 
   function step(delta) {
     var m = Calendar.stepMonth(year, month, delta)
@@ -64,9 +70,12 @@ Item {
       height: Style.space(22)
 
       Text {
+        x: root.headInset
+        width: Math.min(implicitWidth, steps.x - x - Style.space(4))
         anchors.verticalCenter: parent.verticalCenter
         text: Calendar.months[root.month] + (root.year !== root.today.getFullYear() ? " " + root.year : "")
         textFormat: Text.PlainText
+        elide: Text.ElideRight
         color: root.pal.strong
         font.family: root.fontFamily
         font.pixelSize: Style.font.body
@@ -80,6 +89,7 @@ Item {
       }
 
       Row {
+        id: steps
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(2)
@@ -114,12 +124,12 @@ Item {
     }
 
     Column {
-      y: head.height + Style.space(6)
+      y: head.height + root.headGap
       width: parent.width
 
       // Mon … Sun, with W over the week-number column.
       Row {
-        height: Style.space(14)
+        height: root.dayNamesH
         Label { width: root.cell; text: "W"; opacity: 0.55; horizontalAlignment: Text.AlignHCenter }
         Repeater {
           model: ["M", "T", "W", "T", "F", "S", "S"]
@@ -158,8 +168,8 @@ Item {
 
               Rectangle {
                 anchors.centerIn: parent
-                width: Style.space(21)
-                height: Style.space(17)
+                width: Style.space(root.dense ? 19 : 21)
+                height: Style.space(root.dense ? 14 : 17)
                 radius: pal.pill(height)
                 color: parent.modelData.today ? root.pal.crab : "transparent"
               }
@@ -207,17 +217,17 @@ Item {
     Column {
       visible: !!root.weather
       width: parent.width
-      spacing: Style.space(12)
+      spacing: Style.space(root.dense ? 5 : 12)
 
       Row {
-        spacing: Style.space(12)
+        spacing: Style.space(root.dense ? 8 : 12)
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: root.weather ? root.weather.icon : ""
           textFormat: Text.PlainText
           color: root.pal.crab
-          font.pixelSize: Style.font.heading * 2
+          font.pixelSize: Style.font.heading * (root.dense ? 1.5 : 2)
         }
 
         Column {
@@ -227,7 +237,7 @@ Item {
             textFormat: Text.PlainText
             color: root.pal.strong
             font.family: root.fontFamily
-            font.pixelSize: Style.font.heading + Style.space(6)
+            font.pixelSize: Style.font.heading + Style.space(root.dense ? 2 : 6)
             font.bold: true
           }
           Label {

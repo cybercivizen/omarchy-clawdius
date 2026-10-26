@@ -21,6 +21,10 @@ Column {
   property string busy: ""
   // The corner card is showing Stuck (explain / hints).
   property bool stuckOpen: false
+  // Dense look: the caption sits on Home's mode switch row, this far in; the
+  // text is a step smaller and the status line joins the buttons.
+  property real headInset: 0
+  readonly property bool dense: !!pal && pal.dense
 
   signal started()
   signal opened()
@@ -63,15 +67,29 @@ Column {
 
   function langName(lang) { return info[lang] ? info[lang].name : lang }
 
-  spacing: Style.space(14)
+  // How it's going: time in and tests passing, or done.
+  readonly property string statusText: !rep ? ""
+    : passed ? "Done" + (rep.secs ? " in " + Math.max(1, Math.round(rep.secs / 60)) + "m" : "")
+      + (rep.checks > 1 ? " · " + rep.checks + " checks" : "")
+      + " · " + streak + (streak === 1 ? " day" : " days") + " in a row"
+    : inProgress ? Format.ago(now, rep.startedAt) + " in"
+      + (timeBox ? (over ? " · " + (minutesIn - timeBox) + "m over" : " · " + (timeBox - minutesIn) + "m left") : "")
+      + (check ? " · " + (check.total ? check.passed + "/" + check.total + " passing" : "doesn't run yet") : "")
+    : "difficulty " + rep.difficulty + "/10" + (streak ? " · " + streak + " in a row" : "")
+  readonly property color statusColor: passed ? pal.done : over ? pal.needsYou : pal.muted
+
+  spacing: pal.sp(14)
 
   Column {
     width: parent.width
-    spacing: Style.space(5)
+    spacing: Style.space(root.dense ? 3 : 5)
 
     Text {
       visible: !!root.rep
       width: parent.width
+      height: root.dense ? Style.space(22) : implicitHeight
+      leftPadding: root.headInset
+      verticalAlignment: Text.AlignVCenter
       text: root.rep ? ("ANTI-ROT · " + (root.rep.redo ? "RE-DO · " : "") + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level + " · " + root.counter).toUpperCase() : ""
       textFormat: Text.PlainText
       elide: Text.ElideRight
@@ -92,7 +110,7 @@ Column {
       elide: Text.ElideRight
       color: root.pal.strong
       font.family: root.fontFamily
-      font.pixelSize: Style.font.heading
+      font.pixelSize: root.dense ? Style.font.subtitle : Style.font.heading
       font.bold: true
     }
 
@@ -110,13 +128,13 @@ Column {
       elide: Text.ElideRight
       color: root.pal.muted
       font.family: root.fontFamily
-      font.pixelSize: Style.font.body
+      font.pixelSize: root.dense ? Style.font.bodySmall : Style.font.body
     }
   }
 
   // How it's going: time in and tests passing, or done.
   Row {
-    visible: !!root.rep
+    visible: !!root.rep && !root.dense
     spacing: Style.space(8)
 
     Icon {
@@ -129,15 +147,9 @@ Column {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      text: root.passed ? "Done" + (root.rep.secs ? " in " + Math.max(1, Math.round(root.rep.secs / 60)) + "m" : "")
-          + (root.rep.checks > 1 ? " · " + root.rep.checks + " checks" : "")
-          + " · " + root.streak + (root.streak === 1 ? " day" : " days") + " in a row"
-        : root.inProgress ? Format.ago(root.now, root.rep.startedAt) + " in"
-          + (root.timeBox ? (root.over ? " · " + (root.minutesIn - root.timeBox) + "m over" : " · " + (root.timeBox - root.minutesIn) + "m left") : "")
-          + (root.check ? " · " + (root.check.total ? root.check.passed + "/" + root.check.total + " passing" : "doesn't run yet") : "")
-        : "difficulty " + (root.rep ? root.rep.difficulty : 0) + "/10" + (root.streak ? " · " + root.streak + " in a row" : "")
+      text: root.statusText
       textFormat: Text.PlainText
-      color: root.passed ? root.pal.done : root.over ? root.pal.needsYou : root.pal.muted
+      color: root.statusColor
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
@@ -156,7 +168,7 @@ Column {
       x: Style.space(10)
       y: Style.space(8)
       width: parent.width - Style.space(20)
-      text: root.check ? root.check.tail.split("\n").slice(-3).join("\n") : ""
+      text: root.check ? root.check.tail.split("\n").slice(root.dense ? -2 : -3).join("\n") : ""
       textFormat: Text.PlainText
       elide: Text.ElideRight
       color: root.pal.muted
@@ -170,6 +182,7 @@ Column {
     spacing: Style.space(8)
 
     Pill {
+      compact: root.dense
       visible: !root.rep
       pal: root.pal
       fontFamily: root.fontFamily
@@ -181,6 +194,7 @@ Column {
     }
 
     Pill {
+      compact: root.dense
       visible: !!root.rep && !root.rep.startedAt
       pal: root.pal
       fontFamily: root.fontFamily
@@ -191,6 +205,7 @@ Column {
       onClicked: root.started()
     }
     Pill {
+      compact: root.dense
       visible: !!root.rep && !root.rep.startedAt && root.rep.level > 1
       pal: root.pal
       fontFamily: root.fontFamily
@@ -200,6 +215,7 @@ Column {
     }
 
     Pill {
+      compact: root.dense
       visible: root.inProgress
       pal: root.pal
       fontFamily: root.fontFamily
@@ -210,6 +226,7 @@ Column {
       onClicked: root.checked()
     }
     Pill {
+      compact: root.dense
       visible: root.inProgress
       pal: root.pal
       fontFamily: root.fontFamily
@@ -220,6 +237,7 @@ Column {
       onClicked: root.stuck()
     }
     Pill {
+      compact: root.dense
       visible: root.inProgress
       pal: root.pal
       fontFamily: root.fontFamily
@@ -229,6 +247,7 @@ Column {
     }
 
     Pill {
+      compact: root.dense
       visible: !!root.rep && !root.passed
       pal: root.pal
       fontFamily: root.fontFamily
@@ -240,6 +259,7 @@ Column {
 
     // Chain another: the main action while the day's quota isn't met.
     Pill {
+      compact: root.dense
       visible: root.passed
       pal: root.pal
       fontFamily: root.fontFamily
@@ -250,6 +270,7 @@ Column {
     }
 
     Pill {
+      compact: root.dense
       visible: root.passed
       pal: root.pal
       fontFamily: root.fontFamily
@@ -263,6 +284,7 @@ Column {
     // Into the chat view, as the idle moment always had: the main action
     // again once there's no rep left to do.
     Pill {
+      compact: root.dense
       pal: root.pal
       fontFamily: root.fontFamily
       kind: !root.rep ? "primary" : "quiet"
@@ -272,6 +294,19 @@ Column {
       tooltip: "New chat"
       tooltipAbove: true
       onClicked: root.newChat()
+    }
+
+    // Dense: the status line, after the buttons.
+    Text {
+      visible: root.dense && !!root.rep
+      height: Style.space(26)
+      leftPadding: Style.space(4)
+      verticalAlignment: Text.AlignVCenter
+      text: root.statusText
+      textFormat: Text.PlainText
+      color: root.statusColor
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
     }
   }
 }
