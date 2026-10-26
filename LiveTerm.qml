@@ -469,11 +469,14 @@ Column {
     if (heldPage !== null) { page = heldPage; heldPage = null }
   }
 
+  // Runs once with `input` on stdin, then goes (see Pipe.qml).
+  Component { id: pipeOnce; Pipe { running: true; onRunningChanged: if (!running) destroy() } }
+
   function copy(text) {
     // Rich text selects with paragraph separators, and terminal rows end in padding.
     text = text.replace(/[\u2028\u2029]/g, "\n").replace(/\u00a0/g, " ").replace(/[ \t]+$/gm, "")
     if (!text.trim()) return
-    Quickshell.execDetached(["wl-copy", "--", text])
+    pipeOnce.createObject(root, { command: ["wl-copy"], input: text })
     root.copiedAt = Date.now()
     copiedTimer.restart()
   }
@@ -622,7 +625,7 @@ Column {
         label: root.pathCopiedAt > 0 ? "Copied" : root.cwdLabel
         clickable: true
         onClicked: {
-          Quickshell.execDetached(["wl-copy", "--", root.cwd])
+          pipeOnce.createObject(root, { command: ["wl-copy"], input: root.cwd })
           root.pathCopiedAt = Date.now()
           pathCopiedTimer.restart()
           root.focusInput()

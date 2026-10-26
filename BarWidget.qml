@@ -730,9 +730,9 @@ BarWidget {
     var ids = root.answeredIds
     ids[r.id] = true
     root.answeredIds = ids
-    var argv = ["python3", "-I", root.approvalsPath, "answer", r.id, choice]
-    if (choice === "answer") argv.push(JSON.stringify(answers || {}))
-    Quickshell.execDetached(argv)
+    // The answers (typed text, maybe) on stdin, out of argv.
+    pipeOnce.createObject(root, { command: ["python3", "-I", root.approvalsPath, "answer", r.id, choice].concat(choice === "answer" ? ["-"] : []),
+                                  input: choice === "answer" ? JSON.stringify(answers || {}) : "" })
     // Answered here, so take it off the card now rather than on the next poll.
     root.applyRequests(JSON.stringify({ requests: root.requests }))
     if (choice === "terminal" && !inPlace) {
@@ -808,6 +808,9 @@ BarWidget {
   }
 
   // label: the button showing its spinner meanwhile; title: the terminal's name until the feed has one.
+  // Runs once with `input` on stdin, then goes (see Pipe.qml).
+  Component { id: pipeOnce; Pipe { running: true; onRunningChanged: if (!running) destroy() } }
+
   // prompt: the first message, sent over stdin (never in a command line, where
   // other accounts' `ps` would read it).
   function launchInCard(command, label, title, prompt) {
@@ -826,14 +829,12 @@ BarWidget {
     root.pendingLabel = label
     root.pendingTitle = title || ""
     startProcess.command = ["bash", "-lc", root.withDir(command).replace(re, "python3 -I '" + root.livePath + "' start" + (prompt ? " --stdin-prompt" : ""))]
-    startProcess.stdinEnabled = true
+    startProcess.input = prompt || ""
     startProcess.running = true
-    if (prompt) { startProcess.write(prompt); startProcess.stdinEnabled = false }
   }
 
-  Process {
+  Pipe {
     id: startProcess
-    stdinEnabled: true
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -889,16 +890,13 @@ BarWidget {
     // A terminal window takes no stdin: the prompt waits in a private file.
     stashProcess.command = ["python3", "-I", root.livePath, "stash"]
     stashProcess.pendingCommand = command
-    stashProcess.stdinEnabled = true
+    stashProcess.input = prompt
     stashProcess.running = true
-    stashProcess.write(prompt)
-    stashProcess.stdinEnabled = false
   }
 
-  Process {
+  Pipe {
     id: stashProcess
     property string pendingCommand: ""
-    stdinEnabled: true
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -1343,7 +1341,7 @@ BarWidget {
   function copyResult(text) {
     root.close()
     liveKeys.field.text = ""
-    Quickshell.execDetached(["wl-copy", "--", text])
+    pipeOnce.createObject(root, { command: ["wl-copy"], input: text })
   }
 
   function googleSearch(text) {

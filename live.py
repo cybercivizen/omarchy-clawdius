@@ -207,9 +207,16 @@ def launch(args):
     if not match and "not trusted" in text:
         # Claude only starts background sessions where the folder's trust is
         # saved, which it never is for the home folder: run it right here
-        # instead, where Claude can ask.
-        # (Interactive, so the prompt has to ride in argv here.)
-        os.execvp(claude, [claude] + args + (["--", prompt] if prompt else []))
+        # instead, where Claude can ask. Interactive Claude takes a prompt
+        # piped on stdin too (keys still come from the terminal), sent once
+        # the trust question is answered.
+        if prompt:
+            fd = os.memfd_create("clawdius-prompt")
+            os.write(fd, prompt.encode())
+            os.lseek(fd, 0, os.SEEK_SET)
+            os.dup2(fd, 0)
+            os.close(fd)
+        os.execvp(claude, [claude] + args)
     if not match:
         # Bad flag…: show why instead of a window that just closes.
         sys.stdout.write(text or "claude --bg failed\n")

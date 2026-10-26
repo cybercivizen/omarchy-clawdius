@@ -199,8 +199,11 @@ Item {
 
   function copySelection(edit) {
     var text = edit.selectedText.replace(/[\u2028\u2029]/g, "\n").replace(/\u00a0/g, " ")
-    if (text.trim() !== "") Quickshell.execDetached(["wl-copy", "--", text])
+    if (text.trim() !== "") pipeOnce.createObject(root, { command: ["wl-copy"], input: text })
   }
+
+  // Runs once with `input` on stdin, then goes (see Pipe.qml).
+  Component { id: pipeOnce; Pipe { running: true; onRunningChanged: if (!running) destroy() } }
 
   // ---- Linking files and folders, as in LiveTerm: typed into the composer as @path
 
@@ -275,7 +278,7 @@ Item {
       }
     }
     if ((mods & Qt.ControlModifier) && event.key === Qt.Key_C && input && input.selectedText !== "") {
-      Quickshell.execDetached(["wl-copy", "--", input.selectedText])
+      pipeOnce.createObject(root, { command: ["wl-copy"], input: input.selectedText })
       return true
     }
     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(mods & (Qt.ShiftModifier | Qt.ControlModifier | Qt.AltModifier))) {
