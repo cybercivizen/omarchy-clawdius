@@ -12,6 +12,7 @@
 # when cancelled or failed.
 
 base=$1 shown=$2
+command -v zenity >/dev/null || { notify-send -a Clawdius "File pickers need zenity" "Install it: sudo pacman -S zenity"; exit 1; }
 title="Clone a repo for Claude"
 [ -d "$base" ] || { base=$HOME; shown="~"; }
 

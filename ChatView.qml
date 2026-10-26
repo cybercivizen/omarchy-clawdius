@@ -218,7 +218,7 @@ Item {
 
   function browse(kind) {
     if (browser.running) return
-    browser.command = ["zenity", "--file-selection", "--filename=" + (root.cwd || root.home) + "/",
+    browser.command = ["sh", "-c", 'command -v zenity >/dev/null || { notify-send -a Clawdius "File pickers need zenity" "Install it: sudo pacman -S zenity"; exit 1; }; exec zenity "$@"', "clawdius-zenity", "--file-selection", "--filename=" + (root.cwd || root.home) + "/",
                        "--title=" + (kind === "folder" ? "Link a folder" : "Link files")]
       .concat(kind === "folder" ? ["--directory"] : ["--multiple", "--separator=\n"])
     browser.running = true

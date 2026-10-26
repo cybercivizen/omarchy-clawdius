@@ -45,8 +45,6 @@ STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser(
 STATE = os.path.join(STATE_DIR, "antirot.json")
 TRACKS = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "clawdius", "tracks")
 REPS = os.path.expanduser(os.environ.get("CLAWDIUS_ANTIROT_ROOT") or "~/Work/antirot")
-OLD_STATE = os.path.join(STATE_DIR, "gym.json")
-OLD_REPS = os.path.expanduser("~/Work/gym")
 START_LEVEL = 2
 PASSES_TO_LEVEL_UP = 2
 MAX_PER_DAY = 3
@@ -124,24 +122,7 @@ def read_json(path, fallback):
         return fallback
 
 
-def migrate():
-    """Daily reps kept its state and folder under gym: move them over once."""
-    if not os.path.exists(STATE) and os.path.exists(OLD_STATE):
-        os.replace(OLD_STATE, STATE)
-    if not os.path.exists(REPS) and os.path.isdir(OLD_REPS) and "CLAWDIUS_ANTIROT_ROOT" not in os.environ:
-        shutil.move(OLD_REPS, REPS)
-        state = read_json(STATE, {})
-        t = state.get("today")
-        if t:
-            for key in ("dir", "file", "docs"):
-                if t.get(key, "").startswith(OLD_REPS):
-                    t[key] = REPS + t[key][len(OLD_REPS):]
-            with open(STATE, "w") as f:
-                json.dump(state, f, indent=1)
-
-
 def load():
-    migrate()
     state = read_json(STATE, {})
     state.setdefault("custom", {})
     LANGS.update(state["custom"])
