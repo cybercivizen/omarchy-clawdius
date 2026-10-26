@@ -37,7 +37,9 @@ Pick `center` when it asks where on the bar: the crab sits beside the clock.
   signed in. Omarchy doesn't install it for you. Without it the crab just
   sits there with nothing to show.
 - Optional: `gh` for the GitHub button on a session, `code` for the VS Code
-  button.
+  button, `zenity` (`sudo pacman -S zenity`) for the file and folder pickers
+  (Open folder, New folder, Clone repo, the paperclip). Without it they show a
+  desktop notification saying so.
 
 It works with any clock, or none: hovering the middle of the bar opens the
 island.
@@ -100,7 +102,7 @@ The crab shows the most pressing thing going on, in this order:
 
 It sweats (a drop runs down its side) once the 5-hour limit is 90% spent.
 
-On a machine that isn't the desktop (`~/dotfiles/.machine` is anything but `desktop`, or missing) the crab on the bar holds still: no typing, bobbing, blinking or sweat drop, only the orange/gray color change. Each step of those redraws the whole bar, which a laptop's integrated GPU feels for as long as a session works. The crabs inside the island still move.
+With **Animate the bar crab** turned off in the settings (do it on a low-power laptop) the crab on the bar holds still: no typing, bobbing, blinking or sweat drop, only the orange/gray color change. Each step of those redraws the whole bar, which an integrated GPU feels for as long as a session works. The crabs inside the island still move.
 
 ### The island
 
@@ -324,7 +326,7 @@ buffer squashed into the new size.
   lock) and the session starts in the card; Terminal opens it in a terminal
   window, where Claude asks. Claude never saves trust for the home folder,
   so that one always opens in a terminal (plain interactive `claude`).
-- **Stats** — Claude usage, replacing the old `cybercivizen.agents` bar icon:
+- **Stats** — Claude usage:
   plan, 5-hour and weekly limits (orange when ahead of the pace tick, red at
   90%), today's tokens / prompts / sessions, tokens per model, last 7 days.
 - **Settings** (the gear): settings that live in the island rather than in
@@ -397,8 +399,6 @@ It is the main card's third mode (the `</>` icon), so it stays up while
 Claude is busy too; it is not the corner card's any more.
 
 State is `~/.local/state/clawdius/antirot.json`; only `antirot.py` writes it.
-Earlier installs (Daily reps, `gym.json`, `~/Work/gym`) are moved over on the
-first run.
 
 Colors come from the theme's ink and paper (`Colors.qml`), so Solitude and
 Solitude Light both read: orange `#D97757` (`#C15F3C` on light) means Claude
@@ -432,7 +432,7 @@ views; Dense covers Home, the corner card, Sessions, Stats and Settings so far.
 The bar only lets a plugin look up its *own* widgets, so the clock can't reach
 the crab directly. `Link.js` (`.pragma library`, one shared instance per
 shell) is the meeting point: crabs register with their bar window, and the
-clock clone (`cybercivizen.clock/BarWidget.qml`) loads `ClockLink.qml` through
+clock plugin (the author's `cybercivizen.clock` is one) loads `ClockLink.qml` through
 a `Loader` and reports its `HoverHandler` there. If this plugin is removed the
 Loader stays empty and the clock carries on.
 

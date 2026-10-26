@@ -58,22 +58,15 @@ BarWidget {
     barColor: root.previewTheme === "" && root.bar ? root.bar.background : "transparent"
   }
   readonly property color crabColor: theme.crab
-  // The desktop's bar crab types, bobs and blinks. Every step redraws the
-  // bar, and the laptop's GPU can't afford that for as long as Claude works:
-  // there the crab holds one pose and only changes color. Empty until
-  // ~/dotfiles/.machine is read, which counts as laptop.
-  property string machine: ""
-  readonly property bool still: machine !== "desktop"
-  FileView {
-    path: Quickshell.env("HOME") + "/dotfiles/.machine"
-    printErrors: false
-    onLoaded: root.machine = text().trim()
-  }
+  // The bar crab types, bobs and blinks. Every step redraws the bar, which
+  // a low-power laptop's GPU can't afford for as long as Claude works: with
+  // "Animate the bar crab" off it holds one pose and only changes color.
+  readonly property bool still: setting("animateCrab", true) !== true
   // IPC themePreview: draw the island in Solitude Light / Dark without
   // switching the desktop's theme.
   property string previewTheme: ""
   readonly property int maxIdle: setting("maxIdleSessions", 4)
-  readonly property bool alwaysShow: setting("alwaysShow", false) === true
+  readonly property bool alwaysShow: setting("alwaysShow", true) === true
   readonly property real hoverDelay: setting("hoverDelayMs", 200)
   // Grace after the pointer leaves, so overshooting the edge doesn't close it.
   readonly property real closeDelay: setting("closeDelayMs", 400)
@@ -766,7 +759,7 @@ BarWidget {
 
   // ---- Launchers, as the old agents right-click menu had them: a talk-only
   //      chat (~/chat denies the file tools) or Claude Code in ~/Work.
-  readonly property string chatCommand: setting("chatCommand", "cd ~/chat && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch")
+  readonly property string chatCommand: setting("chatCommand", "cd ~/chat && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --chat")
   readonly property string codeCommand: setting("codeCommand", "cd ~/Work && omarchy-launch-tui --app-id=org.omarchy.agent {live} launch --permission-mode auto")
   readonly property string webCommand: setting("webCommand", "omarchy-launch-browser https://claude.ai")
 
@@ -1967,6 +1960,7 @@ BarWidget {
     var base = root.commandDir(root.codeCommand) || Quickshell.env("HOME")
     pickProcess.command = ["bash", "-c", [
       'how=$1 base=$2 shown=$3',
+      'command -v zenity >/dev/null || { notify-send -a Clawdius "File pickers need zenity" "Install it: sudo pacman -S zenity"; exit 1; }',
       '[ -d "$base" ] || base=$HOME shown="~"',
       'if [ "$how" = new ]; then',
       '  name=$(zenity --entry --title="New folder for Claude" --text="Name (made in $shown), or a full path:") || exit 1',

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "cybercivizen.clawdius",
   "name": "Clawdius",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "author": "cybercivizen",
   "description": "Clawdius, a pixel crab beside the clock, keeps an eye on your Claude Code sessions. Hover the bar's middle for an island with the moment that matters (approvals and Claude's questions, finished turns, the session at work), a new-chat view, live and recent sessions, usage, and an app search (Alt+Space) that also works out sums, runs commands and Google searches.",
   "homepage": "https://github.com/cybercivizen/omarchy-clawdius",
@@ -26,6 +26,7 @@
     "defaultSection": "center",
     "defaults": {
       "alwaysShow": true,
+      "animateCrab": true,
       "maxIdleSessions": 4,
       "hoverDelayMs": 200,
       "closeDelayMs": 400,
@@ -45,6 +46,13 @@
         "label": "Always show the crab",
         "defaultValue": true,
         "description": "Off: the crab only shows while Claude is working, or when you hover the clock."
+      },
+      {
+        "key": "animateCrab",
+        "type": "boolean",
+        "label": "Animate the bar crab",
+        "defaultValue": true,
+        "description": "Off: the bar crab holds one pose and only changes color. Every animation step redraws the bar, so turn it off on a low-power laptop."
       },
       {
         "key": "maxIdleSessions",

@@ -193,3 +193,4 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Dense: Home one height in every mode (the corner card's), Anti-rot buttons at the bottom, smaller text in the working view. Home's working view (all looks) folds "Thinking…" into the newest step and drops the quoted note.
 - [x] Home frame: session line fixed at the top, buttons / footer at the bottom (done, working, waiting); thinking shows only the elapsed time; Dense: finished and waiting text body-size, filling the frame.
 - [x] Chat (new chat): Ctrl+V attaches a clipboard image (thumbnails over the composer), sent as `@path` in the first prompt; the path stays out of the bubble.
+- [ ] Submit to the Omarchy plugin marketplace.
