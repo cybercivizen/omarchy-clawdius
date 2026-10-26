@@ -1178,7 +1178,12 @@ BarWidget {
       root.quickImages = root.quickImages.slice(0, -1)
       return true
     }
-    if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+    // Tab switches Chat / Code; ⇧Tab cycles Code's permission mode, as in the CLI.
+    if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
+      if (root.quickMode === "code" && (field.text !== "" || root.view === "quick")) quickChat.cyclePermission()
+      return true
+    }
+    if (event.key === Qt.Key_Tab) {
       if (field.text !== "" || root.view === "quick") root.quickMode = root.quickMode === "chat" ? "code" : "chat"
       return true
     }
