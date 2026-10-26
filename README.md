@@ -131,11 +131,14 @@ buffer squashed into the new size.
   faint glow in the state's color. The watched session shows its last three
   steps: Claude's plan when it wrote one (`tasks`), else its last tool calls
   from the transcript (`actions`: ✓ done, spinner running, ✗ failed). It is
-  sticky, so two busy sessions don't trade places every second. While it's
-  busy the last row is always what it's doing now, lit up with a clock:
-  the tool call that's out with its command or path under it, or
-  "Thinking…" between calls; under the list, Claude's latest words this
-  turn in quotes.
+  sticky, so two busy sessions don't trade places every second. While a
+  tool call is out (one running past the feed's 1 s poll) it is the last row,
+  lit up with a clock and its command or path under it. Between calls the
+  model is writing, and nothing of that reaches the transcript (thinking
+  blocks are saved empty), so there's no row for it: the newest step (the
+  plan's current one) carries the spinner and a "thinking 12s" clock.
+  Claude's latest words, mostly a recap of the step before, are left to the
+  detail view.
   With nothing running: **New chat**, into the chat view. (Earlier sessions
   are under Sessions → Recent.)
   The three icons at the card's top left pick what it is (remembered):
@@ -404,8 +407,9 @@ instead of a bare `radius`; `pal.dev` is true for Compact and Dense, and
 padding or gaps go through `pal.sp(px)` (as `Style.space`, cut down in Dense;
 not for icons, pixel art or text). On Home, Today and Anti-rot start right under
 the mode switch (`Moment.paneY`), the calendar's rows are 15 px and Anti-rot's
-text a step smaller with its status beside the buttons, so both fit the
-corner card's height; the Move pane puts each nudge's
+text a step smaller with its status beside the buttons, its buttons at the
+card's bottom. Home is always the corner card's height (168 px) in every mode,
+the working view's text a step smaller to fit; the Move pane puts each nudge's
 time under its name. Compact still uses the Soft row heights inside the
 views; Dense covers Home, the corner card, Sessions, Stats and Settings so far.
 

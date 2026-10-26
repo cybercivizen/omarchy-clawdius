@@ -190,3 +190,4 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Dense theme (Gear → Island → Theme): Compact plus `pal.sp()` padding at ~70%, 34 px nav, 780 px island, smaller Home crab and rail, smaller pills, one-line Recent and Folders rows. Seen rendered (Home, Recent, Stats) in the dark theme.
 - [x] Dense, Home modes: Today fits Home's height (right under the mode switch, 15 px rows, tighter weather), Anti-rot shorter (smaller text, status beside the buttons), Move pane shows each time under its name. Seen rendered in the dark theme.
 - [ ] Dense, next pass: Detail, Chat, Search, QuickChat, Approval and the live terminal still use the Compact sizes; light theme not checked.
+- [x] Dense: Home one height in every mode (the corner card's), Anti-rot buttons at the bottom, smaller text in the working view. Home's working view (all looks) folds "Thinking…" into the newest step and drops the quoted note.

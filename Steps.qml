@@ -14,6 +14,9 @@ import "Icons.js" as Icons
 // it, or "Thinking…" between calls (tools mostly finish within the feed's
 // one-second poll, so a list of only past calls would show nothing but
 // ticks). Under the list, Claude's latest words this turn, in quotes.
+// With `foldThinking` (Home), the gap between calls takes no row of its own:
+// the newest step (the plan's current one) gets the spinner and a "thinking"
+// clock instead, so the rows stay what it has actually done.
 Column {
   id: root
 
@@ -29,6 +32,7 @@ Column {
   property bool showNote: true
   // Lines of the running call's command shown under it.
   property int detailLines: 1
+  property bool foldThinking: false
 
   readonly property var s: session || ({})
   readonly property bool busy: !!s.busy
@@ -40,15 +44,29 @@ Column {
     return null
   }
   // What it's doing right now: the call that's out, else its own move.
-  readonly property var current: !busy ? null
+  readonly property var thinkingRow: ({ text: s.thinking ? "Thinking it over…" : "Thinking…", detail: "", at: s.phaseAt || 0, state: "running", now: true })
+  readonly property bool folding: foldThinking && busy && !runningAction
+  readonly property var current: !busy || folding ? null
     : runningAction ? { text: runningAction.text, detail: runningAction.detail || "", at: runningAction.at || s.phaseAt || 0, state: "running", now: true }
-    : { text: s.thinking ? "Thinking it over…" : "Thinking…", detail: "", at: s.phaseAt || 0, state: "running", now: true }
+    : thinkingRow
 
   readonly property var history: isPlan ? planWindow(tasks, current ? limit - 1 : limit)
     : actions.filter(function(a) { return a !== runningAction })
              .slice(-(current ? limit - 1 : limit))
              .map(function(a) { return { text: a.text, detail: a.detail || "", state: a.status, now: false } })
-  readonly property var items: current ? history.concat([current]) : history
+  readonly property var items: current ? history.concat([current]) : folding ? foldIn(history) : history
+
+  // Folding: the plan's current step, else the newest call, carries the
+  // thinking clock; with neither, a Thinking row as usual.
+  function foldIn(list) {
+    var at = -1
+    for (var i = 0; i < list.length; i++) if (list[i].state === "current") at = i
+    if (at < 0 && !isPlan) at = list.length - 1
+    if (at < 0) return list.slice(Math.max(0, list.length - limit + 1)).concat([thinkingRow])
+    return list.map(function(x, i) {
+      return i !== at ? x : { text: x.text, detail: "", state: x.state, now: false, thinking: true, at: s.phaseAt || 0 }
+    })
+  }
   // Claude's latest words, while they're about this turn's work.
   readonly property string note: showNote && busy ? String(s.note || "") : ""
 
@@ -65,7 +83,7 @@ Column {
     })
   }
 
-  spacing: Style.space(8)
+  spacing: pal ? pal.sp(8) : Style.space(8)
 
   Repeater {
     // Only while shown (animate: the card is up): each feed update rebuilds every row.
@@ -76,9 +94,13 @@ Column {
       required property var modelData
       readonly property string state: modelData.state
       readonly property bool live: modelData.now === true
+      readonly property bool thinkingHere: modelData.thinking === true
+      // The mark drawn: the spinner while it's thinking after this step.
+      readonly property string mark: thinkingHere ? "running" : state
       readonly property bool hasDetail: live && modelData.detail !== ""
+      readonly property real livePad: Style.space(root.pal && root.pal.dense ? 4 : 8)
       width: root.width
-      height: row.implicitHeight + (live ? Style.space(8) * 2 : 0)
+      height: row.implicitHeight + (live ? livePad * 2 : 0)
 
       // The live row sits on a faint orange wash.
       Rectangle {
@@ -93,7 +115,7 @@ Column {
 
       Row {
         id: row
-        y: step.live ? Style.space(8) : 0
+        y: step.live ? step.livePad : 0
         width: parent.width - (step.live ? Style.space(8) : 0)
         spacing: Style.space(11)
 
@@ -104,7 +126,7 @@ Column {
 
           // ✓ done: a plain tick, or a filled green dot.
           Rectangle {
-            visible: step.state === "done" && root.filledDone
+            visible: step.mark === "done" && root.filledDone
             anchors.centerIn: parent
             width: Style.space(15)
             height: width
@@ -120,7 +142,7 @@ Column {
           }
 
           Icon {
-            visible: (step.state === "done" && !root.filledDone) || step.state === "failed"
+            visible: (step.mark === "done" && !root.filledDone) || step.mark === "failed"
             anchors.centerIn: parent
             d: step.state === "failed" ? Icons.cross : Icons.check
             size: Style.space(15)
@@ -129,7 +151,7 @@ Column {
 
           // Running: an orange arc going round a faint ring.
           Item {
-            visible: step.state === "running"
+            visible: step.mark === "running"
             anchors.centerIn: parent
             width: Style.space(13)
             height: width
@@ -149,14 +171,14 @@ Column {
               size: parent.width
               stroke: 2 * 24 / parent.width
               color: root.pal ? root.pal.crab : "orange"
-              Spin { target: arc; running: step.state === "running" && root.animate && root.visible }
+              Spin { target: arc; running: step.mark === "running" && root.animate && root.visible }
             }
           }
 
           // The plan's current step: a filled orange dot (the live row under
           // it carries the spinner).
           Rectangle {
-            visible: step.state === "current"
+            visible: step.mark === "current"
             anchors.centerIn: parent
             width: Style.space(9)
             height: width
@@ -166,7 +188,7 @@ Column {
 
           // Stopped (interrupted before its result): a small square.
           Rectangle {
-            visible: step.state === "stopped"
+            visible: step.mark === "stopped"
             anchors.centerIn: parent
             width: Style.space(8)
             height: width
@@ -176,7 +198,7 @@ Column {
 
           // Pending: an empty ring.
           Rectangle {
-            visible: step.state === "pending"
+            visible: step.mark === "pending"
             anchors.centerIn: parent
             width: Style.space(11)
             height: width
@@ -202,7 +224,7 @@ Column {
               textFormat: Text.PlainText
               elide: Text.ElideRight
               color: !root.pal ? "white"
-                : step.live || step.state === "current" ? root.pal.strong
+                : step.live || step.thinkingHere || step.state === "current" ? root.pal.strong
                 : step.state === "failed" ? root.pal.fg
                 : step.state === "pending" || step.state === "stopped" ? root.pal.muted
                 : root.pal.dim
@@ -214,10 +236,10 @@ Column {
             // How long it's been at it.
             Text {
               id: clock
-              visible: step.live && step.modelData.at > 0
+              visible: (step.live || step.thinkingHere) && step.modelData.at > 0
               anchors.right: parent.right
               anchors.verticalCenter: label.verticalCenter
-              text: Format.clock(root.now, step.modelData.at)
+              text: (step.thinkingHere ? (root.s.thinking ? "thinking it over " : "thinking ") : "") + Format.clock(root.now, step.modelData.at)
               textFormat: Text.PlainText
               color: root.pal ? root.pal.crab : "orange"
               font.family: root.fontFamily

@@ -445,7 +445,7 @@ Rectangle {
       visible: root.kind === "working" && !!root.s
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: pal.sp(12)
+      spacing: pal.dense ? Style.space(6) : pal.sp(12)
 
       SessionLine {
         dotColor: root.pal.crab
@@ -464,6 +464,11 @@ Rectangle {
         session: root.s
         now: root.now
         fontFamily: root.fontFamily
+        fontSize: pal.dense ? Style.font.body : Style.font.subtitle
+        // The rows are what it did; thinking rides on the newest one, and
+        // Claude's last words (mostly a recap of that) stay in the detail view.
+        foldThinking: true
+        showNote: false
         animate: root.active
       }
 
@@ -628,6 +633,8 @@ Rectangle {
       id: repCard
       visible: !!root.antirot
       width: parent.width
+      // Dense: the whole pane, so its buttons sit at the bottom.
+      height: pal.dense ? parent.height : implicitHeight
       // Centred; dense: from the top, as Today. (A y binding: an anchor
       // dropped at runtime leaves the old y.)
       y: pal.dense ? 0 : Math.round((parent.height - height) / 2)
@@ -1093,7 +1100,7 @@ Rectangle {
       elide: Text.ElideRight
       color: root.pal.strong
       font.family: root.fontFamily
-      font.pixelSize: Style.font.title
+      font.pixelSize: root.pal.dense ? Style.font.subtitle : Style.font.title
       font.bold: true
     }
 

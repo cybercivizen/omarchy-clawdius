@@ -9,7 +9,7 @@ import "Icons.js" as Icons
 // toward the streak, Next chains another, and Claude can review it (read only). With no language on, or
 // one that still needs its toolchain, it says so and points at Settings.
 // New chat stays at the end of the buttons.
-Column {
+Item {
   id: root
 
   property QtObject pal
@@ -76,103 +76,115 @@ Column {
     : "difficulty " + rep.difficulty + "/10" + (streak ? " · " + streak + " in a row" : "")
   readonly property color statusColor: passed ? pal.done : over ? pal.needsYou : pal.muted
 
-  spacing: pal.sp(14)
+  readonly property real gap: pal.sp(14)
+  // The buttons follow the text; in the dense look Home gives the card the
+  // pane's height and they sit at its bottom, wherever the text ends.
+  implicitHeight: top.height + gap + buttons.height
 
   Column {
+    id: top
     width: parent.width
-    spacing: Style.space(root.dense ? 3 : 5)
+    spacing: root.gap
 
-    Text {
-      visible: !!root.rep
+    Column {
       width: parent.width
-      text: root.rep ? ("ANTI-ROT · " + (root.rep.redo ? "RE-DO · " : "") + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level + " · " + root.counter).toUpperCase() : ""
-      textFormat: Text.PlainText
-      elide: Text.ElideRight
-      color: root.pal.muted
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      font.letterSpacing: 0.8
+      spacing: Style.space(root.dense ? 3 : 5)
+
+      Text {
+        visible: !!root.rep
+        width: parent.width
+        text: root.rep ? ("ANTI-ROT · " + (root.rep.redo ? "RE-DO · " : "") + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level + " · " + root.counter).toUpperCase() : ""
+        textFormat: Text.PlainText
+        elide: Text.ElideRight
+        color: root.pal.muted
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.letterSpacing: 0.8
+      }
+
+      Text {
+        width: parent.width
+        text: root.rep ? root.rep.name
+          : root.busy === "set" || root.busy === "setup" ? "Setting up…"
+          : root.blocked ? root.langName(root.blocked) + " needs " + root.info[root.blocked].missing.join(", ") + "."
+          : root.langsOn.length ? "No challenge today."
+          : "Anti-rot is off."
+        textFormat: Text.PlainText
+        elide: Text.ElideRight
+        color: root.pal.strong
+        font.family: root.fontFamily
+        font.pixelSize: root.dense ? Style.font.subtitle : Style.font.heading
+        font.bold: true
+      }
+
+      Text {
+        width: parent.width
+        text: root.rep ? root.rep.blurb
+          : root.busy === "set" || root.busy === "setup" ? "Getting the exercises. The first time takes a minute."
+          : root.blocked ? "Install it, then open the island again: " + root.info[root.blocked].install
+          : root.langsOn.length ? "Set up a language in Settings to get one."
+          : "Small exercises, written by hand. Pick a language in Settings."
+        visible: text !== ""
+        textFormat: Text.PlainText
+        wrapMode: Text.Wrap
+        maximumLineCount: root.dense && tailBox.visible ? 1 : 2
+        elide: Text.ElideRight
+        color: root.pal.muted
+        font.family: root.fontFamily
+        font.pixelSize: root.dense ? Style.font.bodySmall : Style.font.body
+      }
     }
 
-    Text {
+    // How it's going: time in and tests passing, or done.
+    Row {
+      visible: !!root.rep && !root.dense
+      spacing: Style.space(8)
+
+      Icon {
+        visible: root.passed
+        anchors.verticalCenter: parent.verticalCenter
+        d: Icons.check
+        size: Style.space(14)
+        color: root.pal.done
+      }
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: root.statusText
+        textFormat: Text.PlainText
+        color: root.statusColor
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+    }
+
+    // The last check's output, while it isn't passing.
+    Rectangle {
+      id: tailBox
+      visible: root.inProgress && !!root.check && root.check.tail !== ""
       width: parent.width
-      text: root.rep ? root.rep.name
-        : root.busy === "set" || root.busy === "setup" ? "Setting up…"
-        : root.blocked ? root.langName(root.blocked) + " needs " + root.info[root.blocked].missing.join(", ") + "."
-        : root.langsOn.length ? "No challenge today."
-        : "Anti-rot is off."
-      textFormat: Text.PlainText
-      elide: Text.ElideRight
-      color: root.pal.strong
-      font.family: root.fontFamily
-      font.pixelSize: root.dense ? Style.font.subtitle : Style.font.heading
-      font.bold: true
-    }
+      height: tailText.implicitHeight + Style.space(16)
+      radius: pal.rad(Style.space(10))
+      color: root.pal.well
 
-    Text {
-      width: parent.width
-      text: root.rep ? root.rep.blurb
-        : root.busy === "set" || root.busy === "setup" ? "Getting the exercises. The first time takes a minute."
-        : root.blocked ? "Install it, then open the island again: " + root.info[root.blocked].install
-        : root.langsOn.length ? "Set up a language in Settings to get one."
-        : "Small exercises, written by hand. Pick a language in Settings."
-      visible: text !== ""
-      textFormat: Text.PlainText
-      wrapMode: Text.Wrap
-      maximumLineCount: 2
-      elide: Text.ElideRight
-      color: root.pal.muted
-      font.family: root.fontFamily
-      font.pixelSize: root.dense ? Style.font.bodySmall : Style.font.body
-    }
-  }
-
-  // How it's going: time in and tests passing, or done.
-  Row {
-    visible: !!root.rep && !root.dense
-    spacing: Style.space(8)
-
-    Icon {
-      visible: root.passed
-      anchors.verticalCenter: parent.verticalCenter
-      d: Icons.check
-      size: Style.space(14)
-      color: root.pal.done
-    }
-
-    Text {
-      anchors.verticalCenter: parent.verticalCenter
-      text: root.statusText
-      textFormat: Text.PlainText
-      color: root.statusColor
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-    }
-  }
-
-  // The last check's output, while it isn't passing.
-  Rectangle {
-    visible: root.inProgress && !!root.check && root.check.tail !== ""
-    width: parent.width
-    height: tailText.implicitHeight + Style.space(16)
-    radius: pal.rad(Style.space(10))
-    color: root.pal.well
-
-    Text {
-      id: tailText
-      x: Style.space(10)
-      y: Style.space(8)
-      width: parent.width - Style.space(20)
-      text: root.check ? root.check.tail.split("\n").slice(root.dense ? -2 : -3).join("\n") : ""
-      textFormat: Text.PlainText
-      elide: Text.ElideRight
-      color: root.pal.muted
-      font.family: "monospace"
-      font.pixelSize: Style.font.caption
+      Text {
+        id: tailText
+        x: Style.space(10)
+        y: Style.space(8)
+        width: parent.width - Style.space(20)
+        text: root.check ? root.check.tail.split("\n").slice(root.dense ? -1 : -3).join("\n") : ""
+        textFormat: Text.PlainText
+        elide: Text.ElideRight
+        color: root.pal.muted
+        font.family: "monospace"
+        font.pixelSize: Style.font.caption
+      }
     }
   }
 
   Flow {
+    id: buttons
+    y: root.dense ? Math.max(top.height + root.gap, root.height - height) : top.height + root.gap
     width: parent.width
     spacing: Style.space(8)
 
