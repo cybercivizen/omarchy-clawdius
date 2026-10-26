@@ -377,16 +377,26 @@ Rectangle {
       }
     }
 
+    // done, working and waiting share one frame: the session's line fixed at
+    // the top, the buttons (or the working footer) at the bottom, whatever
+    // the middle holds, so nothing shifts as steps come and go.
+    readonly property real frameGap: pal.dense ? Style.space(6) : pal.sp(12)
+
     // ---- done / failed
-    Column {
+    Item {
       id: finished
       visible: root.kind === "done" || root.kind === "failed"
+      y: root.pad
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: pal.sp(12)
+      height: parent.height - root.pad * 2
+      // Dense: counted at three lines, so a long reply doesn't grow Home;
+      // the text then takes what the frame has.
+      implicitHeight: finishedLine.height + body.frameGap * 2 + finishedActions.height
+        + (pal.dense ? Math.min(finishedText.implicitHeight, finishedText.lineH * 3) : finishedText.implicitHeight)
       readonly property var ev: visible ? root.moment.event || {} : {}
 
       SessionLine {
+        id: finishedLine
         dotColor: root.kind === "done" ? root.pal.done : root.pal.failed
         name: root.s ? root.s.name : finished.ev.name || ""
         background: !!root.s && root.s.kind === "bg"
@@ -396,25 +406,34 @@ Rectangle {
       }
 
       Text {
+        id: finishedText
+        // A line, roughly: the font's own spacing (~1.3 × its size) times lineHeight.
+        readonly property real lineH: Math.ceil(font.pixelSize * 1.3 * lineHeight)
+        y: finishedLine.height + body.frameGap
         width: parent.width
+        height: pal.dense ? Math.max(lineH, finishedActions.y - y - body.frameGap) : implicitHeight
         text: finished.ev.text || (root.s && root.s.reply) || (root.kind === "done" ? "All done." : "That one didn't work out.")
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
-        maximumLineCount: 3
+        // Dense: as many lines as fit, then the ellipsis.
+        maximumLineCount: pal.dense ? 12 : 3
         elide: Text.ElideRight
         lineHeight: 1.15
         color: root.pal.strong
         font.family: root.fontFamily
-        font.pixelSize: Style.font.heading
-        font.bold: true
+        font.pixelSize: pal.dense ? Style.font.body : Style.font.heading
+        font.bold: !pal.dense
       }
 
       Row {
+        id: finishedActions
+        anchors.bottom: parent.bottom
         spacing: pal.sp(8)
         // A background session opens up close in the island; one in a
         // terminal window only has its terminal to go to.
         Pill {
           visible: !!root.s && !!root.s.jobId
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: "primary"
@@ -423,6 +442,7 @@ Rectangle {
         }
         Pill {
           visible: !!root.s
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: root.s && root.s.jobId ? "secondary" : "primary"
@@ -430,6 +450,7 @@ Rectangle {
           onClicked: root.terminal(root.s)
         }
         Pill {
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: root.s ? "secondary" : "primary"
@@ -440,14 +461,17 @@ Rectangle {
     }
 
     // ---- working: the watched session's steps
-    Column {
+    Item {
       id: working
       visible: root.kind === "working" && !!root.s
+      y: root.pad
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: pal.dense ? Style.space(6) : pal.sp(12)
+      height: parent.height - root.pad * 2
+      implicitHeight: workingLine.height + body.frameGap * 2 + workingFooter.implicitHeight
+        + (steps.visible ? steps.implicitHeight : workingNow.implicitHeight)
 
       SessionLine {
+        id: workingLine
         dotColor: root.pal.crab
         pulse: true
         name: root.s ? root.s.name : ""
@@ -459,21 +483,25 @@ Rectangle {
       Steps {
         id: steps
         visible: items.length > 0
+        y: workingLine.height + body.frameGap
         width: parent.width
         pal: root.pal
         session: root.s
         now: root.now
         fontFamily: root.fontFamily
         fontSize: pal.dense ? Style.font.body : Style.font.subtitle
-        // The rows are what it did; thinking rides on the newest one, and
-        // Claude's last words (mostly a recap of that) stay in the detail view.
+        // The rows are what it did; between calls the newest one carries the
+        // clock, and Claude's last words (mostly a recap of that) stay in the
+        // detail view.
         foldThinking: true
         showNote: false
         animate: root.active
       }
 
       Text {
+        id: workingNow
         visible: !steps.visible
+        y: steps.y
         width: parent.width
         text: root.s ? (root.s.thinking ? "Thinking…" : root.s.activity || "Working…") : ""
         textFormat: Text.PlainText
@@ -485,6 +513,8 @@ Rectangle {
       }
 
       Text {
+        id: workingFooter
+        anchors.bottom: parent.bottom
         width: parent.width
         text: root.s ? Format.clock(root.now, root.s.turnStart)
           + (root.s.turnTokens ? " · " + Format.tokens(root.s.turnTokens) : "")
@@ -499,14 +529,16 @@ Rectangle {
     }
 
     // ---- waiting on you, without a prompt the card can answer
-    Column {
+    Item {
       id: waiting
       visible: root.kind === "waiting" && !!root.s
+      y: root.pad
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: pal.sp(12)
+      height: parent.height - root.pad * 2
+      implicitHeight: waitingLine.height + body.frameGap * 2 + waitingText.implicitHeight + waitingActions.height
 
       SessionLine {
+        id: waitingLine
         dotColor: root.pal.needsYou
         pulse: true
         name: root.s ? root.s.name : ""
@@ -515,21 +547,26 @@ Rectangle {
       }
 
       Text {
+        id: waitingText
+        y: waitingLine.height + body.frameGap
         width: parent.width
         text: root.s && root.s.activity ? root.s.activity : "Claude is waiting for your answer."
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
-        maximumLineCount: 2
+        maximumLineCount: pal.dense ? 3 : 2
         elide: Text.ElideRight
         color: root.pal.strong
         font.family: root.fontFamily
-        font.pixelSize: Style.font.heading
-        font.bold: true
+        font.pixelSize: pal.dense ? Style.font.body : Style.font.heading
+        font.bold: !pal.dense
       }
 
       Row {
+        id: waitingActions
+        anchors.bottom: parent.bottom
         spacing: pal.sp(8)
         Pill {
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: "primary"
@@ -538,6 +575,7 @@ Rectangle {
         }
         Pill {
           visible: !!root.s && !!root.s.jobId
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           label: "Open terminal"

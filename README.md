@@ -136,9 +136,13 @@ buffer squashed into the new size.
   lit up with a clock and its command or path under it. Between calls the
   model is writing, and nothing of that reaches the transcript (thinking
   blocks are saved empty), so there's no row for it: the newest step (the
-  plan's current one) carries the spinner and a "thinking 12s" clock.
-  Claude's latest words, mostly a recap of the step before, are left to the
-  detail view.
+  plan's current one) carries the spinner and the elapsed time (with no step
+  yet, the row is just those). Claude's latest words, mostly a recap of the
+  step before, are left to the detail view. Done, working and waiting share
+  one frame: the session's line fixed at the top, the buttons (or the
+  tokens / context footer) at the bottom, so nothing climbs as steps arrive.
+  A finished turn's text comes through up to 600 characters; in the dense
+  look it is body-size and takes the lines the frame has before the ellipsis.
   With nothing running: **New chat**, into the chat view. (Earlier sessions
   are under Sessions → Recent.)
   The three icons at the card's top left pick what it is (remembered):

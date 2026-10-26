@@ -15,8 +15,9 @@ import "Icons.js" as Icons
 // one-second poll, so a list of only past calls would show nothing but
 // ticks). Under the list, Claude's latest words this turn, in quotes.
 // With `foldThinking` (Home), the gap between calls takes no row of its own:
-// the newest step (the plan's current one) gets the spinner and a "thinking"
-// clock instead, so the rows stay what it has actually done.
+// the newest step (the plan's current one) gets the spinner and the clock
+// instead, so the rows stay what it has actually done; with no step yet, the
+// row is just the spinner and the clock.
 Column {
   id: root
 
@@ -44,7 +45,7 @@ Column {
     return null
   }
   // What it's doing right now: the call that's out, else its own move.
-  readonly property var thinkingRow: ({ text: s.thinking ? "Thinking it over…" : "Thinking…", detail: "", at: s.phaseAt || 0, state: "running", now: true })
+  readonly property var thinkingRow: ({ text: foldThinking ? "" : s.thinking ? "Thinking it over…" : "Thinking…", detail: "", at: s.phaseAt || 0, state: "running", now: true })
   readonly property bool folding: foldThinking && busy && !runningAction
   readonly property var current: !busy || folding ? null
     : runningAction ? { text: runningAction.text, detail: runningAction.detail || "", at: runningAction.at || s.phaseAt || 0, state: "running", now: true }
@@ -239,7 +240,7 @@ Column {
               visible: (step.live || step.thinkingHere) && step.modelData.at > 0
               anchors.right: parent.right
               anchors.verticalCenter: label.verticalCenter
-              text: (step.thinkingHere ? (root.s.thinking ? "thinking it over " : "thinking ") : "") + Format.clock(root.now, step.modelData.at)
+              text: Format.clock(root.now, step.modelData.at)
               textFormat: Text.PlainText
               color: root.pal ? root.pal.crab : "orange"
               font.family: root.fontFamily

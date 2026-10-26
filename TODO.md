@@ -191,3 +191,4 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Dense, Home modes: Today fits Home's height (right under the mode switch, 15 px rows, tighter weather), Anti-rot shorter (smaller text, status beside the buttons), Move pane shows each time under its name. Seen rendered in the dark theme.
 - [ ] Dense, next pass: Detail, Chat, Search, QuickChat, Approval and the live terminal still use the Compact sizes; light theme not checked.
 - [x] Dense: Home one height in every mode (the corner card's), Anti-rot buttons at the bottom, smaller text in the working view. Home's working view (all looks) folds "Thinking…" into the newest step and drops the quoted note.
+- [x] Home frame: session line fixed at the top, buttons / footer at the bottom (done, working, waiting); thinking shows only the elapsed time; Dense: finished and waiting text body-size, filling the frame.
