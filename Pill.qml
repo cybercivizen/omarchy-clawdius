@@ -30,8 +30,10 @@ Rectangle {
     : kind === "quiet" && !hovered ? pal.muted
     : pal.fg
 
-  implicitHeight: Style.space(dense ? 24 : compact ? 30 : 36)
-  implicitWidth: iconOnly ? implicitHeight : row.implicitWidth + Style.space(dense ? 18 : compact ? 24 : 32)
+  // The island's dense look takes the sizes a step down; 24 is the floor.
+  readonly property bool tight: !!pal && pal.dense
+  implicitHeight: Style.space(dense ? 24 : compact ? (tight ? 26 : 30) : tight ? 30 : 36)
+  implicitWidth: iconOnly ? implicitHeight : row.implicitWidth + Style.space(dense ? 18 : compact ? (tight ? 18 : 24) : tight ? 24 : 32)
   radius: pal.pill(height)
   color: !pal ? "transparent"
     : primary ? (hovered ? pal.mix(pal.primary, pal.light ? "#ffffff" : "#000000", 0.12) : pal.primary)

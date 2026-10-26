@@ -80,7 +80,7 @@ Rectangle {
   readonly property bool tall: kind === "approval" && !!moment.request && moment.request.tool === "ExitPlanMode"
   readonly property var s: moment && moment.session ? moment.session : null
   readonly property string home: Quickshell.env("HOME") || ""
-  readonly property real pad: Style.space(26)
+  readonly property real pad: pal.sp(26)
   readonly property bool hasRail: railSessions.length > 0
 
   readonly property string crabMood: kind === "approval" || kind === "waiting" ? "waiting"
@@ -121,8 +121,9 @@ Rectangle {
   // another mode is up (pulsing orange, or green for a finish).
   readonly property bool anyWorking: kind === "working" || railSessions.some(x => x.busy)
 
-  implicitHeight: Math.max(Style.space(204), agents ? body.implicitHeight + pad * 2 : 0,
-    mode === "antirot" ? repCard.implicitHeight + Style.space(38 + 12 + 12) : 0, railColumn.implicitHeight + Style.space(20))
+  implicitHeight: Math.max(pal.sp(204), agents ? body.implicitHeight + pad * 2 : 0,
+    mode === "antirot" ? repCard.implicitHeight + paneY + pal.sp(12 + (pal.dense ? 0 : 12)) : 0,
+    mode === "today" && !pal.dense ? paneY + todayPane.implicitHeight + pal.sp(12) : 0, railColumn.implicitHeight + pal.sp(20))
 
   // ---- The glow: a wide arc of the state color rising from the bottom edge,
   //      clipped to the card's rounded corners by drawing it in their shape.
@@ -170,7 +171,7 @@ Rectangle {
     Crab {
       id: crab
       pal: root.pal
-      unit: Style.spaceReal(6)
+      unit: Style.spaceReal(root.pal.dense ? 4 : 6)
       mood: root.crabMood
       color: root.kind === "idle" || root.kind === "failed" || root.kind === "limited" ? root.pal.idleCrab : root.pal.crab
       badge: root.badge
@@ -237,8 +238,8 @@ Rectangle {
   Item {
     id: body
     visible: root.agents
-    x: crabSlot.x + crabSlot.width + Style.space(28)
-    width: (root.hasRail ? rail.x - Style.space(16) : root.width - root.pad) - x
+    x: crabSlot.x + crabSlot.width + pal.sp(28)
+    width: (root.hasRail ? rail.x - pal.sp(16) : root.width - root.pad) - x
     height: parent.height
     implicitHeight: approval.visible ? approval.implicitHeight
       : limited.visible ? limited.implicitHeight
@@ -268,7 +269,7 @@ Rectangle {
       visible: root.kind === "limited"
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      spacing: pal.sp(12)
       readonly property var ev: visible ? root.moment.event || {} : {}
       // The limit that's spent, and when it frees up; none on record means
       // only Claude Code's own line (its ev.text) says when.
@@ -319,7 +320,7 @@ Rectangle {
       Column {
         visible: !!limited.spent
         width: parent.width
-        spacing: Style.space(6)
+        spacing: pal.sp(6)
 
         Rectangle {
           width: parent.width
@@ -349,7 +350,7 @@ Rectangle {
       }
 
       Row {
-        spacing: Style.space(8)
+        spacing: pal.sp(8)
         Pill {
           visible: !!root.s && !!root.s.jobId
           pal: root.pal
@@ -376,16 +377,26 @@ Rectangle {
       }
     }
 
+    // done, working and waiting share one frame: the session's line fixed at
+    // the top, the buttons (or the working footer) at the bottom, whatever
+    // the middle holds, so nothing shifts as steps come and go.
+    readonly property real frameGap: pal.dense ? Style.space(6) : pal.sp(12)
+
     // ---- done / failed
-    Column {
+    Item {
       id: finished
       visible: root.kind === "done" || root.kind === "failed"
+      y: root.pad
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      height: parent.height - root.pad * 2
+      // Dense: counted at three lines, so a long reply doesn't grow Home;
+      // the text then takes what the frame has.
+      implicitHeight: finishedLine.height + body.frameGap * 2 + finishedActions.height
+        + (pal.dense ? Math.min(finishedText.implicitHeight, finishedText.lineH * 3) : finishedText.implicitHeight)
       readonly property var ev: visible ? root.moment.event || {} : {}
 
       SessionLine {
+        id: finishedLine
         dotColor: root.kind === "done" ? root.pal.done : root.pal.failed
         name: root.s ? root.s.name : finished.ev.name || ""
         background: !!root.s && root.s.kind === "bg"
@@ -395,25 +406,34 @@ Rectangle {
       }
 
       Text {
+        id: finishedText
+        // A line, roughly: the font's own spacing (~1.3 × its size) times lineHeight.
+        readonly property real lineH: Math.ceil(font.pixelSize * 1.3 * lineHeight)
+        y: finishedLine.height + body.frameGap
         width: parent.width
+        height: pal.dense ? Math.max(lineH, finishedActions.y - y - body.frameGap) : implicitHeight
         text: finished.ev.text || (root.s && root.s.reply) || (root.kind === "done" ? "All done." : "That one didn't work out.")
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
-        maximumLineCount: 3
+        // Dense: as many lines as fit, then the ellipsis.
+        maximumLineCount: pal.dense ? 12 : 3
         elide: Text.ElideRight
         lineHeight: 1.15
         color: root.pal.strong
         font.family: root.fontFamily
-        font.pixelSize: Style.font.heading
-        font.bold: true
+        font.pixelSize: pal.dense ? Style.font.body : Style.font.heading
+        font.bold: !pal.dense
       }
 
       Row {
-        spacing: Style.space(8)
+        id: finishedActions
+        anchors.bottom: parent.bottom
+        spacing: pal.sp(8)
         // A background session opens up close in the island; one in a
         // terminal window only has its terminal to go to.
         Pill {
           visible: !!root.s && !!root.s.jobId
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: "primary"
@@ -422,6 +442,7 @@ Rectangle {
         }
         Pill {
           visible: !!root.s
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: root.s && root.s.jobId ? "secondary" : "primary"
@@ -429,6 +450,7 @@ Rectangle {
           onClicked: root.terminal(root.s)
         }
         Pill {
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: root.s ? "secondary" : "primary"
@@ -439,14 +461,17 @@ Rectangle {
     }
 
     // ---- working: the watched session's steps
-    Column {
+    Item {
       id: working
       visible: root.kind === "working" && !!root.s
+      y: root.pad
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      height: parent.height - root.pad * 2
+      implicitHeight: workingLine.height + body.frameGap * 2 + workingFooter.implicitHeight
+        + (steps.visible ? steps.implicitHeight : workingNow.implicitHeight)
 
       SessionLine {
+        id: workingLine
         dotColor: root.pal.crab
         pulse: true
         name: root.s ? root.s.name : ""
@@ -458,16 +483,25 @@ Rectangle {
       Steps {
         id: steps
         visible: items.length > 0
+        y: workingLine.height + body.frameGap
         width: parent.width
         pal: root.pal
         session: root.s
         now: root.now
         fontFamily: root.fontFamily
+        fontSize: pal.dense ? Style.font.body : Style.font.subtitle
+        // The rows are what it did; between calls the newest one carries the
+        // clock, and Claude's last words (mostly a recap of that) stay in the
+        // detail view.
+        foldThinking: true
+        showNote: false
         animate: root.active
       }
 
       Text {
+        id: workingNow
         visible: !steps.visible
+        y: steps.y
         width: parent.width
         text: root.s ? (root.s.thinking ? "Thinking…" : root.s.activity || "Working…") : ""
         textFormat: Text.PlainText
@@ -479,6 +513,8 @@ Rectangle {
       }
 
       Text {
+        id: workingFooter
+        anchors.bottom: parent.bottom
         width: parent.width
         text: root.s ? Format.clock(root.now, root.s.turnStart)
           + (root.s.turnTokens ? " · " + Format.tokens(root.s.turnTokens) : "")
@@ -493,14 +529,16 @@ Rectangle {
     }
 
     // ---- waiting on you, without a prompt the card can answer
-    Column {
+    Item {
       id: waiting
       visible: root.kind === "waiting" && !!root.s
+      y: root.pad
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(12)
+      height: parent.height - root.pad * 2
+      implicitHeight: waitingLine.height + body.frameGap * 2 + waitingText.implicitHeight + waitingActions.height
 
       SessionLine {
+        id: waitingLine
         dotColor: root.pal.needsYou
         pulse: true
         name: root.s ? root.s.name : ""
@@ -509,21 +547,26 @@ Rectangle {
       }
 
       Text {
+        id: waitingText
+        y: waitingLine.height + body.frameGap
         width: parent.width
         text: root.s && root.s.activity ? root.s.activity : "Claude is waiting for your answer."
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
-        maximumLineCount: 2
+        maximumLineCount: pal.dense ? 3 : 2
         elide: Text.ElideRight
         color: root.pal.strong
         font.family: root.fontFamily
-        font.pixelSize: Style.font.heading
-        font.bold: true
+        font.pixelSize: pal.dense ? Style.font.body : Style.font.heading
+        font.bold: !pal.dense
       }
 
       Row {
-        spacing: Style.space(8)
+        id: waitingActions
+        anchors.bottom: parent.bottom
+        spacing: pal.sp(8)
         Pill {
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           kind: "primary"
@@ -532,6 +575,7 @@ Rectangle {
         }
         Pill {
           visible: !!root.s && !!root.s.jobId
+          compact: root.pal.dense
           pal: root.pal
           fontFamily: root.fontFamily
           label: "Open terminal"
@@ -546,11 +590,11 @@ Rectangle {
       visible: root.kind === "idle"
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(14)
+      spacing: pal.sp(14)
 
       Column {
         width: parent.width
-        spacing: Style.space(5)
+        spacing: pal.sp(5)
 
         Text {
           width: parent.width
@@ -598,15 +642,18 @@ Rectangle {
   }
 
   // ---- Today and Anti-rot: the other two modes, up to the rail
-  readonly property real paneRight: hasRail ? rail.x - Style.space(16) : width - pad
+  readonly property real paneRight: hasRail ? rail.x - pal.sp(16) : width - pad
+  // Under the mode switch.
+  readonly property real paneY: pal.dense ? modeRow.y + modeRow.height + Style.space(2) : Style.space(38)
 
   Today {
     id: todayPane
     visible: !root.agents && root.mode === "today"
     x: root.pad
-    y: Style.space(38)
+    y: root.paneY
     width: root.paneRight - x
-    height: implicitHeight
+    // Dense: what Home has left (the corner card sets its height); the rows fit it.
+    height: pal.dense ? parent.height - y - pal.sp(12) : implicitHeight
     pal: root.pal
     fontFamily: root.fontFamily
     now: root.now
@@ -617,15 +664,19 @@ Rectangle {
     id: antirotPane
     visible: root.mode === "antirot"
     x: root.pad
-    y: Style.space(38)
+    y: root.paneY
     width: root.paneRight - x
-    height: parent.height - y - Style.space(12)
+    height: parent.height - y - pal.sp(12)
 
     ChallengeCard {
       id: repCard
       visible: !!root.antirot
       width: parent.width
-      anchors.verticalCenter: parent.verticalCenter
+      // Dense: the whole pane, so its buttons sit at the bottom.
+      height: pal.dense ? parent.height : implicitHeight
+      // Centred; dense: from the top, as Today. (A y binding: an anchor
+      // dropped at runtime leaves the old y.)
+      y: pal.dense ? 0 : Math.round((parent.height - height) / 2)
       pal: root.pal
       fontFamily: root.fontFamily
       antirot: root.antirot
@@ -648,7 +699,7 @@ Rectangle {
       visible: !root.antirot
       width: parent.width
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(10)
+      spacing: pal.sp(10)
 
       Text {
         width: parent.width
@@ -691,8 +742,9 @@ Rectangle {
   }
 
   Row {
+    id: modeRow
     x: root.pad - Style.space(6)
-    y: Style.space(10)
+    y: pal.sp(10)
     spacing: Style.space(2)
 
     Repeater {
@@ -749,21 +801,21 @@ Rectangle {
     id: rail
     visible: root.hasRail
     anchors.right: parent.right
-    anchors.rightMargin: Style.space(12)
+    anchors.rightMargin: pal.sp(12)
     anchors.top: parent.top
-    anchors.topMargin: Style.space(12)
-    width: Style.space(48) + Style.space(12)
+    anchors.topMargin: pal.sp(12)
+    width: Style.space(48) + pal.sp(12)
     height: railColumn.implicitHeight
 
     Rectangle {
       width: 1
-      height: Math.max(railColumn.implicitHeight, root.height - Style.space(24))
+      height: Math.max(railColumn.implicitHeight, root.height - pal.sp(24))
       color: root.pal.hairline
     }
 
     Column {
       id: railColumn
-      x: Style.space(12)
+      x: pal.sp(12)
       spacing: Style.space(4)
 
       Repeater {
@@ -776,7 +828,7 @@ Rectangle {
           required property int index
           readonly property bool hovered: peek.session && peek.session.id === modelData.id && peek.shown
           width: Style.space(48)
-          height: Style.space(34)
+          height: root.pal.dense ? Style.space(28) : Style.space(34)
           radius: pal.rad(Style.space(12))
           color: hovered ? root.pal.alpha(root.pal.fg, 0.10)
             : modelData.waiting ? root.pal.alpha(root.pal.needsYou, 0.08)
@@ -867,7 +919,7 @@ Rectangle {
       Rectangle {
         visible: root.railMore > 0
         width: Style.space(48)
-        height: Style.space(28)
+        height: root.pal.dense ? Style.space(24) : Style.space(28)
         radius: pal.rad(Style.space(10))
         color: moreMouse.containsMouse ? root.pal.alpha(root.pal.fg, 0.08) : "transparent"
 
@@ -942,14 +994,14 @@ Rectangle {
       x: Style.space(16)
       y: Style.space(14)
       width: parent.width - Style.space(16) * 2
-      spacing: Style.space(8)
+      spacing: pal.sp(8)
 
       Item {
         width: parent.width
         height: peekName.implicitHeight
 
         Row {
-          spacing: Style.space(8)
+          spacing: pal.sp(8)
           width: parent.width - peekState.implicitWidth - peekStar.width - Style.space(12)
 
           Rectangle {
@@ -1039,7 +1091,7 @@ Rectangle {
       // A question needs its options: those are on the main card.
       Row {
         visible: !!peek.request && peek.request.tool !== "AskUserQuestion"
-        spacing: Style.space(6)
+        spacing: pal.sp(6)
         topPadding: Style.space(2)
         Pill { pal: root.pal; fontFamily: root.fontFamily; compact: true; label: "Deny"; onClicked: root.answered(peek.request, "deny", null) }
         Pill { pal: root.pal; fontFamily: root.fontFamily; compact: true; kind: "primary"; label: "Allow"; onClicked: root.answered(peek.request, "allow", null) }
@@ -1067,7 +1119,7 @@ Rectangle {
     property string caption: ""
     property int elideCaption: Text.ElideRight
     width: parent ? parent.width : 0
-    spacing: Style.space(8)
+    spacing: pal.sp(8)
 
     Rectangle {
       id: lineDot
@@ -1087,7 +1139,7 @@ Rectangle {
       elide: Text.ElideRight
       color: root.pal.strong
       font.family: root.fontFamily
-      font.pixelSize: Style.font.title
+      font.pixelSize: root.pal.dense ? Style.font.subtitle : Style.font.title
       font.bold: true
     }
 

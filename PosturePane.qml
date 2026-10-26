@@ -16,6 +16,8 @@ Item {
   property var posture: ({ on: false, everyMin: 30, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
   property var walk: ({ on: false, everyMin: 60, nextAt: 0, awaySince: 0, pausedLeft: 0, rested: false })
   property double now: Date.now()
+  // Dense look: a smaller crab, and each nudge's time under its name.
+  readonly property bool dense: !!pal && pal.dense
 
   // A patch of one nudge's state ("posture" | "walk"): on.
   signal edited(string key, var patch)
@@ -47,7 +49,7 @@ Item {
     readonly property real span: Math.max(1, (info.everyMin || 1) * 60000)
 
     width: parent.width
-    height: Style.space(32)
+    height: root.dense ? timeText.y + timeText.height + Style.space(8) : Style.space(32)
 
     Text {
       id: titleText
@@ -60,11 +62,13 @@ Item {
     }
 
     Text {
-      anchors.left: titleText.right
-      anchors.leftMargin: Style.space(8)
+      id: timeText
+      anchors.left: root.dense ? parent.left : titleText.right
+      anchors.leftMargin: root.dense ? 0 : Style.space(8)
       anchors.right: toggle.left
       anchors.rightMargin: Style.space(6)
-      anchors.baseline: titleText.baseline
+      anchors.baseline: root.dense ? undefined : titleText.baseline
+      anchors.top: root.dense ? titleText.bottom : undefined
       text: !nudge.on ? "every " + Timers.span(nudge.info.everyMin || 0) : nudge.away ? "paused" : Timers.left(nudge.leftMs + 999)
       textFormat: Text.PlainText
       elide: Text.ElideRight
@@ -76,6 +80,8 @@ Item {
     Pill {
       id: toggle
       anchors.right: parent.right
+      // Dense: centred on the name and the time.
+      y: root.dense ? Math.round((timeText.y + timeText.height - height) / 2) : 0
       pal: root.pal
       dense: true
       fontFamily: root.fontFamily
@@ -105,19 +111,19 @@ Item {
   Row {
     id: body
     width: parent.width
-    spacing: Style.space(12)
+    spacing: root.pal.sp(12)
 
     Item {
       id: crabSlot
       width: crab.width
-      height: Style.space(56)
+      height: root.pal.sp(56)
       anchors.verticalCenter: parent.verticalCenter
 
       Crab {
         id: crab
         anchors.centerIn: parent
         pal: root.pal
-        unit: Style.spaceReal(3)
+        unit: Style.spaceReal(root.dense ? 2 : 3)
         mood: !root.anyOn || root.away ? "sleep" : root.slumping ? "failed" : "idle"
         color: root.anyOn && !root.away && !root.slumping ? root.pal.crab : root.pal.idleCrab
         ring: root.pal.card
@@ -134,9 +140,9 @@ Item {
     }
 
     Column {
-      width: parent.width - crabSlot.width - Style.space(12)
+      width: parent.width - crabSlot.width - root.pal.sp(12)
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(6)
+      spacing: Style.space(root.dense ? 4 : 6)
 
       Nudge { key: "posture"; title: "Sit up"; info: root.posture }
       Nudge { key: "walk"; title: "Walk"; info: root.walk }
@@ -150,7 +156,7 @@ Item {
           : root.line
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
-        maximumLineCount: 2
+        maximumLineCount: root.dense ? 1 : 2
         elide: Text.ElideRight
         color: root.pal.muted
         font.family: root.fontFamily

@@ -40,7 +40,7 @@ Rectangle {
     ]
     return mode === "stuck" ? m.concat([{ id: "stuck", name: "STUCK", icon: Icons.help }]) : m
   }
-  readonly property real pad: Style.space(18)
+  readonly property real pad: pal.sp(18)
   // The content's height in every mode: Limits' two bars set it. Stuck fills
   // whatever height the card is given (the Anti-rot card's) and scrolls.
   readonly property real slot: Style.space(110)
@@ -72,7 +72,7 @@ Rectangle {
   }
   Slide { id: modeSlide; target: stack }
 
-  implicitHeight: pad * 2 + header.height + Style.space(14) + slot
+  implicitHeight: pad * 2 + header.height + pal.sp(14) + slot
   radius: pal.rad(Style.space(24))
   color: pal ? pal.card : "transparent"
   border.width: 1
@@ -142,7 +142,7 @@ Rectangle {
   Item {
     id: stack
     x: root.pad
-    y: root.pad + header.height + Style.space(14)
+    y: root.pad + header.height + root.pal.sp(14)
     width: parent.width - root.pad * 2
     height: root.mode === "stuck" ? Math.max(root.slot, root.height - y - root.pad) : root.slot
 

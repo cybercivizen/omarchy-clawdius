@@ -67,8 +67,8 @@ Column {
   Text {
     visible: root.sessions.length === 0 && root.emptyText !== ""
     width: parent.width
-    topPadding: Style.space(14)
-    bottomPadding: Style.space(14)
+    topPadding: root.pal.sp(14)
+    bottomPadding: root.pal.sp(14)
     horizontalAlignment: Text.AlignHCenter
     text: root.emptyText
     textFormat: Text.PlainText
@@ -90,8 +90,8 @@ Column {
       readonly property bool live: !!s.jobId && s.jobId === root.liveId
       readonly property bool stoppable: s.kind === "bg" && !!s.jobId && !s.busy && !s.waiting && !live
       readonly property bool lively: s.busy || s.waiting
-      readonly property real padH: Style.space(14)
-      readonly property real padV: Style.space(11)
+      readonly property real padH: root.pal.sp(14)
+      readonly property real padV: root.pal.sp(11)
       width: root.width
       height: rowColumn.implicitHeight + padV * 2
 
@@ -118,11 +118,11 @@ Column {
         x: sessionRow.padH
         y: sessionRow.padV
         width: parent.width - sessionRow.padH * 2
-        spacing: Style.space(14)
+        spacing: root.pal.sp(14)
 
         // Centred on the row's two lines.
         Item {
-          width: Style.space(36)
+          width: root.pal.sp(36)
           height: rowColumn.height
 
           Clawd {
@@ -137,7 +137,7 @@ Column {
         Column {
           id: rowColumn
           width: parent.width - x
-          spacing: Style.space(5)
+          spacing: root.pal.sp(5)
 
           // Name, `bg` and folder on the left; how it stands on the right.
           Item {
@@ -257,7 +257,7 @@ Column {
             text: line
             textFormat: Text.PlainText
             elide: Text.ElideRight
-            maximumLineCount: sessionRow.lively ? 1 : 2
+            maximumLineCount: sessionRow.lively || root.pal.dense ? 1 : 2
             wrapMode: Text.Wrap
             color: sessionRow.s.waiting ? root.pal.needsYouText : sessionRow.s.busy ? root.pal.fg : root.pal.muted
             font.family: root.fontFamily
@@ -283,8 +283,8 @@ Column {
   // Click to list every idle session; click again to go back to the first few.
   Text {
     visible: root.hiddenIdle > 0 || (root.idleExpanded && root.idleCount > root.idleLimit)
-    leftPadding: Style.space(14)
-    topPadding: Style.space(6)
+    leftPadding: root.pal.sp(14)
+    topPadding: root.pal.sp(6)
     text: root.idleExpanded ? "show fewer idle" : "+ " + root.hiddenIdle + " more idle"
     textFormat: Text.PlainText
     color: idleMouse.containsMouse ? root.pal.fg : root.pal.muted

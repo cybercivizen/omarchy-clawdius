@@ -914,7 +914,7 @@ def main():
                 outcome, headline, finished = compose(row, job, tr.final_text if tr else "", busy_for,
                                                       tr.tokens() if tr else 0, tr.limit if tr else "")
                 event = {"id": sid, "kind": outcome, "at": int(time.time() * 1000), "name": row["name"],
-                         "text": short(headline, 160), "busyFor": int(busy_for), "tokens": tr.tokens() if tr else 0}
+                         "text": short(headline, 600), "busyFor": int(busy_for), "tokens": tr.tokens() if tr else 0}
                 note = announce(finished, row, note)
 
         for sid, due in list(waits.items()):

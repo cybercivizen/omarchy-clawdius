@@ -133,11 +133,18 @@ buffer squashed into the new size.
   faint glow in the state's color. The watched session shows its last three
   steps: Claude's plan when it wrote one (`tasks`), else its last tool calls
   from the transcript (`actions`: ✓ done, spinner running, ✗ failed). It is
-  sticky, so two busy sessions don't trade places every second. While it's
-  busy the last row is always what it's doing now, lit up with a clock:
-  the tool call that's out with its command or path under it, or
-  "Thinking…" between calls; under the list, Claude's latest words this
-  turn in quotes.
+  sticky, so two busy sessions don't trade places every second. While a
+  tool call is out (one running past the feed's 1 s poll) it is the last row,
+  lit up with a clock and its command or path under it. Between calls the
+  model is writing, and nothing of that reaches the transcript (thinking
+  blocks are saved empty), so there's no row for it: the newest step (the
+  plan's current one) carries the spinner and the elapsed time (with no step
+  yet, the row is just those). Claude's latest words, mostly a recap of the
+  step before, are left to the detail view. Done, working and waiting share
+  one frame: the session's line fixed at the top, the buttons (or the
+  tokens / context footer) at the bottom, so nothing climbs as steps arrive.
+  A finished turn's text comes through up to 600 characters; in the dense
+  look it is body-size and takes the lines the frame has before the ellipsis.
   With nothing running: **New chat**, into the chat view. (Earlier sessions
   are under Sessions → Recent.)
   The three icons at the card's top left pick what it is (remembered):
@@ -317,7 +324,7 @@ buffer squashed into the new size.
   90%), today's tokens / prompts / sessions, tokens per model, last 7 days.
 - **Settings** (the gear): settings that live in the island rather than in
   `shell.json`, one section per feature, each folding on a click (`Settings.qml`).
-  **Island** has one switch, *Terminals outside the island*: on, opening a
+  **Island** has the theme (Soft, Compact, Dense; see Themes) and one switch, *Terminals outside the island*: on, opening a
   session (or starting one) opens a real terminal window instead of the island's
   conversation and live terminal; the sessions, folders, approvals and usage
   stay. **Anti-rot** (folded to start with):
@@ -396,10 +403,21 @@ Gear → Island → Theme picks the island's look, kept in `prefs.json`
 (`islandLook`). **Soft** is the rounded, airy island. **Compact** is the
 developer look: 12 px corners on the island and cards (as the bar's other popups), 10 px max on controls instead of
 pills, tighter padding and rows, in line with
-the rest of the bar. `Colors.look` carries it: views take their corner radii
-from `pal.rad()` / `pal.pill()`, so a new view gets both looks by using those
-instead of a bare `radius`. First iteration: shapes and density only; row
-heights inside the views are still the Soft sizes.
+the rest of the bar. **Dense** (`"dense"`) is Compact made smaller: about 70%
+of the padding, gaps and row heights, a 34 px nav, a 780 px island instead of
+948, a smaller Home crab and rail, pills a step down (24 px floor), and Recent
+and Folders rows on one line (folder and meta beside the title). Text stays
+the same size. `Colors.look` carries it: views take their corner radii
+from `pal.rad()` / `pal.pill()`, so a new view gets every look by using those
+instead of a bare `radius`; `pal.dev` is true for Compact and Dense, and
+padding or gaps go through `pal.sp(px)` (as `Style.space`, cut down in Dense;
+not for icons, pixel art or text). On Home, Today and Anti-rot start right under
+the mode switch (`Moment.paneY`), the calendar's rows are 15 px and Anti-rot's
+text a step smaller with its status beside the buttons, its buttons at the
+card's bottom. Home is always the corner card's height (168 px) in every mode,
+the working view's text a step smaller to fit; the Move pane puts each nudge's
+time under its name. Compact still uses the Soft row heights inside the
+views; Dense covers Home, the corner card, Sessions, Stats and Settings so far.
 
 ### Clock hover
 

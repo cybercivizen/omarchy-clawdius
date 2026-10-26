@@ -61,12 +61,18 @@ Column {
     next[key] = !next[key]
     return next
   }
+  // Under the folder (beside it in the dense look): how many sessions, and the last one.
+  function summary(f, open) {
+    return f.count + (f.count > 1 ? " sessions" : " session")
+      + (f.cwd === Quickshell.env("HOME") ? " · open in a terminal (Claude won't run them in the background here)"
+         : open ? "" : f.title ? " · last: " + f.title : "")
+  }
 
   Text {
     visible: root.folders.length === 0
     width: parent.width
-    topPadding: Style.space(6)
-    bottomPadding: Style.space(6)
+    topPadding: root.pal.sp(6)
+    bottomPadding: root.pal.sp(6)
     horizontalAlignment: Text.AlignHCenter
     text: "No other folders yet."
     textFormat: Text.PlainText
@@ -81,8 +87,8 @@ Column {
     Item {
       id: row
       required property var modelData
-      readonly property real padH: Style.space(10)
-      readonly property real padV: Style.space(6)
+      readonly property real padH: root.pal.sp(10)
+      readonly property real padV: root.pal.sp(6)
       readonly property bool starting: root.starting !== "" && root.starting === modelData.cwd
       readonly property bool open: !!root.expanded[modelData.cwd]
       readonly property bool all: !!root.showAll[modelData.cwd]
@@ -141,15 +147,31 @@ Column {
               Text {
                 id: dirText
                 anchors.left: chevron.right
-                anchors.right: newButton.left
+                anchors.right: root.pal.dense ? undefined : newButton.left
                 anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
+                width: root.pal.dense ? Math.min(implicitWidth, parent.width * 0.4) : undefined
                 text: root.folder(row.modelData.cwd)
                 textFormat: Text.PlainText
                 elide: Text.ElideMiddle
                 color: row.starting ? root.accent : root.fg
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.body
+              }
+
+              Text {
+                visible: root.pal.dense
+                anchors.left: dirText.right
+                anchors.leftMargin: Style.space(8)
+                anchors.right: newButton.left
+                anchors.rightMargin: Style.space(8)
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.summary(row.modelData, row.open)
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                color: root.mutedFg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
               }
 
               Rectangle {
@@ -199,11 +221,10 @@ Column {
             }
 
             Text {
+              visible: !root.pal.dense
               x: Style.space(14)
               width: parent.width - x
-              text: row.modelData.count + (row.modelData.count > 1 ? " sessions" : " session")
-                + (row.modelData.cwd === Quickshell.env("HOME") ? " · open in a terminal (Claude won't run them in the background here)"
-                   : row.open ? "" : row.modelData.title ? " · last: " + row.modelData.title : "")
+              text: root.summary(row.modelData, row.open)
               textFormat: Text.PlainText
               elide: Text.ElideRight
               color: root.mutedFg

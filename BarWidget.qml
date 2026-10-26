@@ -1051,7 +1051,7 @@ BarWidget {
   property bool detailTerminal: false
   // Settings → Island: sessions open (and start) in a terminal window, never in the island.
   property bool terminalOutside: false
-  // Settings → Island → Theme: "soft" or "dev" (compact); Colors.look carries it to every view.
+  // Settings → Island → Theme: "soft", "dev" (compact) or "dense"; Colors.look carries it to every view.
   property string islandLook: "soft"
   property var chatOverride: ({})
   readonly property bool detailChat: {
@@ -1627,7 +1627,7 @@ BarWidget {
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
         root.detailTerminal = prefs.detailView === "terminal"
         root.terminalOutside = prefs.terminalOutside === true
-        root.islandLook = prefs.islandLook === "dev" ? "dev" : "soft"
+        root.islandLook = prefs.islandLook === "dev" || prefs.islandLook === "dense" ? prefs.islandLook : "soft"
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
         if (/^(auto|plan|acceptEdits|default)$/.test(prefs.quickPermission)) root.quickPermission = prefs.quickPermission
@@ -2107,8 +2107,8 @@ BarWidget {
     property bool dot: false
     property string tip: ""
     signal clicked()
-    width: theme.dev ? Style.space(36) : Style.space(40)
-    height: theme.dev ? Style.space(30) : Style.space(36)
+    width: theme.dense ? Style.space(32) : theme.dev ? Style.space(36) : Style.space(40)
+    height: theme.dense ? Style.space(26) : theme.dev ? Style.space(30) : Style.space(36)
     radius: theme.pill(height)
     color: current ? theme.alpha(theme.fg, 0.14) : navMouse.containsMouse ? theme.alpha(theme.fg, 0.07) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
@@ -2144,8 +2144,8 @@ BarWidget {
     property string label: ""
     property bool current: false
     signal clicked()
-    width: segmentText.implicitWidth + (theme.dev ? Style.space(20) : Style.space(28))
-    height: theme.dev ? Style.space(24) : Style.space(30)
+    width: segmentText.implicitWidth + (theme.dense ? Style.space(16) : theme.dev ? Style.space(20) : Style.space(28))
+    height: theme.dense ? Style.space(22) : theme.dev ? Style.space(24) : Style.space(30)
     radius: theme.pill(height)
     color: !current && segmentMouse.containsMouse ? theme.alpha(theme.fg, 0.06) : "transparent"
 
@@ -2184,8 +2184,8 @@ BarWidget {
     owner: root
     centerOnBar: true
     island: true
-    islandRadius: theme.dev ? Style.space(12) : Style.space(30)
-    padding: theme.dev ? Style.space(12) : Style.spacing.popupPadding
+    islandRadius: theme.dense ? Style.space(10) : theme.dev ? Style.space(12) : Style.space(30)
+    padding: theme.dense ? Style.space(8) : theme.dev ? Style.space(12) : Style.spacing.popupPadding
     barPadding: theme.dev ? Style.space(4) : Style.space(4)
     tint: theme.island
     // Pinned (the crab clicked): a click outside closes it. Otherwise it
@@ -2210,11 +2210,12 @@ BarWidget {
     // for a theme preview.
     frostAlpha: theme.barColor.a > 0 ? theme.barColor.a
       : Math.max(0.2, Math.min(1, Number(setting("frostOpacity", 92)) / 100))
-    // Every view is full width, summoned or not. Peeking with a
-    // notification, only as wide as the note.
+    // Every view is full width, summoned or not (narrower in the dense
+    // look). Peeking with a notification, only as wide as the note.
+    readonly property int fullWidth: Style.space(theme.dense ? 780 : 948)
     contentWidth: root.peeking ? card.fittedContentWidth(toastBanner.implicitWidth + card.padding * 2)
-      : card.fittedContentWidth(Style.space(948))
-    maxContentWidth: card.fittedContentWidth(Style.space(948))
+      : card.fittedContentWidth(fullWidth)
+    maxContentWidth: card.fittedContentWidth(fullWidth)
     // The nav keeps its height; the view under it takes what the island has
     // left and scrolls. The + menu can reach past a short view.
     readonly property real cap: Style.space(root.tallView || (root.view === "home" && momentCard.tall) || (root.view === "detail" && root.liveAsk) ? 900 : 680)
@@ -2330,13 +2331,13 @@ BarWidget {
         y: toastSlot.height
         visible: !root.peeking
         width: parent.width
-        spacing: theme.dev ? Style.space(5) : Style.space(8)
+        spacing: theme.dense ? Style.space(4) : theme.dev ? Style.space(5) : Style.space(8)
 
         // ---- Nav: views on the left; status, + and back-to-top on the right
         Item {
           id: nav
           width: parent.width
-          height: Style.space(48)
+          height: theme.dense ? Style.space(34) : Style.space(48)
 
           Row {
             id: navLeft
@@ -2366,8 +2367,9 @@ BarWidget {
               id: searchBar
               readonly property bool expanded: root.view === "search"
               anchors.verticalCenter: parent.verticalCenter
-              width: expanded ? nav.width - navLeft.x - x - Style.space(4) : Style.space(40)
-              height: Style.space(36)
+              readonly property real iconSlot: theme.dense ? Style.space(32) : Style.space(40)
+              width: expanded ? nav.width - navLeft.x - x - Style.space(4) : iconSlot
+              height: theme.dense ? Style.space(28) : Style.space(36)
               radius: theme.pill(height)
               color: expanded ? theme.raised : searchMouse.containsMouse ? theme.alpha(theme.fg, 0.07) : "transparent"
               border.width: expanded ? 1 : 0
@@ -2377,7 +2379,7 @@ BarWidget {
               Behavior on color { ColorAnimation { duration: 120 } }
 
               Icon {
-                x: (Style.space(40) - width) / 2
+                x: (searchBar.iconSlot - width) / 2
                 anchors.verticalCenter: parent.verticalCenter
                 d: Icons.search
                 size: Style.space(17)
@@ -2585,7 +2587,7 @@ BarWidget {
             Column {
               id: body
               width: parent.width
-              spacing: theme.dev ? Style.space(6) : Style.space(10)
+              spacing: theme.dense ? Style.space(4) : theme.dev ? Style.space(6) : Style.space(10)
               transformOrigin: Item.Top
               transform: Translate { id: bodyShift }
 
@@ -2672,11 +2674,13 @@ BarWidget {
                 visible: root.view === "home"
                 width: parent.width
                 readonly property bool glanceShown: ["working", "idle", "done"].indexOf(root.moment.kind) >= 0
-                height: visible ? Math.max(momentCard.implicitHeight, glanceShown ? glance.implicitHeight : 0) : 0
+                // Dense: always the corner card's height, so Home keeps one size
+                // whatever the main card shows.
+                height: visible ? Math.max(momentCard.implicitHeight, glanceShown || theme.dense ? glance.implicitHeight : 0) : 0
 
                 Moment {
                   id: momentCard
-                  width: home.glanceShown ? parent.width - glance.width - Style.space(12) : parent.width
+                  width: home.glanceShown ? parent.width - glance.width - theme.sp(12) : parent.width
                   height: parent.height
                   pal: theme
                   fontFamily: root.fontFamily
@@ -2714,7 +2718,7 @@ BarWidget {
                   id: glance
                   visible: home.glanceShown
                   anchors.right: parent.right
-                  width: Style.space(root.cornerMode === "stuck" ? 340 : 268)
+                  width: Style.space(root.cornerMode === "stuck" ? (theme.dense ? 300 : 340) : (theme.dense ? 232 : 268))
                   Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
                   height: parent.height
                   pal: theme
@@ -2745,14 +2749,14 @@ BarWidget {
               IslandCard {
                 visible: root.view === "sessions"
                 width: parent.width
-                height: visible ? sessionsColumn.implicitHeight + Style.space(16) + Style.space(14) : 0
+                height: visible ? sessionsColumn.implicitHeight + theme.sp(16) + theme.sp(14) : 0
 
                 Column {
                   id: sessionsColumn
-                  x: Style.space(14)
-                  y: Style.space(16)
-                  width: parent.width - Style.space(28)
-                  spacing: theme.dev ? Style.space(6) : Style.space(10)
+                  x: theme.sp(14)
+                  y: theme.sp(16)
+                  width: parent.width - theme.sp(28)
+                  spacing: theme.dense ? Style.space(4) : theme.dev ? Style.space(6) : Style.space(10)
 
                   Rectangle {
                     x: Style.space(4)
@@ -2915,13 +2919,13 @@ BarWidget {
               IslandCard {
                 visible: root.view === "stats"
                 width: parent.width
-                height: visible ? statsColumn.implicitHeight + Style.space(22) * 2 : 0
+                height: visible ? statsColumn.implicitHeight + theme.sp(22) * 2 : 0
 
                 Column {
                   id: statsColumn
-                  x: Style.space(24)
-                  y: Style.space(22)
-                  width: parent.width - Style.space(48)
+                  x: theme.sp(24)
+                  y: theme.sp(22)
+                  width: parent.width - theme.sp(48)
 
                   Usage {
                     pal: theme
@@ -2952,13 +2956,13 @@ BarWidget {
               IslandCard {
                 visible: root.view === "settings"
                 width: parent.width
-                height: visible ? settingsView.implicitHeight + Style.space(22) * 2 : 0
+                height: visible ? settingsView.implicitHeight + theme.sp(22) * 2 : 0
 
                 Settings {
                   id: settingsView
-                  x: Style.space(24)
-                  y: Style.space(22)
-                  width: parent.width - Style.space(48)
+                  x: theme.sp(24)
+                  y: theme.sp(22)
+                  width: parent.width - theme.sp(48)
                   pal: theme
                   fontFamily: root.fontFamily
                   antirot: root.antirot
