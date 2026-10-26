@@ -27,11 +27,14 @@ Item {
   readonly property real weatherW: Style.space(210)
   readonly property real calW: Math.max(Style.space(25) * 8, width - weatherW - Style.space(36) - 1)
   readonly property real cell: calW / 8
-  readonly property real rowH: Style.space(dense ? 15 : 19)
+  // Dense: up to 15 px, less if Home is shorter than the month needs.
+  readonly property real rowH: dense ? Math.max(Style.space(12), Math.min(Style.space(15),
+    Math.floor((height - Style.space(22) - headGap - dayNamesH) / 6))) : Style.space(19)
   readonly property real headGap: Style.space(dense ? 2 : 6)
   readonly property real dayNamesH: Style.space(dense ? 12 : 14)
 
-  implicitHeight: Style.space(22) + headGap + dayNamesH + rowH * 6
+  // From the most the rows take, not rowH, which follows the height in the dense look.
+  implicitHeight: Style.space(22) + headGap + dayNamesH + Style.space(dense ? 15 : 19) * 6
 
   function step(delta) {
     var m = Calendar.stepMonth(year, month, delta)

@@ -123,7 +123,7 @@ Rectangle {
 
   implicitHeight: Math.max(pal.sp(204), agents ? body.implicitHeight + pad * 2 : 0,
     mode === "antirot" ? repCard.implicitHeight + paneY + pal.sp(12 + (pal.dense ? 0 : 12)) : 0,
-    mode === "today" ? paneY + todayPane.implicitHeight + pal.sp(12) : 0, railColumn.implicitHeight + pal.sp(20))
+    mode === "today" && !pal.dense ? paneY + todayPane.implicitHeight + pal.sp(12) : 0, railColumn.implicitHeight + pal.sp(20))
 
   // ---- The glow: a wide arc of the state color rising from the bottom edge,
   //      clipped to the card's rounded corners by drawing it in their shape.
@@ -614,7 +614,8 @@ Rectangle {
     x: root.pad
     y: root.paneY
     width: root.paneRight - x
-    height: implicitHeight
+    // Dense: what Home has left (the corner card sets its height); the rows fit it.
+    height: pal.dense ? parent.height - y - pal.sp(12) : implicitHeight
     pal: root.pal
     fontFamily: root.fontFamily
     now: root.now
