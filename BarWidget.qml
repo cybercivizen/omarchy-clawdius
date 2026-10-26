@@ -1118,7 +1118,9 @@ BarWidget {
   property string quickPermission: "auto"
   // The folder Code starts in from the chat view ("" = the Code folder); not kept across restarts.
   property string quickDir: ""
-  readonly property bool quickShown: quickActive && liveKeys.field.text !== ""
+  // Images pasted into the chat view (paths), sent along with its message.
+  property var quickImages: []
+  readonly property bool quickShown: quickActive && (liveKeys.field.text !== "" || quickImages.length > 0)
   // Home holds the keyboard too: typing there goes straight to Search. Only
   // with the pointer on it: opened on its own (a prompt, say) or from the
   // keyboard, it would take the keys from the window you're in. Let go a
@@ -1170,6 +1172,12 @@ BarWidget {
     var plain = !(event.modifiers & (Qt.ShiftModifier | Qt.ControlModifier | Qt.AltModifier))
     var field = liveKeys.field
     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && plain) { root.sendQuick(); return true }
+    // An image on the clipboard joins the message; text still pastes as usual.
+    if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_V) { if (!quickGrab.running) quickGrab.running = true; return false }
+    if (event.key === Qt.Key_Backspace && field.text === "" && root.quickImages.length > 0) {
+      root.quickImages = root.quickImages.slice(0, -1)
+      return true
+    }
     if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
       if (field.text !== "" || root.view === "quick") root.quickMode = root.quickMode === "chat" ? "code" : "chat"
       return true
@@ -1191,19 +1199,36 @@ BarWidget {
     return typed
   }
 
+  Process {
+    id: quickGrab
+    command: ["python3", "-I", root.livePath, "grab"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var path = text.trim()
+        if (path[0] === "/") root.quickImages = root.quickImages.concat([path])
+      }
+    }
+  }
+
   function sendQuick() {
     var text = liveKeys.field.text.trim()
-    if (!text || startProcess.running) return
+    var images = root.quickImages
+    if ((!text && !images.length) || startProcess.running) return
     var code = root.quickMode === "code"
     var model = /^[\w.\-\[\]]+$/.test(root.quickModel) ? " --model " + root.quickModel : ""
     var effort = /^(low|medium|high|xhigh|max)$/.test(root.quickEffort) ? " --effort " + root.quickEffort : ""
     var base = code ? root.codeCommand : root.chatCommand
     if (code) base = /--permission-mode\s+\S+/.test(base) ? base.replace(/--permission-mode\s+\S+/, "--permission-mode " + root.quickPermission) : base + " --permission-mode " + root.quickPermission
     if (code && root.quickDir) base = "cd " + root.shellQuote(root.quickDir) + " && " + base.replace(root.cdPrefix, "")
-    var command = base + model + effort + " -- " + root.shellQuote(text)
+    // Claude attaches an @-mentioned image as it does a pasted one.
+    var prompt = images.map(function(p) { return "@" + p + " " }).join("") + text
+    var shown = text || (images.length > 1 ? images.length + " images" : "Image")
+    var command = base + model + effort + " -- " + root.shellQuote(prompt)
     liveKeys.field.text = ""
-    root.pendingPrompt = code ? "" : text
-    root.launchInCard(command, code ? "Code" : "Chat", text.split("\n")[0].slice(0, 60))
+    root.quickImages = []
+    root.pendingPrompt = code ? "" : shown
+    root.launchInCard(command, code ? "Code" : "Chat", shown.split("\n")[0].slice(0, 60))
   }
 
   // ---- Search. Typing `/ ` or `/g ` at the start turns it into a chip;
@@ -2636,6 +2661,8 @@ BarWidget {
                 onPermissionPicked: function(which) { root.quickPermission = which }
                 onEffortPicked: function(which) { root.quickEffort = which }
                 onDirPicked: function(dir) { root.quickDir = dir }
+                images: root.quickImages
+                onImageRemoved: function(i) { root.quickImages = root.quickImages.filter(function(p, j) { return j !== i }); liveKeys.prime() }
                 onSend: root.sendQuick()
                 onFocusRequested: liveKeys.prime()
               }

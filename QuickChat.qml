@@ -62,6 +62,8 @@ Rectangle {
   // choices: the Code folder, the one Claude worked in last, or any.
   property string dir: ""
   property string recentDir: ""
+  // Pasted images waiting to go with the message (paths); Ctrl+V adds them.
+  property var images: []
   readonly property string startDir: mode === "code" ? (dir || codeDir) : chatDir
   // Laid out like this, the field's caret lines up with the drawing.
   readonly property real inputWidth: shown.width
@@ -82,6 +84,7 @@ Rectangle {
   signal dirPicked(string dir)
   signal permissionPicked(string permission)
   signal send()
+  signal imageRemoved(int index)
   // Clicked into the composer: the key window takes the keyboard back.
   signal focusRequested()
 
@@ -301,6 +304,59 @@ Rectangle {
       }
     }
 
+    // Pasted images, as small thumbnails with a way to take each back off.
+    Flow {
+      visible: root.images.length > 0
+      width: parent.width
+      spacing: Style.space(6)
+
+      Repeater {
+        model: root.images
+
+        Item {
+          id: thumb
+          required property int index
+          required property string modelData
+          width: Style.space(48)
+          height: Style.space(48)
+
+          Image {
+            anchors.fill: parent
+            source: "file://" + thumb.modelData
+            sourceSize.width: Style.space(96)
+            sourceSize.height: Style.space(96)
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+          }
+
+          Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            width: Style.space(16)
+            height: width
+            radius: width / 2
+            color: root.pal.card
+            border.width: 1
+            border.color: root.pal.hairline
+
+            Text {
+              anchors.centerIn: parent
+              text: "×"
+              textFormat: Text.PlainText
+              color: root.pal.fg
+              font.pixelSize: Style.font.caption
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.imageRemoved(thumb.index)
+            }
+          }
+        }
+      }
+    }
+
     // The composer, as LiveTerm draws its own.
     Rectangle {
       width: parent.width
@@ -380,7 +436,7 @@ Rectangle {
 
       Rectangle {
         id: sendButton
-        readonly property bool ready: root.text.trim() !== ""
+        readonly property bool ready: root.text.trim() !== "" || root.images.length > 0
         anchors.right: parent.right
         anchors.rightMargin: Style.space(8)
         anchors.verticalCenter: parent.verticalCenter

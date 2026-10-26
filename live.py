@@ -47,6 +47,10 @@
         Commands come in on stdin as for `view` ("submit", "keys", "clip").
         The screen is only looked at now and then, never drawn.
 
+    live.py grab
+        Save the clipboard's image under the paste folder and print its path
+        (nothing without one): the new chat's Ctrl+V, before any session.
+
     live.py history DIR
         The prompts given in DIR, newest first, as a JSON list: the card's
         Up / Down go through them in its own prompt.
@@ -785,6 +789,9 @@ PASTE_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "clawdius"
 # Pasted images live in RAM (the runtime dir is a tmpfs); a day is long past
 # Claude having read them.
 PASTE_KEEP_SEC = 86400
+# A new chat's pasted images ride in its first prompt as @path: kept out of
+# what the card shows of it.
+PASTE_MENTION = re.compile(r"@" + re.escape(PASTE_DIR) + r"/\S+\s?")
 
 
 def clean_pastes():
@@ -1041,7 +1048,7 @@ class ChatLog:
                 [b.get("text", "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text"]
             text = "\n".join(p for p in parts if isinstance(p, str) and p.strip() and not p.lstrip().startswith("<")).strip()
             if text:
-                out.append({"key": uid, "role": "user", "text": IMAGE_TOKEN.sub("", text).strip() or text, "at": at})
+                out.append({"key": uid, "role": "user", "text": PASTE_MENTION.sub("", IMAGE_TOKEN.sub("", text)).strip() or text, "at": at})
         elif kind == "assistant" and isinstance(content, list):
             for i, block in enumerate(content):
                 if not isinstance(block, dict):
@@ -1279,7 +1286,7 @@ def history(project, limit=200):
                 return m.group(0)
             return content
 
-        text = IMAGE_TOKEN.sub("", PASTED.sub(fill, str(entry.get("display") or ""))).strip()
+        text = PASTE_MENTION.sub("", IMAGE_TOKEN.sub("", PASTED.sub(fill, str(entry.get("display") or "")))).strip()
         if text and not missing and text not in prompts:
             prompts.append(text)
             if len(prompts) >= limit:
@@ -1301,6 +1308,12 @@ def main():
         return trust(sys.argv[2])
     if len(sys.argv) == 3 and sys.argv[1] == "stop":
         return stop_job(sys.argv[2])
+    if len(sys.argv) == 2 and sys.argv[1] == "grab":
+        clean_pastes()
+        path = save_clipboard_image()
+        if path:
+            sys.stdout.write(path + "\n")
+        return 0
     if len(sys.argv) == 3 and sys.argv[1] == "history":
         return history(sys.argv[2])
     if len(sys.argv) == 3 and sys.argv[1] == "chat":
