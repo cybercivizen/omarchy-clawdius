@@ -2698,6 +2698,7 @@ BarWidget {
                   challengeBusy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   mode: root.mainShown
                   stuckOpen: root.cornerMode === "stuck"
+                  terminalOutside: root.terminalOutside
                   weather: root.weather
                   onModePicked: function(mode) { root.pickMain(mode) }
                   onChallenge: function(action) { root.challengeAction(action) }

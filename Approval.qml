@@ -15,6 +15,7 @@ Column {
   property var request: null
   property string sessionName: ""
   property bool background: false
+  property bool terminalOutside: false
   property int more: 0
   property string fontFamily: Style.font.family
 
@@ -416,7 +417,7 @@ Column {
       spacing: Style.space(4)
 
       Pill {
-        visible: root.background
+        visible: root.background && !root.terminalOutside
         pal: root.pal
         fontFamily: root.fontFamily
         label: "Open"
@@ -427,7 +428,7 @@ Column {
       Pill {
         pal: root.pal
         fontFamily: root.fontFamily
-        label: "Terminal"
+        label: root.terminalOutside ? "Open" : "Terminal"
         kind: "quiet"
         onClicked: root.answered("terminal", null)
       }
