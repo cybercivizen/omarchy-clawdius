@@ -119,8 +119,29 @@ CLEAR_PAUSE_SEC = 0.01
 EXTRA_ROWS = 14
 
 
+# --chat: a talk-only session. No shell or file edits, and chat.md (beside this
+# file) steers it to answer the way claude.ai does.
+CHAT_DENY = ["Bash", "Edit", "Write", "NotebookEdit"]
+
+
+def chat_flags(args):
+    if "--chat" not in args:
+        return args
+    args = [a for a in args if a != "--chat"]
+    flags = ["--disallowedTools"] + CHAT_DENY
+    try:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "chat.md"), encoding="utf-8") as f:
+            flags += ["--append-system-prompt", f.read()]
+    except OSError:
+        pass
+    # Before any `--` that starts the prompt.
+    at = args.index("--") if "--" in args else len(args)
+    return args[:at] + flags + args[at:]
+
+
 def start(args):
     claude = shutil.which("claude") or "claude"
+    args = chat_flags(args)
     # Not a terminal, Claude waits ~3s for a prompt piped on stdin; the card's
     # Process leaves its pipe open, so hand it nothing.
     out = subprocess.run([claude, "--bg"] + args, capture_output=True, text=True, stdin=subprocess.DEVNULL)
@@ -138,6 +159,7 @@ def launch_job(args):
 
 
 def launch(args):
+    args = chat_flags(args)
     claude, text, match = start(args)
     if not match and "not trusted" in text:
         # Claude only starts background sessions where the folder's trust is

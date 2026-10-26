@@ -767,9 +767,15 @@ BarWidget {
   // background and attaches the window, so closing it leaves Claude working.
   readonly property string livePath: decodeURIComponent(String(Qt.resolvedUrl("live.py")).replace(/^file:\/\//, ""))
 
+  // Makes the folder a leading `cd <dir> &&` goes to (~/chat on a first run).
+  function withDir(command) {
+    var dir = root.commandDir(command)
+    return dir ? "mkdir -p '" + dir.replace(/'/g, "'\\''") + "' && " + command : command
+  }
+
   function launch(command) {
     root.close()
-    if (root.bar) root.bar.run(command.split("{live}").join("python3 -I '" + root.livePath + "'"))
+    if (root.bar) root.bar.run(root.withDir(command).split("{live}").join("python3 -I '" + root.livePath + "'"))
   }
 
   // Chat / Code: start the session in the background and show it in the
@@ -815,7 +821,7 @@ BarWidget {
     root.pendingCommand = command
     root.pendingLabel = label
     root.pendingTitle = title || ""
-    startProcess.command = ["bash", "-lc", command.replace(re, "python3 -I '" + root.livePath + "' start")]
+    startProcess.command = ["bash", "-lc", root.withDir(command).replace(re, "python3 -I '" + root.livePath + "' start")]
     startProcess.running = true
   }
 
