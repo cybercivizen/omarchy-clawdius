@@ -1080,15 +1080,16 @@ Rectangle {
         width: parent.width
         text: !peek.session ? ""
           : peek.session.busy || peek.session.waiting ? (peek.session.thinking ? "Thinking…" : peek.session.activity)
+          : peek.session.recap ? "Recap: " + peek.session.recap
           : peek.session.reply ? "Last reply: " + peek.session.reply : peek.session.prompt || ""
         visible: text !== ""
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
-        maximumLineCount: 2
+        maximumLineCount: root.terminalOutside ? 5 : 3
         elide: Text.ElideRight
         color: root.pal.fg
         font.family: root.fontFamily
-        font.pixelSize: Style.font.body
+        font.pixelSize: Style.font.bodySmall
       }
 
       // A question needs its options: those are on the main card.
@@ -1101,6 +1102,7 @@ Rectangle {
       }
 
       Text {
+        visible: !root.terminalOutside
         width: parent.width
         text: "Click to focus · double-click for its terminal"
         textFormat: Text.PlainText

@@ -328,6 +328,7 @@ class Transcript:
         self.phase_at = 0.0      # when the model's move or the tool call began
         self.prompt = ""
         self.reply = ""
+        self.recap = ""          # the away summary Claude Code writes once a session sits idle
         self.final_text = ""   # the last assistant text in full, for notifications
         self.limit = ""          # the turn ended on the usage limit: Claude Code's line about it
         self.todos = []          # TodoWrite: replaced wholesale
@@ -382,7 +383,7 @@ class Transcript:
 
     def new_turn(self, text):
         self.prompt = short(text, 140)
-        self.reply = self.final_text = self.note = self.limit = ""
+        self.reply = self.final_text = self.note = self.limit = self.recap = ""
         self.turn_tokens = {}
         self.pending_children = {}   # a launch still unanswered by now was interrupted
         self.pending_creates = {}
@@ -411,6 +412,8 @@ class Transcript:
             m = EFFORT_SET.match(content)
             if m:
                 self.effort = m.group(1).lower()
+        if kind == "system" and rec.get("subtype") == "away_summary":
+            self.recap = short(re.sub(r"\s*\(disable recaps in /config\)\s*$", "", str(rec.get("content") or "")), 320)
         if kind == "system" and rec.get("subtype") == "compact_boundary":
             meta = rec.get("compactMetadata") or {}
             self.context = int(meta.get("postTokens") or 0)
@@ -864,6 +867,7 @@ def main():
                 "activity": short(activity, 90),
                 "prompt": tr.prompt if tr else short((job or {}).get("intent", ""), 140),
                 "reply": tr.reply if tr else "",
+                "recap": tr.recap if tr else "",
                 "tasks": tr.task_list() if tr else [],
                 "actions": tr.action_list(status == "idle") if tr else [],
                 "children": children,
