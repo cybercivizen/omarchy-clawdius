@@ -139,18 +139,60 @@ def chat_flags(args):
     return args[:at] + flags + args[at:]
 
 
-def start(args):
+def start(args, prompt=None):
     claude = shutil.which("claude") or "claude"
     args = chat_flags(args)
     # Not a terminal, Claude waits ~3s for a prompt piped on stdin; the card's
-    # Process leaves its pipe open, so hand it nothing.
-    out = subprocess.run([claude, "--bg"] + args, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    # Process leaves its pipe open, so hand it nothing. A prompt rides on
+    # stdin too, never in argv where other accounts' `ps` would read it.
+    out = subprocess.run([claude, "--bg"] + args, capture_output=True, text=True,
+                         input=prompt, stdin=None if prompt else subprocess.DEVNULL)
     text = out.stdout + out.stderr
     return claude, text, re.search(r"backgrounded\W+([0-9a-f]{6,})", text)
 
 
+# A prompt for `start` / `launch` comes on stdin (--stdin-prompt) or from a
+# file under PROMPT_DIR (--prompt-file, read once and removed), not in argv.
+PROMPT_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "clawdius", "prompt")
+
+
+def take_prompt(args):
+    """(args without the prompt flags, the prompt or None)."""
+    prompt = None
+    rest = []
+    it = iter(args)
+    for a in it:
+        if a == "--stdin-prompt":
+            prompt = sys.stdin.read()
+        elif a == "--prompt-file":
+            path = os.path.realpath(next(it, ""))
+            if path.startswith(PROMPT_DIR + os.sep):
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        prompt = f.read()
+                    os.remove(path)
+                except OSError:
+                    pass
+        else:
+            rest.append(a)
+    return rest, prompt
+
+
+def stash():
+    """Prompt from stdin into a private file: its path, for a command that
+    can't take stdin (a terminal window)."""
+    os.makedirs(PROMPT_DIR, mode=0o700, exist_ok=True)
+    path = os.path.join(PROMPT_DIR, "p-%d" % (time.time() * 1000))
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(sys.stdin.read())
+    sys.stdout.write(path + "\n")
+    return 0
+
+
 def launch_job(args):
-    claude, text, match = start(args)
+    args, prompt = take_prompt(args)
+    claude, text, match = start(args, prompt)
     if not match:
         sys.stdout.write(text or "claude --bg failed\n")
         return 1
@@ -159,13 +201,15 @@ def launch_job(args):
 
 
 def launch(args):
+    args, prompt = take_prompt(args)
     args = chat_flags(args)
-    claude, text, match = start(args)
+    claude, text, match = start(args, prompt)
     if not match and "not trusted" in text:
         # Claude only starts background sessions where the folder's trust is
         # saved, which it never is for the home folder: run it right here
         # instead, where Claude can ask.
-        os.execvp(claude, [claude] + args)
+        # (Interactive, so the prompt has to ride in argv here.)
+        os.execvp(claude, [claude] + args + (["--", prompt] if prompt else []))
     if not match:
         # Bad flag…: show why instead of a window that just closes.
         sys.stdout.write(text or "claude --bg failed\n")
@@ -724,9 +768,9 @@ def span(key, text):
 
 # ---- the hidden pane
 
-def tmux(*args, check=False):
+def tmux(*args, check=False, input=None):
     return subprocess.run(["tmux", "-L", SOCKET, "-f", "/dev/null"] + list(args),
-                          capture_output=True, text=True, check=check)
+                          capture_output=True, text=True, check=check, input=input)
 
 
 def reap():
@@ -1209,18 +1253,16 @@ def handle(name, line):
     if cmd.get("submit"):
         # Pasted whole, then Enter on its own: an Enter in the same burst
         # reads as part of the paste and doesn't send.
-        tmux("set-buffer", "-b", "crab", "--", str(cmd["submit"]))
+        tmux("load-buffer", "-b", "crab", "-", input=str(cmd["submit"]))
         tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
         time.sleep(SUBMIT_PAUSE_SEC)
         tmux("send-keys", "-t", name, "Enter")
     if cmd.get("text"):
         text = str(cmd["text"])
-        if "\n" in text:
-            # Typed as keys, a newline would submit; a bracketed paste keeps it whole.
-            tmux("set-buffer", "-b", "crab", "--", text)
-            tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
-        else:
-            tmux("send-keys", "-t", name, "-l", "--", text)
+        # Typed as keys, a newline would submit; a bracketed paste keeps it
+        # whole. Either way via stdin: tmux's argv is visible to other accounts.
+        tmux("load-buffer", "-b", "crab", "-", input=text)
+        tmux("paste-buffer", "-p", "-d", "-b", "crab", "-t", name)
     for key in cmd.get("keys") or []:
         tmux("send-keys", "-t", name, str(key))
     # Mouse-wheel steps (SGR, near the top-left, in the conversation): Claude
@@ -1340,6 +1382,8 @@ def main():
         return history(sys.argv[2])
     if len(sys.argv) == 3 and sys.argv[1] == "chat":
         return chat(sys.argv[2])
+    if len(sys.argv) == 2 and sys.argv[1] == "stash":
+        return stash()
     if len(sys.argv) >= 2 and sys.argv[1] == "start":
         return launch_job(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "launch":
