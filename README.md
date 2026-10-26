@@ -566,10 +566,13 @@ streaming (a reply lands whole, per block).
 Your messages never appear in a process's command line, where other accounts
 on the machine could read them with `ps`. A new chat's first prompt goes to
 `live.py start --stdin-prompt` over a pipe; messages to a running session go
-into tmux with `load-buffer -` from stdin. The two exceptions are a terminal
-window (the prompt waits in a 0600 file under `$XDG_RUNTIME_DIR/clawdius/prompt`,
-read once and removed) and the home folder, where interactive `claude` has to
-take it as an argument.
+into tmux with `load-buffer -` from stdin. A terminal window can't take
+stdin, so there the prompt waits in a 0600 file under
+`$XDG_RUNTIME_DIR/clawdius/prompt`, read once and removed. In the home folder
+(no background sessions there) interactive `claude` gets it on stdin from a
+memfd and sends it once you've answered the trust question. Copied text goes
+to `wl-copy` on stdin, and answers to Claude's questions to `approvals.py
+answer ID answer -` the same way (`Pipe.qml`).
 
 ### Idle sessions go to sleep
 

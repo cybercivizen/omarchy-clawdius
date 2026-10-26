@@ -5,6 +5,7 @@
   approvals.py watch                     stream pending requests as JSON lines (the widget runs it)
   approvals.py answer ID allow|always|deny|terminal
   approvals.py answer ID answer '{"question": "label", ...}'   (AskUserQuestion)
+  approvals.py answer ID answer -   (the same JSON on stdin, as the crab sends it)
   approvals.py install | uninstall       add / remove the hook in ~/.claude/settings.json
 
 The hook drops the request into $XDG_RUNTIME_DIR/clawdius/requests and
@@ -387,7 +388,9 @@ if __name__ == "__main__":
     elif cmd == "watch":
         watch()
     elif cmd == "answer" and len(sys.argv) in (4, 5):
-        answer(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) == 5 else None)
+        # "-": the answers on stdin, out of argv (other accounts' `ps` reads that).
+        answers = sys.argv[4] if len(sys.argv) == 5 else None
+        answer(sys.argv[2], sys.argv[3], sys.stdin.read() if answers == "-" else answers)
     elif cmd in ("install", "uninstall"):
         install(remove=cmd == "uninstall")
     else:
