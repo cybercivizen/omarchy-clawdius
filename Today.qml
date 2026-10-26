@@ -15,9 +15,7 @@ Item {
   property double now: Date.now()
   // Weather.js parse(): {temp, feels, desc, icon, place, days}
   property var weather: null
-  // Dense look: the head sits on the mode switch's row, the month's title
-  // this far in; rows and the weather are tighter, to fit Home's height.
-  property real headInset: 0
+  // Dense look: rows and the weather are tighter, to fit Home's height.
   readonly property bool dense: !!pal && pal.dense
 
   readonly property var today: new Date(now)
@@ -70,8 +68,7 @@ Item {
       height: Style.space(22)
 
       Text {
-        x: root.headInset
-        width: Math.min(implicitWidth, steps.x - x - Style.space(4))
+        width: Math.min(implicitWidth, steps.x - Style.space(4))
         anchors.verticalCenter: parent.verticalCenter
         text: Calendar.months[root.month] + (root.year !== root.today.getFullYear() ? " " + root.year : "")
         textFormat: Text.PlainText

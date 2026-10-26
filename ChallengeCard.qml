@@ -21,9 +21,7 @@ Column {
   property string busy: ""
   // The corner card is showing Stuck (explain / hints).
   property bool stuckOpen: false
-  // Dense look: the caption sits on Home's mode switch row, this far in; the
-  // text is a step smaller and the status line joins the buttons.
-  property real headInset: 0
+  // Dense look: the text is a step smaller and the status line joins the buttons.
   readonly property bool dense: !!pal && pal.dense
 
   signal started()
@@ -87,9 +85,6 @@ Column {
     Text {
       visible: !!root.rep
       width: parent.width
-      height: root.dense ? Style.space(22) : implicitHeight
-      leftPadding: root.headInset
-      verticalAlignment: Text.AlignVCenter
       text: root.rep ? ("ANTI-ROT · " + (root.rep.redo ? "RE-DO · " : "") + root.langName(root.rep.lang) + " · LEVEL " + root.rep.level + " · " + root.counter).toUpperCase() : ""
       textFormat: Text.PlainText
       elide: Text.ElideRight

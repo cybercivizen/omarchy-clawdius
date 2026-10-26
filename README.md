@@ -402,10 +402,10 @@ the same size. `Colors.look` carries it: views take their corner radii
 from `pal.rad()` / `pal.pill()`, so a new view gets every look by using those
 instead of a bare `radius`; `pal.dev` is true for Compact and Dense, and
 padding or gaps go through `pal.sp(px)` (as `Style.space`, cut down in Dense;
-not for icons, pixel art or text). On Home, Today's month line and Anti-rot's
-caption share the mode switch's row (`Moment.paneY` / `headInset`), the
-calendar's rows are 15 px and Anti-rot's text a step smaller with its status
-beside the buttons, so both fit Home's height; the Move pane puts each nudge's
+not for icons, pixel art or text). On Home, Today and Anti-rot start right under
+the mode switch (`Moment.paneY`), the calendar's rows are 15 px and Anti-rot's
+text a step smaller with its status beside the buttons, so both fit the
+corner card's height; the Move pane puts each nudge's
 time under its name. Compact still uses the Soft row heights inside the
 views; Dense covers Home, the corner card, Sessions, Stats and Settings so far.
 

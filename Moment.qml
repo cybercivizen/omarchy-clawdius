@@ -600,10 +600,8 @@ Rectangle {
 
   // ---- Today and Anti-rot: the other two modes, up to the rail
   readonly property real paneRight: hasRail ? rail.x - pal.sp(16) : width - pad
-  // Under the mode switch; in the dense look on its row, the pane's first
-  // line (the month, the challenge's caption) indented past it.
-  readonly property real paneY: pal.dense ? modeRow.y : Style.space(38)
-  readonly property real headInset: pal.dense ? modeRow.x + modeRow.width - pad + Style.space(10) : 0
+  // Under the mode switch.
+  readonly property real paneY: pal.dense ? modeRow.y + modeRow.height + Style.space(2) : Style.space(38)
 
   Today {
     id: todayPane
@@ -612,7 +610,6 @@ Rectangle {
     y: root.paneY
     width: root.paneRight - x
     height: implicitHeight
-    headInset: root.headInset
     pal: root.pal
     fontFamily: root.fontFamily
     now: root.now
@@ -631,10 +628,9 @@ Rectangle {
       id: repCard
       visible: !!root.antirot
       width: parent.width
-      // Centred; dense: from the top, so the caption sits on the mode switch's
-      // row. (A y binding: an anchor dropped at runtime leaves the old y.)
+      // Centred; dense: from the top, as Today. (A y binding: an anchor
+      // dropped at runtime leaves the old y.)
       y: pal.dense ? 0 : Math.round((parent.height - height) / 2)
-      headInset: root.headInset
       pal: root.pal
       fontFamily: root.fontFamily
       antirot: root.antirot

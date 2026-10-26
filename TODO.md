@@ -188,5 +188,5 @@ renders, but nobody has clicked or typed through it yet.
 - [x] Anti-rot Stuck: the tab only exists while shown, keeps the card's height (no island growth), hints paged with ‹ › and a More hint button, a scroll bar for long text.
 - [x] Pin a session (☆ on Live/Recent rows and the card tooltip): pinned sessions sort first and are never cut; saved as `starredIds` in prefs.json.
 - [x] Dense theme (Gear → Island → Theme): Compact plus `pal.sp()` padding at ~70%, 34 px nav, 780 px island, smaller Home crab and rail, smaller pills, one-line Recent and Folders rows. Seen rendered (Home, Recent, Stats) in the dark theme.
-- [x] Dense, Home modes: Today fits Home's height (month line on the mode switch row, 15 px rows, tighter weather), Anti-rot shorter (caption on that row, smaller text, status beside the buttons), Move pane shows each time under its name. Seen rendered in the dark theme.
+- [x] Dense, Home modes: Today fits Home's height (right under the mode switch, 15 px rows, tighter weather), Anti-rot shorter (smaller text, status beside the buttons), Move pane shows each time under its name. Seen rendered in the dark theme.
 - [ ] Dense, next pass: Detail, Chat, Search, QuickChat, Approval and the live terminal still use the Compact sizes; light theme not checked.
