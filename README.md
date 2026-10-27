@@ -136,9 +136,10 @@ are skipped, so they keep their own hover and clicks and never open it.
 Hovering alone doesn't open it, though: the pointer has to touch the screen
 edge (the bar's outer pixel row) first, then the hover delay runs as usual.
 Leaving the bar disarms it. Clicks still open it at once, and `edgeOpen` off
-brings back plain hover. Touching the edge shows a small ripple at the pointer
-(`EdgeRipple.qml`, stepped like `Throb.qml`), and the island fills the bar's
-strip behind the modules, so with a transparent bar it reaches the screen edge.
+brings back plain hover. Touching the edge sends a soft dark swell out from
+the pointer (`EdgeRipple.qml`, the island's own glass, played once per touch),
+and the island fills the bar's strip over the other modules (the window title)
+and under the clock and crab, so with a transparent bar it reaches the screen edge.
 
 Every view is 948 px wide, however it was opened (only a notification peek
 is narrower). The popup window stays at the widest and tallest size and

@@ -1,54 +1,76 @@
 import QtQuick
+import QtQuick.Shapes
 import qs.Commons
 
-// Rings spreading from the pointer on the screen's edge, like GNOME's hot
-// corner: the bar window clips them to half rings. Stepped rather than
-// animated per frame (see Throb.qml): every change redraws the bar.
+// A soft dark swell spreading from the pointer on the screen's edge, like
+// GNOME's hot corner, in the island's own glass: no rings, no outline. The
+// bar window clips it to a half disc. It plays once per touch (like the
+// island's own morph), so it runs smoothly; nothing loops.
 Item {
   id: root
 
-  property color color: "white"
-  property real maxSize: Style.space(56)
-  property int steps: 10
-  property int step: steps
+  property color color: "black"
+  property real size: Style.space(160)
   property bool fromBottom: false
 
-  // Edge of the window the rings are centred on.
+  // Edge of the window the swell is centred on.
   function play(x, bottom) {
     root.x = x
     fromBottom = bottom
-    step = 0
-    stepper.restart()
+    for (var i = 0; i < swells.count; i++) swells.itemAt(i).run()
   }
 
   width: 0
   height: 0
   y: fromBottom && parent ? parent.height : 0
-  visible: step < steps
-
-  Timer {
-    id: stepper
-    interval: 40
-    repeat: true
-    onTriggered: { root.step++; if (root.step >= root.steps) stop() }
-  }
 
   Repeater {
-    model: 3
-    Rectangle {
+    id: swells
+    model: 2
+
+    Shape {
+      id: swell
       required property int index
-      // Each ring trails the one before it by two steps.
-      readonly property real t: Math.max(0, Math.min(1, (root.step - index * 2) / 6))
-      readonly property real eased: 1 - Math.pow(1 - t, 2)
-      visible: t > 0 && t < 1
-      width: root.maxSize * eased
-      height: width
+      readonly property real peak: index === 0 ? 0.9 : 0.5
+
+      width: root.size
+      height: root.size
       x: -width / 2
       y: -height / 2
-      radius: width / 2
-      color: "transparent"
-      border.width: 1
-      border.color: Qt.rgba(root.color.r, root.color.g, root.color.b, 0.7 * (1 - t))
+      visible: opacity > 0
+      opacity: 0
+      scale: 0.2
+      preferredRendererType: Shape.CurveRenderer
+
+      function run() { anim.restart() }
+
+      SequentialAnimation {
+        id: anim
+        // The second swell trails the first.
+        PauseAnimation { duration: swell.index * 140 }
+        ParallelAnimation {
+          NumberAnimation { target: swell; property: "scale"; from: 0.2; to: 1; duration: 560; easing.type: Easing.OutCubic }
+          SequentialAnimation {
+            NumberAnimation { target: swell; property: "opacity"; from: 0; to: swell.peak; duration: 120; easing.type: Easing.OutQuad }
+            NumberAnimation { target: swell; property: "opacity"; to: 0; duration: 440; easing.type: Easing.InOutQuad }
+          }
+        }
+      }
+
+      ShapePath {
+        strokeColor: "transparent"
+        fillGradient: RadialGradient {
+          centerX: swell.width / 2
+          centerY: swell.height / 2
+          centerRadius: swell.width / 2
+          focalX: centerX
+          focalY: centerY
+          GradientStop { position: 0.0; color: Qt.rgba(root.color.r, root.color.g, root.color.b, 0.55) }
+          GradientStop { position: 0.45; color: Qt.rgba(root.color.r, root.color.g, root.color.b, 0.22) }
+          GradientStop { position: 1.0; color: Qt.rgba(root.color.r, root.color.g, root.color.b, 0) }
+        }
+        PathSvg { path: "M0 0H" + swell.width + "V" + swell.height + "H0Z" }
+      }
     }
   }
 }

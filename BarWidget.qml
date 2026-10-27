@@ -694,26 +694,88 @@ BarWidget {
   }
 
   // The island hangs below the bar; with a see-through bar that leaves a gap
-  // to the screen's edge. Fill the bar's strip under the island, behind the
-  // modules, so it reads as growing out of the edge.
-  Rectangle {
-    id: islandBridge
+  // to the screen's edge. Fill the bar's strip under the island so it reads
+  // as growing out of the edge: over the other modules (the window title),
+  // under the clock and the crab. The clock and the crab sit in different
+  // parts of the bar, so no one z fits between them and the title; three
+  // strips that meet edge to edge do (no overlap, so the alpha doesn't double).
+  property rect keepRect: Qt.rect(0, 0, 0, 0)
+  function findModule(item, re) {
+    var kids = item.children
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i]
+      if (!c.visible || c.width <= 0 || c.height <= 0) continue
+      if (c.moduleName !== undefined && re.test(c.moduleName)) return c
+      var found = findModule(c, re)
+      if (found) return found
+    }
+    return null
+  }
+  function updateKeepRect() {
+    if (!root.barWindow) return
+    var win = root.barWindow.contentItem
+    var r = root.mapRectToItem(win, 0, 0, root.width, root.height)
+    var clock = findModule(win, /clock/)
+    if (clock) {
+      var c = clock.mapRectToItem(win, 0, 0, clock.width, clock.height)
+      var left = Math.min(r.x, c.x)
+      var right = Math.max(r.x + r.width, c.x + c.width)
+      r = Qt.rect(left, 0, right - left, win.height)
+    }
+    keepRect = r
+  }
+  Connections {
+    target: card
+    function onVisibleChanged() { if (card.visible) root.updateKeepRect() }
+    function onOpenChanged() { if (card.open) root.updateKeepRect() }
+  }
+
+  readonly property bool bridgeOn: card.visible && !card.tucked && !!root.bar && !root.vertical && keepRect.width > 0
+  readonly property color bridgeColor: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
+  readonly property real bridgeOpacity: Math.min(1, card.progress * 5)
+  readonly property real surfLeft: Math.round(card.surfaceRect.x)
+  readonly property real surfRight: Math.round(card.surfaceRect.x + card.surfaceRect.width)
+  readonly property real keepLeft: Math.round(keepRect.x)
+  readonly property real keepRight: Math.round(keepRect.x + keepRect.width)
+
+  Rectangle {   // under the clock and the crab
     parent: root.barWindow ? root.barWindow.contentItem : null
-    visible: card.visible && !card.tucked && !!root.bar && !root.vertical
-    x: card.surfaceRect.x
-    width: card.surfaceRect.width
-    y: 0
+    visible: root.bridgeOn
+    x: Math.max(root.surfLeft, root.keepLeft)
+    width: Math.max(0, Math.min(root.surfRight, root.keepRight) - x)
     height: parent ? parent.height : 0
     z: -1
-    color: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
-    opacity: Math.min(1, card.progress * 5)
+    color: root.bridgeColor
+    opacity: root.bridgeOpacity
+  }
+
+  Rectangle {   // over whatever is left of them
+    parent: root.barWindow ? root.barWindow.contentItem : null
+    visible: root.bridgeOn
+    x: root.surfLeft
+    width: Math.max(0, Math.min(root.keepLeft, root.surfRight) - root.surfLeft)
+    height: parent ? parent.height : 0
+    z: 50
+    color: root.bridgeColor
+    opacity: root.bridgeOpacity
+  }
+
+  Rectangle {   // and right of them
+    parent: root.barWindow ? root.barWindow.contentItem : null
+    visible: root.bridgeOn
+    x: Math.max(root.surfLeft, root.keepRight)
+    width: Math.max(0, root.surfRight - x)
+    height: parent ? parent.height : 0
+    z: 50
+    color: root.bridgeColor
+    opacity: root.bridgeOpacity
   }
 
   EdgeRipple {
     id: edgeRipple
     parent: root.barWindow ? root.barWindow.contentItem : null
     z: 101
-    color: theme.crab
+    color: card.tint
   }
 
   // ---- Approvals. approvals.py watch streams the prompts the hook is holding;
