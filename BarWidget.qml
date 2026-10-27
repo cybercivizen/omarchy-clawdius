@@ -775,7 +775,7 @@ BarWidget {
     id: edgeRipple
     parent: root.barWindow ? root.barWindow.contentItem : null
     z: 101
-    color: theme.fg
+    color: card.tint
   }
 
   // ---- Approvals. approvals.py watch streams the prompts the hook is holding;

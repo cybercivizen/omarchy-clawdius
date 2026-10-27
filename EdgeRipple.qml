@@ -1,8 +1,8 @@
 import QtQuick
 import qs.Commons
 
-// Two thin rings spreading from the pointer on the screen's edge, like
-// GNOME's hot corner; the bar window clips them to half rings. Played once
+// A thin dark ring spreading from the pointer on the screen's edge, like
+// GNOME's hot corner; the bar window clips it to a half ring. Played once
 // per touch (like the island's own morph), so it runs smoothly; nothing loops.
 Item {
   id: root
@@ -24,7 +24,7 @@ Item {
 
   Repeater {
     id: rings
-    model: 2
+    model: 1
 
     Rectangle {
       id: ring
@@ -38,21 +38,17 @@ Item {
       y: -d / 2
       radius: d / 2
       color: "transparent"
-      border.width: 1.5
+      border.width: 2
       border.color: root.color
       opacity: 0
       visible: opacity > 0
 
       function run() { anim.restart() }
 
-      SequentialAnimation {
+      ParallelAnimation {
         id: anim
-        // The second ring trails the first.
-        PauseAnimation { duration: ring.index * 150 }
-        ParallelAnimation {
-          NumberAnimation { target: ring; property: "d"; from: 8; to: root.size; duration: 600; easing.type: Easing.OutCubic }
-          NumberAnimation { target: ring; property: "opacity"; from: 0.35; to: 0; duration: 600; easing.type: Easing.InQuad }
-        }
+        NumberAnimation { target: ring; property: "d"; from: 8; to: root.size; duration: 600; easing.type: Easing.OutCubic }
+        NumberAnimation { target: ring; property: "opacity"; from: 0.6; to: 0; duration: 600; easing.type: Easing.InQuad }
       }
     }
   }
