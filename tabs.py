@@ -43,6 +43,12 @@ CHROMIUM_DIRS = {
 }
 
 
+def private_dir(path):
+    """The folder, owner-only (an old one too): what's kept in it is private."""
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+
+
 def default_browser():
     for argv in (["omarchy-cmd-default-browser"], ["xdg-mime", "query", "default", "x-scheme-handler/https"]):
         try:
@@ -111,7 +117,8 @@ def icon_file(uri):
     path = os.path.join(ICONS, hashlib.sha1(data.encode()).hexdigest()[:16] + "." + ext)
     if not os.path.exists(path):
         try:
-            os.makedirs(ICONS, exist_ok=True)
+            private_dir(os.path.dirname(ICONS))
+            private_dir(ICONS)
             with open(path + ".tmp", "wb") as f:
                 f.write(base64.b64decode(data))
             os.replace(path + ".tmp", path)

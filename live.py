@@ -181,7 +181,8 @@ def take_prompt(args):
 def stash():
     """Prompt from stdin into a private file: its path, for a command that
     can't take stdin (a terminal window)."""
-    os.makedirs(PROMPT_DIR, mode=0o700, exist_ok=True)
+    private_dir(os.path.dirname(PROMPT_DIR))
+    private_dir(PROMPT_DIR)
     path = os.path.join(PROMPT_DIR, "p-%d" % (time.time() * 1000))
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -331,6 +332,12 @@ ASLEEP_FOR_SEC = 7 * 86400
 PENDING_TOOLS = ("ScheduleWakeup", "Monitor")
 
 
+def private_dir(path):
+    """The folder, owner-only (an old one too): what's kept in it is private."""
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+
+
 def read_json(path):
     try:
         with open(path) as f:
@@ -414,7 +421,7 @@ def sweep(args):
             sys.stderr.write("sweep: unknown argument %r\n" % args[i])
             return 2
 
-    os.makedirs(STATE_DIR, exist_ok=True)
+    private_dir(STATE_DIR)
     lock = open(os.path.join(STATE_DIR, "sweep.lock"), "w")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -1311,7 +1318,8 @@ def save_clipboard_image():
     if not images:
         return None
     kind = "image/png" if "image/png" in images else images[0]
-    os.makedirs(PASTE_DIR, exist_ok=True)
+    private_dir(os.path.dirname(PASTE_DIR))
+    private_dir(PASTE_DIR)
     path = os.path.join(PASTE_DIR, "clip-%d.%s" % (time.time() * 1000, kind.split("/")[1].split("+")[0]))
     try:
         with open(path, "wb") as out:

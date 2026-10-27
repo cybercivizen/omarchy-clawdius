@@ -106,6 +106,12 @@ UNSKIPS = {
 }
 
 
+def private_dir(path):
+    """The folder, owner-only (an old one too): what's kept in it is private."""
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+
+
 def today_str():
     return date.today().isoformat()
 
@@ -174,7 +180,7 @@ def save(state):
     state["stats"] = {"total": len(state["done"]), "byLang": by_lang,
                       "redos": sum(1 for v in state["redo"].values() if v["due"] <= today_str()),
                       "recent": [dict(d, name=d.get("name") or d["slug"]) for d in state["done"][-20:][::-1]]}
-    os.makedirs(STATE_DIR, exist_ok=True)
+    private_dir(STATE_DIR)
     fd, tmp = tempfile.mkstemp(dir=STATE_DIR, prefix=".antirot-")
     with os.fdopen(fd, "w") as f:
         json.dump(state, f, indent=1)
@@ -476,7 +482,8 @@ def ask(kind, again=False):
 def setup(lang):
     track = track_dir(lang)
     if not os.path.isfile(os.path.join(track, "config.json")):
-        os.makedirs(TRACKS, exist_ok=True)
+        private_dir(os.path.dirname(TRACKS))
+        private_dir(TRACKS)
         shutil.rmtree(track, ignore_errors=True)
         p = subprocess.run(["git", "clone", "-q", "--depth", "1", "https://github.com/exercism/" + lang, track],
                            capture_output=True, text=True)
@@ -528,7 +535,7 @@ def main(args):
         return 2
     cmd = args[0]
     lang = args[1] if len(args) > 1 else ""
-    os.makedirs(STATE_DIR, exist_ok=True)
+    private_dir(STATE_DIR)
     if cmd in ("hint", "explain"):
         return ask(cmd, args[1:] == ["again"])
     with open(os.path.join(STATE_DIR, "antirot.lock"), "w") as lock:

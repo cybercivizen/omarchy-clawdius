@@ -44,6 +44,12 @@ def pid_alive(pid):
         return False
 
 
+def private_dir(path):
+    """The folder, owner-only (an old one too): what's kept in it is private."""
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+
+
 def read_json(path, default=None):
     try:
         with open(path) as f:
@@ -214,7 +220,7 @@ def hook():
     tool = payload.get("tool_name", "")
     event = payload.get("hook_event_name") or "PermissionRequest"
     try:
-        os.makedirs(RUNTIME, exist_ok=True)
+        private_dir(RUNTIME)
         with open(HOOK_LOG, "a") as f:
             f.write("%s %s %s\n" % (time.strftime("%H:%M:%S"), event, tool))
         if os.path.getsize(HOOK_LOG) > 20000:
@@ -251,7 +257,8 @@ def hook():
 
     signal.signal(signal.SIGTERM, bail)
     signal.signal(signal.SIGHUP, bail)
-    os.makedirs(REQUESTS, exist_ok=True)
+    private_dir(RUNTIME)
+    private_dir(REQUESTS)
     write_atomic(req_path, {
         "id": rid, "pid": os.getpid(), "at": int(time.time() * 1000),
         "sessionId": payload.get("session_id", ""), "cwd": payload.get("cwd", ""),
@@ -306,7 +313,8 @@ def hook():
 # -------------------------------------------------------------------- watch
 
 def watch():
-    os.makedirs(REQUESTS, exist_ok=True)
+    private_dir(RUNTIME)
+    private_dir(REQUESTS)
     write_atomic(WATCHER_PID, os.getpid())
     last = None
     while True:
