@@ -714,10 +714,10 @@ BarWidget {
   function updateKeepRect() {
     if (!root.barWindow) return
     var win = root.barWindow.contentItem
-    var r = root.mapRectToItem(win, 0, 0, root.width, root.height)
+    var r = root.mapToItem(win, 0, 0, root.width, root.height)
     var clock = findModule(win, /clock/)
     if (clock) {
-      var c = clock.mapRectToItem(win, 0, 0, clock.width, clock.height)
+      var c = clock.mapToItem(win, 0, 0, clock.width, clock.height)
       var left = Math.min(r.x, c.x)
       var right = Math.max(r.x + r.width, c.x + c.width)
       r = Qt.rect(left, 0, right - left, win.height)
@@ -775,7 +775,7 @@ BarWidget {
     id: edgeRipple
     parent: root.barWindow ? root.barWindow.contentItem : null
     z: 101
-    color: card.tint
+    color: theme.fg
   }
 
   // ---- Approvals. approvals.py watch streams the prompts the hook is holding;
