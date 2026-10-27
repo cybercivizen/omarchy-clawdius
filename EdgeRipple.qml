@@ -1,7 +1,7 @@
 import QtQuick
 import qs.Commons
 
-// A thin dark ring spreading from the pointer on the screen's edge, like
+// A light ring spreading from the pointer on the screen's edge, like
 // GNOME's hot corner; the bar window clips it to a half ring. Played once
 // per touch (like the island's own morph), so it runs smoothly; nothing loops.
 Item {
@@ -38,7 +38,7 @@ Item {
       y: -d / 2
       radius: d / 2
       color: "transparent"
-      border.width: 2
+      border.width: 4
       border.color: root.color
       opacity: 0
       visible: opacity > 0
@@ -48,7 +48,7 @@ Item {
       ParallelAnimation {
         id: anim
         NumberAnimation { target: ring; property: "d"; from: 8; to: root.size; duration: 600; easing.type: Easing.OutCubic }
-        NumberAnimation { target: ring; property: "opacity"; from: 0.6; to: 0; duration: 600; easing.type: Easing.InQuad }
+        NumberAnimation { target: ring; property: "opacity"; from: 0.4; to: 0; duration: 600; easing.type: Easing.InQuad }
       }
     }
   }

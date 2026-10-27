@@ -136,7 +136,7 @@ are skipped, so they keep their own hover and clicks and never open it.
 Hovering alone doesn't open it, though: the pointer has to touch the screen
 edge (the bar's outer pixel row) first, then the hover delay runs as usual.
 Leaving the bar disarms it. Clicks still open it at once, and `edgeOpen` off
-brings back plain hover. Touching the edge sends a thin matte-black ripple out from
+brings back plain hover. Touching the edge sends a light ripple out from
 the pointer (`EdgeRipple.qml`, played once per touch),
 and the island fills the bar's strip over the other modules (the window title)
 and under the clock and crab, so with a transparent bar it reaches the screen edge.
