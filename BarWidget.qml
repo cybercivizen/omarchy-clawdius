@@ -226,12 +226,13 @@ BarWidget {
       maybeClose()
     }
   }
-  // winY: the pointer's y in the bar window, whose outer row is the screen edge.
-  function checkEdge(winY) {
+  // The pointer in the bar window, whose outer row is the screen edge.
+  function checkEdge(winX, winY) {
     if (!edgeOpen || edgeArmed || !barWindow) return
     var bottom = root.bar && root.bar.position === "bottom"
     if (bottom ? winY < barWindow.height - 2 : winY > 1) return
     edgeArmed = true
+    if (!card.open) edgeRipple.play(winX, bottom)
     if (glyphArea.containsMouse || clockHovered || zoneHovered) hoverChanged(true)
   }
 
@@ -633,7 +634,10 @@ BarWidget {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onEntered: if (root.edgeReady) openTimer.restart()
-      onPositionChanged: mouse => root.checkEdge(mapToItem(root.barWindow.contentItem, mouse.x, mouse.y).y)
+      onPositionChanged: mouse => {
+        var p = mapToItem(root.barWindow.contentItem, mouse.x, mouse.y)
+        root.checkEdge(p.x, p.y)
+      }
       onExited: { if (!root.zoneHovered && !root.clockHovered) { root.edgeArmed = false; openTimer.stop() } root.maybeClose() }
       onClicked: root.toggle()
     }
@@ -666,7 +670,7 @@ BarWidget {
   }
   function updateZone(handler) {
     var wp = hoverZone.mapToItem(root.barWindow.contentItem, handler.point.position.x, handler.point.position.y)
-    if (handler.hovered) root.checkEdge(wp.y)
+    if (handler.hovered) root.checkEdge(wp.x, wp.y)
     var on = handler.hovered && !(root.barWindow && overOtherModule(root.barWindow.contentItem, wp))
     if (on === root.zoneHovered) return
     root.zoneHovered = on
@@ -687,6 +691,29 @@ BarWidget {
       onHoveredChanged: root.updateZone(this)
       onPointChanged: root.updateZone(this)
     }
+  }
+
+  // The island hangs below the bar; with a see-through bar that leaves a gap
+  // to the screen's edge. Fill the bar's strip under the island, behind the
+  // modules, so it reads as growing out of the edge.
+  Rectangle {
+    id: islandBridge
+    parent: root.barWindow ? root.barWindow.contentItem : null
+    visible: card.visible && !card.tucked && !!root.bar && !root.vertical
+    x: card.surfaceRect.x
+    width: card.surfaceRect.width
+    y: 0
+    height: parent ? parent.height : 0
+    z: -1
+    color: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
+    opacity: Math.min(1, card.progress * 5)
+  }
+
+  EdgeRipple {
+    id: edgeRipple
+    parent: root.barWindow ? root.barWindow.contentItem : null
+    z: 101
+    color: theme.crab
   }
 
   // ---- Approvals. approvals.py watch streams the prompts the hook is holding;
