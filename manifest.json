@@ -37,7 +37,8 @@
       "terminalFontSize": 13,
       "idleStopMinutes": 30,
       "idleKeepRunning": 5,
-      "hoverZoneWidth": 560
+      "hoverZoneWidth": 560,
+      "edgeOpen": true
     },
     "schema": [
       {
@@ -90,6 +91,13 @@
         "step": 20,
         "defaultValue": 560,
         "description": "How much of the bar's middle opens the island on hover, centered on the bar. 0: only the clock and the crab."
+      },
+      {
+        "key": "edgeOpen",
+        "type": "boolean",
+        "label": "Open at the screen edge",
+        "defaultValue": true,
+        "description": "Hovering only opens the island once the pointer touches the screen edge, so brushing past the bar doesn't. Off: any hover over the bar's middle opens it."
       },
       {
         "key": "chatCommand",
