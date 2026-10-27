@@ -133,6 +133,10 @@ The island opens from the empty bar within the middle 560 px
 (`hoverZoneWidth`), not only the clock and crab: a passive `HoverHandler` on
 the bar window. Other widgets in that stretch (the tray arrows, a media title)
 are skipped, so they keep their own hover and clicks and never open it.
+Hovering alone doesn't open it, though: the pointer has to touch the screen
+edge (the bar's outer pixel row) first, then the hover delay runs as usual.
+Leaving the bar disarms it. Clicks still open it at once, and `edgeOpen` off
+brings back plain hover.
 
 Every view is 948 px wide, however it was opened (only a notification peek
 is narrower). The popup window stays at the widest and tallest size and
@@ -675,7 +679,7 @@ change, the fallback is Claude Code hooks (`PreToolUse`, `Stop`,
 
 ## Knobs
 
-`shell.json` entry settings: `alwaysShow` (on; off hides the crab while nothing's going on), `maxIdleSessions`, `hoverDelayMs`, `closeDelayMs` (grace after the pointer leaves), `hoverZoneWidth` (0 = clock and crab only), `color`, `usageRefreshSec`, `chatCommand`, `codeCommand`, `webCommand`, `frostOpacity` (20–100), `idleStopMinutes` (0 = off), `idleKeepRunning`.
+`shell.json` entry settings: `alwaysShow` (on; off hides the crab while nothing's going on), `maxIdleSessions`, `hoverDelayMs`, `closeDelayMs` (grace after the pointer leaves), `hoverZoneWidth` (0 = clock and crab only), `edgeOpen` (on; hover opens only once the pointer touches the screen edge), `color`, `usageRefreshSec`, `chatCommand`, `codeCommand`, `webCommand`, `frostOpacity` (20–100), `idleStopMinutes` (0 = off), `idleKeepRunning`.
 Feed env: `CLAWDIUS_NOTIFY=0`, `CLAWDIUS_NOTIFY_MIN_BUSY` (seconds), `CLAWDIUS_POLL`.
 
 IPC: `omarchy-shell clawdius open|close|toggle|debug|hoverClock <bool>`,

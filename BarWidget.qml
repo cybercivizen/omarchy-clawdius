@@ -68,6 +68,11 @@ BarWidget {
   readonly property int maxIdle: setting("maxIdleSessions", 4)
   readonly property bool alwaysShow: setting("alwaysShow", true) === true
   readonly property real hoverDelay: setting("hoverDelayMs", 200)
+  // Hovering only opens the island once the pointer has touched the screen
+  // edge; brushing past the bar isn't enough. Off: any hover opens it.
+  readonly property bool edgeOpen: setting("edgeOpen", true) === true
+  property bool edgeArmed: false
+  readonly property bool edgeReady: !edgeOpen || edgeArmed
   // Grace after the pointer leaves, so overshooting the edge doesn't close it.
   readonly property real closeDelay: setting("closeDelayMs", 400)
 
@@ -214,11 +219,20 @@ BarWidget {
   function hoverChanged(hovered) {
     if (hovered) {
       var other = root.bar && root.bar.activePopout && root.bar.activePopout !== root
-      if (!other && !openTimer.running) openTimer.restart()
+      if (!other && root.edgeReady && !openTimer.running) openTimer.restart()
     } else if (!root.clockHovered && !root.zoneHovered && !glyphArea.containsMouse) {
+      root.edgeArmed = false
       openTimer.stop()
       maybeClose()
     }
+  }
+  // winY: the pointer's y in the bar window, whose outer row is the screen edge.
+  function checkEdge(winY) {
+    if (!edgeOpen || edgeArmed || !barWindow) return
+    var bottom = root.bar && root.bar.position === "bottom"
+    if (bottom ? winY < barWindow.height - 2 : winY > 1) return
+    edgeArmed = true
+    if (glyphArea.containsMouse || clockHovered || zoneHovered) hoverChanged(true)
   }
 
   function applySnapshot(line) {
@@ -419,7 +433,7 @@ BarWidget {
   Timer {
     id: openTimer
     interval: root.hoverDelay
-    onTriggered: if (glyphArea.containsMouse || root.clockHovered || root.zoneHovered) root.open()
+    onTriggered: if (root.edgeReady && (glyphArea.containsMouse || root.clockHovered || root.zoneHovered)) root.open()
   }
 
   Timer {
@@ -479,7 +493,7 @@ BarWidget {
         activeApp: ToplevelManager.activeToplevel ? String(ToplevelManager.activeToplevel.appId) : "",
         activeEntry: ToplevelManager.activeToplevel && DesktopEntries.heuristicLookup(ToplevelManager.activeToplevel.appId || "")
           ? DesktopEntries.heuristicLookup(ToplevelManager.activeToplevel.appId || "").id : "",
-        appsLeader: Link.isLeader(root), zone: root.zoneHovered,
+        appsLeader: Link.isLeader(root), zone: root.zoneHovered, edgeArmed: root.edgeArmed,
         toast: root.toast ? root.toast.kind : "", toastShown: root.toastShown, peeking: root.peeking, otherPanel: root.otherPanel,
         keysFocused: liveKeys.field.activeFocus,
         idleStopMinutes: root.idleStopMinutes, idleKeepRunning: root.idleKeepRunning, asleep: root.asleepCount,
@@ -618,8 +632,9 @@ BarWidget {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onEntered: openTimer.restart()
-      onExited: { if (!root.zoneHovered && !root.clockHovered) openTimer.stop(); root.maybeClose() }
+      onEntered: if (root.edgeReady) openTimer.restart()
+      onPositionChanged: mouse => root.checkEdge(mapToItem(root.barWindow.contentItem, mouse.x, mouse.y).y)
+      onExited: { if (!root.zoneHovered && !root.clockHovered) { root.edgeArmed = false; openTimer.stop() } root.maybeClose() }
       onClicked: root.toggle()
     }
   }
@@ -650,7 +665,9 @@ BarWidget {
     return false
   }
   function updateZone(handler) {
-    var on = handler.hovered && !(root.barWindow && overOtherModule(root.barWindow.contentItem, hoverZone.mapToItem(root.barWindow.contentItem, handler.point.position.x, handler.point.position.y)))
+    var wp = hoverZone.mapToItem(root.barWindow.contentItem, handler.point.position.x, handler.point.position.y)
+    if (handler.hovered) root.checkEdge(wp.y)
+    var on = handler.hovered && !(root.barWindow && overOtherModule(root.barWindow.contentItem, wp))
     if (on === root.zoneHovered) return
     root.zoneHovered = on
     root.hoverChanged(on)
