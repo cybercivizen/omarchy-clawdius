@@ -133,11 +133,17 @@ def load_cache():
     return {}
 
 
+def private_dir(path):
+    """The folder, owner-only (an old one too): what's kept in it is private."""
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+
+
 def save_cache(files):
     try:
-        os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+        private_dir(os.path.dirname(CACHE_PATH))
         tmp = "%s.%d.tmp" % (CACHE_PATH, os.getpid())
-        with open(tmp, "w") as f:
+        with os.fdopen(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
             json.dump({"version": CACHE_VERSION, "files": files}, f, separators=(",", ":"))
         os.replace(tmp, CACHE_PATH)
     except OSError:

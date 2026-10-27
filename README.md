@@ -105,6 +105,18 @@ little state in `clawdius/` folders under `$XDG_STATE_HOME`
 (`~/.local/state`), `$XDG_CACHE_HOME` (`~/.cache`) and `$XDG_RUNTIME_DIR`.
 Delete those to clear it.
 
+### Privacy
+
+What the plugin keeps (session summaries with your first prompts and replies,
+recent searches, reminders, your weather place, favicons) lives in `clawdius/`
+folders under `$XDG_STATE_HOME`, `$XDG_CACHE_HOME`, `$XDG_DATA_HOME` and
+`$XDG_RUNTIME_DIR`. They're made owner-only (`0700`), older ones too on the
+next start, so other accounts on the machine can't read them. Prompts, answers,
+copied text, `/ commands` and your location never go on a command line, where
+any account's `ps` would show them: they go over stdin or a `0600` file read
+once. The one exception is what you open in the browser (a Google search, a
+tab): the URL has to reach the browser.
+
 ### Moods
 
 The crab shows the most pressing thing going on, in this order:

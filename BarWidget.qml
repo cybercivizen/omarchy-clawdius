@@ -969,6 +969,16 @@ BarWidget {
   readonly property int idleStopMinutes: Math.max(0, Number(setting("idleStopMinutes", 30)))
   readonly property int idleKeepRunning: Math.max(0, Number(setting("idleKeepRunning", 5)))
   readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/clawdius"
+  // Everything the plugin keeps (prompts, replies, searches, reminders) is for
+  // this account only: its folders are 0700, an older install's too.
+  Process {
+    running: true
+    command: ["sh", "-c", 'umask 077; for d in "$@"; do mkdir -p "$d" && chmod -R go-rwx "$d"; done', "clawdius-private",
+      root.stateDir,
+      (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/clawdius",
+      (Quickshell.env("XDG_DATA_HOME") || (Quickshell.env("HOME") + "/.local/share")) + "/clawdius",
+      (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/clawdius"]
+  }
   // Session id → ms it was put to sleep (live.py writes it).
   property var asleep: ({})
   // Put to sleep in the last 12 hours and not running again since.
@@ -1309,7 +1319,21 @@ BarWidget {
     root.noteSearch("terminal", text)
     root.close()
     liveKeys.field.text = ""
-    Quickshell.execDetached(["omarchy-launch-terminal", "bash", "-ic", text + "; exec bash"])
+    // The command stays out of the terminal's command line: a private file, run once.
+    runStash.input = text
+    runStash.running = true
+  }
+
+  Pipe {
+    id: runStash
+    command: ["python3", "-I", root.livePath, "stash"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var path = text.trim()
+        if (path) Quickshell.execDetached(["omarchy-launch-terminal", "bash", "-ic", '. "$0"; rm -f -- "$0"; exec bash', path])
+      }
+    }
   }
 
   // ---- The default browser's recent tabs, beside the apps (tabs.py), read
@@ -1548,11 +1572,13 @@ BarWidget {
 
   function fetchWeather(maxAgeMs) {
     if (weatherProcess.running || Date.now() - root.weatherAt < maxAgeMs) return
-    weatherProcess.command = ["curl", "-fsS", "--max-time", "10", "https://wttr.in/" + root.weatherPlace + "?format=j1"]
+    // The place is the user's location: curl reads the URL from stdin.
+    weatherProcess.command = ["curl", "-fsS", "--max-time", "10", "-K", "-"]
+    weatherProcess.input = 'url = "https://wttr.in/' + root.weatherPlace + '?format=j1"\n'
     weatherProcess.running = true
   }
 
-  Process {
+  Pipe {
     id: weatherProcess
     stdout: StdioCollector { id: weatherOut }
     onExited: function(code) {
