@@ -33,6 +33,10 @@ PopupWindow {
   property int contentHeight: Style.space(200)
   property int maxContentHeight: contentHeight
   property bool open: false
+  // Mapped but undrawn and click-through, ahead of an open (the hover delay):
+  // a fresh popup reaches the screen a few frames late, so the morph started
+  // in it then skipped its first part while the bar's strip was already up.
+  property bool warm: false
   // Open without taking the bar's popout slot (the crab's notification
   // peek): another panel that's up stays up. Claimed once this goes false.
   property bool passive: false
@@ -133,7 +137,7 @@ PopupWindow {
 
   default property alias contentItem: contentHolder.children
 
-  visible: open || progress > 0
+  visible: open || progress > 0 || warm
   color: "transparent"
   implicitWidth: Math.max(contentWidth, maxContentWidth)
   implicitHeight: Math.max(contentHeight, maxContentHeight)
@@ -142,7 +146,7 @@ PopupWindow {
   // itself froze the drop-in's 0.94 scale and left its edges dead to the
   // pointer (the card closed while you were still on its padding).
   mask: Region {
-    item: root.tucked ? null : maskBox
+    item: root.tucked || (!root.open && root.progress <= 0) ? null : maskBox
     Region { item: root.floatMask && !root.tucked ? root.floatMask : null }
   }
 
