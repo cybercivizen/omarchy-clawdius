@@ -200,12 +200,16 @@ PopupWindow {
     }
   }
 
+  // The island's final size while it morphs, so surfaceRect (the input mask,
+  // the key window's hole, the bar's strip) holds still instead of changing
+  // every frame of the open.
   Item {
     id: maskBox
-    x: surface.x
-    y: surface.y
-    width: surface.width
-    height: surface.height
+    readonly property bool morphing: root.island && root.progress < 1
+    width: morphing ? root.contentWidth : surface.width
+    height: morphing ? root.contentHeight : surface.height
+    x: (root.width - width) / 2
+    y: root.fromBottom ? root.height - height : 0
   }
 
   Rectangle {
