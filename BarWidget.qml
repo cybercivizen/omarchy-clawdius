@@ -735,6 +735,9 @@ BarWidget {
   }
 
   readonly property bool bridgeOn: card.visible && !card.tucked && !!root.bar && !root.vertical && keepRect.width > 0
+  // For the clock (Link.cover): the island is down under it, and the ink that reads on it.
+  readonly property bool covering: bridgeOn && card.progress > 0.2
+  readonly property color coverInk: theme.fg
   readonly property color bridgeColor: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
   readonly property real bridgeOpacity: Math.min(1, card.progress * 5)
   readonly property real surfLeft: Math.round(card.surfaceRect.x)

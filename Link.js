@@ -28,6 +28,20 @@ function clockHover(window, hovered) {
   }
 }
 
+// The ink the island wants on this bar's clock while it hangs over it, else
+// null. The clock (ClockLink.qml) reads it to stay readable on the island.
+function cover(window) {
+  for (var i = crabs.length - 1; i >= 0; i--) {
+    var crab = crabs[i]
+    try {
+      if (crab && crab.barWindow === window && crab.covering) return crab.coverInk
+    } catch (e) {
+      crabs.splice(i, 1)
+    }
+  }
+  return null
+}
+
 // A click on the clock: the island on Today, on that bar's crab.
 function clockClick(window) {
   for (var i = crabs.length - 1; i >= 0; i--) {
