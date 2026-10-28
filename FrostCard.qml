@@ -101,13 +101,14 @@ PopupWindow {
   // Closing runs the same path back into the bar, content first.
   function span(p, from, to) { return Math.max(0, Math.min(1, (p - from) / (to - from))) }
   function outQuint(t) { return 1 - Math.pow(1 - t, 5) }
+  function outQuart(t) { return 1 - Math.pow(1 - t, 4) }
   function outCubic(t) { return 1 - Math.pow(1 - t, 3) }
   // (Closing runs progress back down, so its curves read right to left:
   // content out first, then the height folds up, then the width. The
   // height drops most of the way at once and eases into the bar.)
   readonly property real islandWidthT: root.open ? outQuint(span(progress, 0, 0.6)) : outCubic(span(progress, 0, 0.5))
-  readonly property real islandHeightT: root.open ? outQuint(span(progress, 0.06, 1)) : Math.pow(span(progress, 0.04, 0.92), 2)
-  readonly property real islandContentT: root.open ? outCubic(span(progress, 0.32, 0.85)) : span(progress, 0.7, 1)
+  readonly property real islandHeightT: root.open ? outQuart(span(progress, 0.06, 1)) : Math.pow(span(progress, 0.04, 0.92), 2)
+  readonly property real islandContentT: root.open ? outCubic(span(progress, 0.2, 0.85)) : span(progress, 0.7, 1)
   readonly property real islandStartWidth: Math.min(contentWidth, Style.space(200))
   readonly property real islandStartHeight: Style.space(8)
 
@@ -147,7 +148,7 @@ PopupWindow {
 
   onOpenChanged: {
     progressAnim.stop()
-    progressAnim.duration = root.island ? (open ? 540 : 200) : (open ? 380 : 170)
+    progressAnim.duration = root.island ? (open ? 420 : 200) : (open ? 380 : 170)
     progressAnim.easing.type = root.island ? Easing.Linear : open ? Easing.OutQuint : Easing.InCubic
     progressAnim.to = open ? 1 : 0
     progressAnim.start()
