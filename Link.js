@@ -16,6 +16,32 @@ function unregister(crab) {
   if (i >= 0) crabs.splice(i, 1)
 }
 
+var clocks = []
+
+function registerClock(clock) {
+  if (clocks.indexOf(clock) < 0) clocks.push(clock)
+}
+
+function unregisterClock(clock) {
+  var i = clocks.indexOf(clock)
+  if (i >= 0) clocks.splice(i, 1)
+}
+
+// The island is down over this bar window (or gone again): the clock sits on
+// its light surface, not the wallpaper, so it reads the theme's text color.
+function islandCover(window, covered, ink) {
+  for (var i = clocks.length - 1; i >= 0; i--) {
+    try {
+      if (clocks[i].barWindow === window) {
+        clocks[i].ink = ink
+        clocks[i].covered = covered
+      }
+    } catch (e) {
+      clocks.splice(i, 1)
+    }
+  }
+}
+
 // Hover goes to the crab on the same bar window: one bar per monitor.
 function clockHover(window, hovered) {
   for (var i = crabs.length - 1; i >= 0; i--) {
@@ -26,20 +52,6 @@ function clockHover(window, hovered) {
       crabs.splice(i, 1)   // destroyed by a reload
     }
   }
-}
-
-// The ink the island wants on this bar's clock while it hangs over it, else
-// null. The clock (ClockLink.qml) reads it to stay readable on the island.
-function cover(window) {
-  for (var i = crabs.length - 1; i >= 0; i--) {
-    var crab = crabs[i]
-    try {
-      if (crab && crab.barWindow === window && crab.covering) return crab.coverInk
-    } catch (e) {
-      crabs.splice(i, 1)
-    }
-  }
-  return null
 }
 
 // A click on the clock: the island on Today, on that bar's crab.

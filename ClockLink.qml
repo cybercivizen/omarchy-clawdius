@@ -5,25 +5,17 @@ import "Link.js" as Link
 // clock keeps working if this plugin is ever removed.
 Item {
   id: root
-  // The bar window the clock sits in, set by the clock.
+
+  // Set by the clock; the crab on the same bar window flips `covered` (and
+  // sets `ink`, the island's text color) while its island is down over the clock.
   property var barWindow: null
-  // The island is down over the clock: draw the time in `ink`, not the bar's color.
   property bool covered: false
   property color ink: "#000000"
+
+  Component.onCompleted: Link.registerClock(root)
+  Component.onDestruction: Link.unregisterClock(root)
 
   function hover(window, hovered) { Link.clockHover(window, hovered) }
   function click(window) { Link.clockClick(window) }
   function crabCount() { return Link.count() }
-
-  // Stepped, not per-frame: the island opens and closes a few times a minute.
-  Timer {
-    interval: 100
-    running: !!root.barWindow
-    repeat: true
-    onTriggered: {
-      var c = Link.cover(root.barWindow)
-      root.covered = c !== null
-      if (c !== null) root.ink = c
-    }
-  }
 }
