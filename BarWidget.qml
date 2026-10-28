@@ -176,8 +176,9 @@ BarWidget {
     finishedTimer.restart()
   }
 
-  readonly property bool centerPeek: bar ? (bar.centerSectionRevealHeld === true && bar.centerHoverRevealSuppressed !== true) : false
-  readonly property bool revealed: lively || alwaysShow || centerPeek || glyphArea.containsMouse || clockHovered || zoneHovered || card.open
+  // Only while something's going on (or alwaysShow): hovering and opening the
+  // island don't slide it in, which shifted the clock just as the island opened.
+  readonly property bool revealed: lively || alwaysShow
 
   readonly property color fg: bar ? bar.foreground : Color.foreground
   readonly property color mutedFg: theme.muted
