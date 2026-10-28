@@ -420,7 +420,14 @@ BarWidget {
   Connections {
     target: root
     // Opening also picks today's rep when the day has turned.
-    function onIslandOpenChanged() { if (root.islandOpen) { root.refreshUsage(60000); root.runAntirot(["today"], ""); root.fetchWeather(30 * 60000) } }
+    function onIslandOpenChanged() { if (root.islandOpen) openWork.restart(); else openWork.stop() }
+  }
+  // The refreshes spawn processes and their answers redraw the views: held
+  // until the island has landed, so they don't cost frames of the morph.
+  Timer {
+    id: openWork
+    interval: 450
+    onTriggered: { root.refreshUsage(60000); root.runAntirot(["today"], ""); root.fetchWeather(30 * 60000); root.refreshResumable() }
   }
 
   Timer {
@@ -2213,7 +2220,6 @@ BarWidget {
     function onIslandOpenChanged() {
       // Folded away: its notification went with it.
       if (!root.islandOpen) { root.newMenuOpen = false; quickChat.picker = ""; if (!root.peeking) root.toast = null; return }
-      root.refreshResumable()
       if (root.summoned) return
       if (root.view !== "detail" || (!root.liveId && !root.startingLabel)) root.view = "home"
     }
