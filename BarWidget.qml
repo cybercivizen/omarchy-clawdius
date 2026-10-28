@@ -51,11 +51,11 @@ BarWidget {
   // Theme-aware colors (Colors.qml); the `color` setting overrides the orange.
   Colors {
     id: theme
-    fg: root.previewTheme === "light" ? "#101315" : root.previewTheme === "dark" ? "#cacccc" : root.fg
-    bg: root.previewTheme === "light" ? "#ffffff" : root.previewTheme === "dark" ? "#101315" : Color.background
+    fg: root.shownTheme === "light" ? "#101315" : root.shownTheme === "dark" ? "#cacccc" : root.fg
+    bg: root.shownTheme === "light" ? "#ffffff" : root.shownTheme === "dark" ? "#101315" : Color.background
     crabOverride: String(root.setting("color", "") || "")
     look: root.islandLook
-    barColor: root.previewTheme === "" && root.bar ? root.bar.background : "transparent"
+    barColor: root.shownTheme === "" && root.bar ? root.bar.background : "transparent"
   }
   readonly property color crabColor: theme.crab
   // The bar crab types, bobs and blinks. Every step redraws the bar, which
@@ -65,6 +65,10 @@ BarWidget {
   // IPC themePreview: draw the island in Solitude Light / Dark without
   // switching the desktop's theme.
   property string previewTheme: ""
+  // Settings → Island → Theme: "omarchy" (follow the desktop), "dark" or "light".
+  property string islandTheme: "omarchy"
+  // What the island draws in: a preview wins, then the setting; "" is the desktop's.
+  readonly property string shownTheme: previewTheme !== "" ? previewTheme : islandTheme === "omarchy" ? "" : islandTheme
   readonly property int maxIdle: setting("maxIdleSessions", 4)
   readonly property bool alwaysShow: setting("alwaysShow", true) === true
   readonly property real hoverDelay: setting("hoverDelayMs", 200)
@@ -1192,7 +1196,7 @@ BarWidget {
   property bool detailTerminal: false
   // Settings → Island: sessions open (and start) in a terminal window, never in the island.
   property bool terminalOutside: false
-  // Settings → Island → Theme: "soft", "dev" (compact) or "dense"; Colors.look carries it to every view.
+  // Settings → Island → Look: "soft", "dev" (compact) or "dense"; Colors.look carries it to every view.
   property string islandLook: "soft"
   property var chatOverride: ({})
   readonly property bool detailChat: {
@@ -1824,6 +1828,7 @@ BarWidget {
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
         root.detailTerminal = prefs.detailView === "terminal"
         root.terminalOutside = prefs.terminalOutside === true
+        root.islandTheme = prefs.islandTheme === "dark" || prefs.islandTheme === "light" ? prefs.islandTheme : "omarchy"
         root.islandLook = prefs.islandLook === "dev" || prefs.islandLook === "dense" ? prefs.islandLook : "soft"
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
@@ -1838,6 +1843,7 @@ BarWidget {
   onDetailTerminalChanged: prefsSave.restart()
   onTerminalOutsideChanged: prefsSave.restart()
   onIslandLookChanged: prefsSave.restart()
+  onIslandThemeChanged: prefsSave.restart()
   onQuickModeChanged: prefsSave.restart()
   onQuickModelChanged: prefsSave.restart()
   onQuickEffortChanged: prefsSave.restart()
@@ -1847,7 +1853,7 @@ BarWidget {
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches, starredIds: root.starredIds }))
+    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, islandTheme: root.islandTheme, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches, starredIds: root.starredIds }))
   }
 
   // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
@@ -3178,6 +3184,8 @@ BarWidget {
                   terminalOutside: root.terminalOutside
                   onTerminalOutsideSet: function(on) { root.terminalOutside = on }
                   onLookSet: function(look) { root.islandLook = look }
+                  islandTheme: root.islandTheme
+                  onThemeSet: function(t) { root.islandTheme = t }
                   busy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   busyLang: root.antirotBusyLang
                   onNudgeSet: function(key, min) { root.setNudge(key, { everyMin: min }) }

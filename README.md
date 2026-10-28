@@ -444,8 +444,9 @@ everything else is gray.
 
 #### Themes
 
-Gear → Island → Theme picks the island's look, kept in `prefs.json`
-(`islandLook`). **Soft** is the rounded, airy island. **Compact** is the
+Gear → Island → Theme picks Omarchy (follow the desktop), Dark or Light for
+the island, kept in `prefs.json` (`islandTheme`). Gear → Island → Look picks
+the island's look, kept in `prefs.json` (`islandLook`). **Soft** is the rounded, airy island. **Compact** is the
 developer look: 12 px corners on the island and cards (as the bar's other popups), 10 px max on controls instead of
 pills, tighter padding and rows, in line with
 the rest of the bar. **Dense** (`"dense"`) is Compact made smaller: about 70%

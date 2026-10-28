@@ -31,7 +31,11 @@ Column {
   property bool terminalOutside: false
 
   signal terminalOutsideSet(bool on)
+  // "omarchy", "dark" or "light".
+  property string islandTheme: "omarchy"
+
   signal lookSet(string look)
+  signal themeSet(string theme)
   signal nudgeSet(string key, int everyMin)
   signal langToggled(string lang, bool on)
   signal levelSet(string lang, int level)
@@ -189,6 +193,24 @@ Column {
 
     Setting {
       name: "Theme"
+
+      Repeater {
+        model: [["Omarchy", "omarchy"], ["Dark", "dark"], ["Light", "light"]]
+
+        Pill {
+          required property var modelData
+          pal: root.pal
+          dense: true
+          fontFamily: root.fontFamily
+          kind: root.islandTheme === modelData[1] ? "primary" : "secondary"
+          label: modelData[0]
+          onClicked: root.themeSet(modelData[1])
+        }
+      }
+    }
+
+    Setting {
+      name: "Look"
 
       Repeater {
         model: [["Soft", "soft"], ["Compact", "dev"], ["Dense", "dense"]]
