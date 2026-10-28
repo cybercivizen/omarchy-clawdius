@@ -243,7 +243,8 @@ BarWidget {
   function checkEdge(winX, winY) {
     if (!edgeOpen || edgeArmed || !barWindow) return
     var bottom = root.bar && root.bar.position === "bottom"
-    if (bottom ? winY < barWindow.height - 2 : winY > 1) return
+    var reach = Style.space(3)
+    if (bottom ? winY < barWindow.height - reach : winY > reach) return
     edgeArmed = true
     if (!card.open) edgeRipple.play(winX, bottom)
     if (glyphArea.containsMouse || clockHovered || zoneHovered) hoverChanged(true)
@@ -618,7 +619,6 @@ BarWidget {
         mood: root.mood
         sweat: root.sweating
         animate: root.revealed && !root.still
-        Behavior on color { ColorAnimation { duration: 200 } }
 
         transform: Translate {
           y: !glyph.animate ? 0
@@ -683,11 +683,20 @@ BarWidget {
   }
   function updateZone(handler) {
     var wp = hoverZone.mapToItem(root.barWindow.contentItem, handler.point.position.x, handler.point.position.y)
-    if (handler.hovered) root.checkEdge(wp.x, wp.y)
     var on = handler.hovered && !(root.barWindow && overOtherModule(root.barWindow.contentItem, wp))
-    if (on === root.zoneHovered) return
-    root.zoneHovered = on
-    root.hoverChanged(on)
+    if (on !== root.zoneHovered) {
+      root.zoneHovered = on
+      root.hoverChanged(on)
+    }
+    if (handler.hovered) root.checkEdge(wp.x, wp.y)
+  }
+  // Pointer moves walk the bar's items; the next move catches up.
+  property real zoneStamp: 0
+  function zoneMoved(handler) {
+    var now = Date.now()
+    if (now - zoneStamp < 33) return
+    zoneStamp = now
+    updateZone(handler)
   }
 
   Item {
@@ -702,7 +711,7 @@ BarWidget {
     HoverHandler {
       blocking: false   // let the modules under it (the tray drawer) get their hover
       onHoveredChanged: root.updateZone(this)
-      onPointChanged: root.updateZone(this)
+      onPointChanged: root.zoneMoved(this)
     }
   }
 
@@ -739,15 +748,16 @@ BarWidget {
   }
   Connections {
     target: card
-    function onVisibleChanged() { if (card.visible) root.updateKeepRect() }
-    function onOpenChanged() { if (card.open) root.updateKeepRect() }
+    // Once per open, after the first morph frame: it walks the bar's items.
+    function onOpenChanged() { if (card.open) Qt.callLater(root.updateKeepRect) }
   }
 
   readonly property bool bridgeOn: card.visible && !card.tucked && !!root.bar && !root.vertical && keepRect.width > 0
   readonly property color bridgeColor: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
   readonly property real bridgeOpacity: Math.min(1, card.progress * 5)
-  readonly property real surfLeft: Math.round(card.surfaceRect.x)
-  readonly property real surfRight: Math.round(card.surfaceRect.x + card.surfaceRect.width)
+  // The strips follow the island as it grows (drawnRect), not its final size.
+  readonly property real surfLeft: Math.round(card.drawnRect.x)
+  readonly property real surfRight: Math.round(card.drawnRect.x + card.drawnRect.width)
   readonly property real keepLeft: Math.round(keepRect.x)
   readonly property real keepRight: Math.round(keepRect.x + keepRect.width)
 
@@ -1238,7 +1248,7 @@ BarWidget {
   KeyWindow {
     id: liveKeys
     screen: root.barWindow ? root.barWindow.screen : null
-    wanted: root.islandOpen && !root.keysOff && !root.livePicking && (root.terminalUp || root.quickActive || root.searchActive || root.homeKeys)
+    wanted: root.islandOpen && !root.keysOff && !root.livePicking && (root.terminalUp || root.quickActive || root.searchActive || (root.homeKeys && card.progress >= 1))
     cover: root.summoned
     hole: card.surfaceRect
     floatHole: card.floatRect
