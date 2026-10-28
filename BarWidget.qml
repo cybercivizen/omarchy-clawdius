@@ -177,6 +177,10 @@ BarWidget {
 
   readonly property color fg: bar ? bar.foreground : Color.foreground
   readonly property color mutedFg: theme.muted
+  // The crab's idle gray and the count beside it sit on the bar: the
+  // wallpaper-matched text color, until the island is down over them.
+  readonly property color barInk: bar && !cardDown ? bar.barForeground : fg
+  readonly property color idleBarCrab: bar && !cardDown ? theme.mix(barInk, theme.bg, 0.35) : theme.idleCrab
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   // ---- Card lifecycle. The bar's popout coordinator calls close() when
@@ -185,6 +189,11 @@ BarWidget {
   // The island proper: open, and not just peeking out with a notification.
   readonly property bool islandOpen: card.open && !peeking
   readonly property bool opened: islandOpen
+  // The card is down over the bar: the island, or just a notification or
+  // prompt peeking out of the crab. Either way it is the light surface the
+  // clock and crab sit on.
+  readonly property bool cardDown: card.open
+  onCardDownChanged: Link.islandCover(root.barWindow, root.cardDown)
 
   function open() { peeking = false; card.open = true }
   function close() { viewHold = false; pinned = false; autoOpened = false; quickWanted = false; summoned = false; searchChip = ""; toast = null; card.open = false }
@@ -601,7 +610,7 @@ BarWidget {
         id: glyph
         anchors.verticalCenter: parent.verticalCenter
         unit: Math.max(1, Math.round(Style.bar.iconFont / 12))
-        color: root.mood === "idle" || root.mood === "sleep" ? theme.idleCrab : root.crabColor
+        color: root.mood === "idle" || root.mood === "sleep" ? root.idleBarCrab : root.crabColor
         mood: root.mood
         sweat: root.sweating
         animate: root.revealed && !root.still
@@ -621,7 +630,7 @@ BarWidget {
         anchors.verticalCenter: parent.verticalCenter
         text: root.needsYou > 0 ? "!" + (root.needsYou > 1 ? root.needsYou : "") : root.busyCount
         textFormat: Text.PlainText
-        color: root.needsYou > 0 ? theme.needsYou : root.fg
+        color: root.needsYou > 0 ? theme.needsYou : root.barInk
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: true
