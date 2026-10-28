@@ -246,10 +246,8 @@ BarWidget {
     var reach = Style.space(3)
     if (bottom ? winY < barWindow.height - reach : winY > reach) return
     edgeArmed = true
-    // Over the crab, the clock or the zone the island opens next: that is the feedback.
-    var opening = glyphArea.containsMouse || clockHovered || zoneHovered
-    if (!card.open && !opening) edgeRipple.play(winX, bottom)
-    if (opening) hoverChanged(true)
+    if (!card.open) edgeRipple.play(winX, bottom)
+    if (glyphArea.containsMouse || clockHovered || zoneHovered) hoverChanged(true)
   }
 
   function applySnapshot(line) {
@@ -756,11 +754,10 @@ BarWidget {
 
   readonly property bool bridgeOn: card.visible && !card.tucked && !!root.bar && !root.vertical && keepRect.width > 0
   readonly property color bridgeColor: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
-  // One step, not a fade: the strips sit in the bar's blurred layer, which
-  // would redraw on every frame of a fade (and of the surface's growth).
-  readonly property real bridgeOpacity: card.progress > 0.2 ? 1 : 0
-  readonly property real surfLeft: Math.round(card.surfaceRect.x)
-  readonly property real surfRight: Math.round(card.surfaceRect.x + card.surfaceRect.width)
+  readonly property real bridgeOpacity: Math.min(1, card.progress * 5)
+  // The strips follow the island as it grows (drawnRect), not its final size.
+  readonly property real surfLeft: Math.round(card.drawnRect.x)
+  readonly property real surfRight: Math.round(card.drawnRect.x + card.drawnRect.width)
   readonly property real keepLeft: Math.round(keepRect.x)
   readonly property real keepRight: Math.round(keepRect.x + keepRect.width)
 
