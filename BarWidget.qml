@@ -761,8 +761,7 @@ BarWidget {
 
   readonly property bool bridgeOn: card.visible && !card.tucked && !!root.bar && !root.vertical && keepRect.width > 0
   readonly property color bridgeColor: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
-  // Fades in as the island grows, so a wide strip doesn't flash across the bar first.
-  readonly property real bridgeOpacity: Math.max(0, Math.min(1, (card.progress - 0.1) / 0.3))
+  readonly property real bridgeOpacity: Math.min(1, card.progress * 5)
   // The strips follow the island as it grows (drawnRect), not its final size.
   readonly property real surfLeft: Math.round(card.drawnRect.x)
   readonly property real surfRight: Math.round(card.drawnRect.x + card.drawnRect.width)

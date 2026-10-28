@@ -106,7 +106,7 @@ PopupWindow {
   // (Closing runs progress back down, so its curves read right to left:
   // content out first, then the height folds up, then the width. The
   // height drops most of the way at once and eases into the bar.)
-  readonly property real islandWidthT: root.open ? outCubic(span(progress, 0, 0.8)) : outCubic(span(progress, 0, 0.5))
+  readonly property real islandWidthT: root.open ? outQuint(span(progress, 0, 0.6)) : outCubic(span(progress, 0, 0.5))
   readonly property real islandHeightT: root.open ? outQuart(span(progress, 0.06, 1)) : Math.pow(span(progress, 0.04, 0.92), 2)
   readonly property real islandContentT: root.open ? outCubic(span(progress, 0.2, 0.85)) : span(progress, 0.7, 1)
   readonly property real islandStartWidth: Math.min(contentWidth, Style.space(200))
