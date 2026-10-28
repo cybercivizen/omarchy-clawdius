@@ -16,6 +16,29 @@ function unregister(crab) {
   if (i >= 0) crabs.splice(i, 1)
 }
 
+var clocks = []
+
+function registerClock(clock) {
+  if (clocks.indexOf(clock) < 0) clocks.push(clock)
+}
+
+function unregisterClock(clock) {
+  var i = clocks.indexOf(clock)
+  if (i >= 0) clocks.splice(i, 1)
+}
+
+// The island is down over this bar window (or gone again): the clock sits on
+// its light surface, not the wallpaper, so it reads the theme's text color.
+function islandCover(window, covered) {
+  for (var i = clocks.length - 1; i >= 0; i--) {
+    try {
+      if (clocks[i].barWindow === window) clocks[i].covered = covered
+    } catch (e) {
+      clocks.splice(i, 1)
+    }
+  }
+}
+
 // Hover goes to the crab on the same bar window: one bar per monitor.
 function clockHover(window, hovered) {
   for (var i = crabs.length - 1; i >= 0; i--) {
