@@ -56,6 +56,9 @@ PopupWindow {
   readonly property bool containsMouse: cardHover.hovered || floatHover.hovered
   // Where the drawn surface is, in the bar window's coordinates.
   readonly property rect surfaceRect: Qt.rect(popupAnchor.rect.x + maskBox.x, popupAnchor.rect.y + maskBox.y, maskBox.width, maskBox.height)
+  // Where the surface is drawn right now, mid-morph included (surfaceRect holds
+  // the final size while the island opens).
+  readonly property rect drawnRect: Qt.rect(popupAnchor.rect.x + surface.x, popupAnchor.rect.y + surface.y, surface.width, surface.height)
   // Over the surface and not clipped by it, the window's size: a menu put
   // here can hang past the island's edge into the window's empty part.
   // floatMask (an item in it) joins the input mask; floatRect is where it is,
