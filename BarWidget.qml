@@ -51,11 +51,11 @@ BarWidget {
   // Theme-aware colors (Colors.qml); the `color` setting overrides the orange.
   Colors {
     id: theme
-    fg: root.previewTheme === "light" ? "#101315" : root.previewTheme === "dark" ? "#cacccc" : root.fg
-    bg: root.previewTheme === "light" ? "#ffffff" : root.previewTheme === "dark" ? "#101315" : Color.background
+    fg: root.shownTheme === "light" ? "#101315" : root.shownTheme === "dark" ? "#cacccc" : root.fg
+    bg: root.shownTheme === "light" ? "#ffffff" : root.shownTheme === "dark" ? "#101315" : Color.background
     crabOverride: String(root.setting("color", "") || "")
     look: root.islandLook
-    barColor: root.previewTheme === "" && root.bar ? root.bar.background : "transparent"
+    barColor: root.shownTheme === "" && root.bar ? root.bar.background : "transparent"
   }
   readonly property color crabColor: theme.crab
   // The bar crab types, bobs and blinks. Every step redraws the bar, which
@@ -65,6 +65,10 @@ BarWidget {
   // IPC themePreview: draw the island in Solitude Light / Dark without
   // switching the desktop's theme.
   property string previewTheme: ""
+  // Settings → Island → Theme: "omarchy" (follow the desktop), "dark" or "light".
+  property string islandTheme: "omarchy"
+  // What the island draws in: a preview wins, then the setting; "" is the desktop's.
+  readonly property string shownTheme: previewTheme !== "" ? previewTheme : islandTheme === "omarchy" ? "" : islandTheme
   readonly property int maxIdle: setting("maxIdleSessions", 4)
   readonly property bool alwaysShow: setting("alwaysShow", true) === true
   readonly property real hoverDelay: setting("hoverDelayMs", 200)
@@ -173,7 +177,7 @@ BarWidget {
   }
 
   readonly property bool centerPeek: bar ? (bar.centerSectionRevealHeld === true && bar.centerHoverRevealSuppressed !== true) : false
-  readonly property bool revealed: lively || alwaysShow || centerPeek || glyphArea.containsMouse || card.open
+  readonly property bool revealed: lively || alwaysShow || centerPeek || glyphArea.containsMouse || clockHovered || zoneHovered || card.open
 
   readonly property color fg: bar ? bar.foreground : Color.foreground
   readonly property color mutedFg: theme.muted
@@ -193,7 +197,7 @@ BarWidget {
   // prompt peeking out of the crab. Either way it is the light surface the
   // clock and crab sit on.
   readonly property bool cardDown: card.open
-  onCardDownChanged: Link.islandCover(root.barWindow, root.cardDown)
+  onCardDownChanged: Link.islandCover(root.barWindow, root.cardDown, theme.fg)
 
   function open() { peeking = false; card.open = true }
   function close() { viewHold = false; pinned = false; autoOpened = false; quickWanted = false; summoned = false; searchChip = ""; toast = null; card.open = false }
@@ -1201,7 +1205,7 @@ BarWidget {
   property bool detailTerminal: false
   // Settings → Island: sessions open (and start) in a terminal window, never in the island.
   property bool terminalOutside: false
-  // Settings → Island → Theme: "soft", "dev" (compact) or "dense"; Colors.look carries it to every view.
+  // Settings → Island → Look: "soft", "dev" (compact) or "dense"; Colors.look carries it to every view.
   property string islandLook: "soft"
   property var chatOverride: ({})
   readonly property bool detailChat: {
@@ -1833,6 +1837,7 @@ BarWidget {
         if (prefs.quickMode === "chat" || prefs.quickMode === "code") root.quickMode = prefs.quickMode
         root.detailTerminal = prefs.detailView === "terminal"
         root.terminalOutside = prefs.terminalOutside === true
+        root.islandTheme = prefs.islandTheme === "dark" || prefs.islandTheme === "light" ? prefs.islandTheme : "omarchy"
         root.islandLook = prefs.islandLook === "dev" || prefs.islandLook === "dense" ? prefs.islandLook : "soft"
         if (typeof prefs.quickModel === "string") root.quickModel = prefs.quickModel
         if (typeof prefs.quickEffort === "string") root.quickEffort = prefs.quickEffort
@@ -1847,6 +1852,7 @@ BarWidget {
   onDetailTerminalChanged: prefsSave.restart()
   onTerminalOutsideChanged: prefsSave.restart()
   onIslandLookChanged: prefsSave.restart()
+  onIslandThemeChanged: prefsSave.restart()
   onQuickModeChanged: prefsSave.restart()
   onQuickModelChanged: prefsSave.restart()
   onQuickEffortChanged: prefsSave.restart()
@@ -1856,7 +1862,7 @@ BarWidget {
   Timer {
     id: prefsSave
     interval: 300
-    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches, starredIds: root.starredIds }))
+    onTriggered: prefsFile.setText(JSON.stringify({ detailView: root.detailTerminal ? "terminal" : "chat", terminalOutside: root.terminalOutside, islandLook: root.islandLook, islandTheme: root.islandTheme, quickMode: root.quickMode, quickModel: root.quickModel, quickEffort: root.quickEffort, quickPermission: root.quickPermission, recentSearches: root.recentSearches, starredIds: root.starredIds }))
   }
 
   // ---- Daily reps (antirot.py): today's exercise on Home's idle moment, the
@@ -2417,8 +2423,9 @@ BarWidget {
     animateHeight: root.view !== "detail" || viewMorph.running
     heightDuration: viewMorph.running ? 340 : 240
     // The bar's opacity too, so the island blends into it; frostOpacity only
-    // for a theme preview.
+    // for a theme preview. A forced Dark / Light takes the bar's opacity too.
     frostAlpha: theme.barColor.a > 0 ? theme.barColor.a
+      : root.previewTheme === "" && root.bar ? root.bar.background.a
       : Math.max(0.2, Math.min(1, Number(setting("frostOpacity", 92)) / 100))
     // Every view is full width, summoned or not (narrower in the dense
     // look). Peeking with a notification, only as wide as the note.
@@ -3187,6 +3194,8 @@ BarWidget {
                   terminalOutside: root.terminalOutside
                   onTerminalOutsideSet: function(on) { root.terminalOutside = on }
                   onLookSet: function(look) { root.islandLook = look }
+                  islandTheme: root.islandTheme
+                  onThemeSet: function(t) { root.islandTheme = t }
                   busy: root.antirotBusy === "today" ? "" : root.antirotBusy
                   busyLang: root.antirotBusyLang
                   onNudgeSet: function(key, min) { root.setNudge(key, { everyMin: min }) }

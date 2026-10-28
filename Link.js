@@ -29,10 +29,13 @@ function unregisterClock(clock) {
 
 // The island is down over this bar window (or gone again): the clock sits on
 // its light surface, not the wallpaper, so it reads the theme's text color.
-function islandCover(window, covered) {
+function islandCover(window, covered, ink) {
   for (var i = clocks.length - 1; i >= 0; i--) {
     try {
-      if (clocks[i].barWindow === window) clocks[i].covered = covered
+      if (clocks[i].barWindow === window) {
+        clocks[i].ink = ink
+        clocks[i].covered = covered
+      }
     } catch (e) {
       clocks.splice(i, 1)
     }

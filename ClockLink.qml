@@ -6,10 +6,11 @@ import "Link.js" as Link
 Item {
   id: root
 
-  // Set by the clock; the crab on the same bar window flips `covered` while
-  // its island is down over the clock.
+  // Set by the clock; the crab on the same bar window flips `covered` (and
+  // sets `ink`, the island's text color) while its island is down over the clock.
   property var barWindow: null
   property bool covered: false
+  property color ink: "#000000"
 
   Component.onCompleted: Link.registerClock(root)
   Component.onDestruction: Link.unregisterClock(root)
