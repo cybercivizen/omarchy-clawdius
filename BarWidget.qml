@@ -2407,6 +2407,7 @@ BarWidget {
   FrostCard {
     id: card
     anchorItem: button
+    warm: openTimer.running
     bar: root.bar
     owner: root
     centerOnBar: true
