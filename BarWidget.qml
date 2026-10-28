@@ -177,7 +177,7 @@ BarWidget {
   }
 
   readonly property bool centerPeek: bar ? (bar.centerSectionRevealHeld === true && bar.centerHoverRevealSuppressed !== true) : false
-  readonly property bool revealed: lively || alwaysShow || centerPeek || glyphArea.containsMouse || card.open
+  readonly property bool revealed: lively || alwaysShow || centerPeek || glyphArea.containsMouse || clockHovered || zoneHovered || card.open
 
   readonly property color fg: bar ? bar.foreground : Color.foreground
   readonly property color mutedFg: theme.muted
@@ -2417,8 +2417,9 @@ BarWidget {
     animateHeight: root.view !== "detail" || viewMorph.running
     heightDuration: viewMorph.running ? 340 : 240
     // The bar's opacity too, so the island blends into it; frostOpacity only
-    // for a theme preview.
+    // for a theme preview. A forced Dark / Light takes the bar's opacity too.
     frostAlpha: theme.barColor.a > 0 ? theme.barColor.a
+      : root.previewTheme === "" && root.bar ? root.bar.background.a
       : Math.max(0.2, Math.min(1, Number(setting("frostOpacity", 92)) / 100))
     // Every view is full width, summoned or not (narrower in the dense
     // look). Peeking with a notification, only as wide as the note.
