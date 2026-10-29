@@ -455,7 +455,10 @@ BarWidget {
   Timer {
     id: closeTimer
     interval: root.closeDelay
-    onTriggered: if (!root.peeking && !root.holdOpen && !root.viewHold && !liveKeys.settling && !glyphArea.containsMouse && !root.clockHovered && !root.zoneHovered && !card.containsMouse) card.open = false
+    // Not mid-morph: the surface is still a sliver and its hover not yet
+    // delivered (the popup was click-through a moment ago), so the pointer
+    // reads as gone and the island folds back as it opens.
+    onTriggered: if (card.open && !root.peeking && card.progress < 1) closeTimer.restart(); else if (!root.peeking && !root.holdOpen && !root.viewHold && !liveKeys.settling && !glyphArea.containsMouse && !root.clockHovered && !root.zoneHovered && !card.containsMouse) card.open = false
   }
 
   // Switching views from inside the island (New chat on Home, say) can
