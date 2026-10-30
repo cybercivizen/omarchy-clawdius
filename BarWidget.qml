@@ -458,7 +458,7 @@ BarWidget {
   Timer {
     id: closeTimer
     interval: root.closeDelay
-    onTriggered: if (!root.peeking && !root.holdOpen && !root.primeHeld && !root.viewHold && !liveKeys.settling && !glyphArea.containsMouse && !root.clockHovered && !root.zoneHovered && !card.containsMouse) card.open = false
+    onTriggered: if (!root.peeking && !root.holdOpen && !root.viewHold && !liveKeys.settling && !glyphArea.containsMouse && !root.clockHovered && !root.zoneHovered && !card.containsMouse) card.open = false
   }
 
   // Switching views from inside the island (New chat on Home, say) can
@@ -1295,14 +1295,7 @@ BarWidget {
   // keyboard, it would take the keys from the window you're in. Let go a
   // moment late, so crossing from the crab to the card doesn't flicker it.
   readonly property bool homeKeys: islandOpen && view === "home" && pointerNear
-  readonly property bool pointerSeen: card.containsMouse || glyphArea.containsMouse || clockHovered || zoneHovered
-  readonly property bool pointerHere: pointerSeen || primeHeld
-  // The key window's prime (Home taking the keys as the island lands) takes
-  // the pointer, and the card and bar only hear it back once it moves: a
-  // still pointer read as gone and the island folded away as it opened.
-  // Held till the pointer is seen again, or the island goes.
-  property bool primeHeld: false
-  onPointerSeenChanged: if (pointerSeen && !liveKeys.settling) primeHeld = false
+  readonly property bool pointerHere: card.containsMouse || glyphArea.containsMouse || clockHovered || zoneHovered
   property bool pointerNear: false
   onPointerHereChanged: if (pointerHere) { pointerNear = true; pointerGone.stop() } else pointerGone.restart()
   Timer { id: pointerGone; interval: 300; onTriggered: root.pointerNear = false }
@@ -2004,7 +1997,10 @@ BarWidget {
   Timer {
     id: liveFocusLost
     interval: 180
-    onTriggered: if (!liveKeys.settling && !root.livePicking && !liveKeys.field.activeFocus && (root.terminalUp || root.keysView || root.homeKeys) && root.islandOpen && !card.containsMouse) root.close()
+    // Only while the keys are wanted: hovered open on Search or Chat (where
+    // it was left), it switches to Home, which waits for the morph before
+    // taking the keys, and that let-go isn't the keyboard going elsewhere.
+    onTriggered: if (liveKeys.wanted && !liveKeys.settling && !root.livePicking && !liveKeys.field.activeFocus && (root.terminalUp || root.keysView || root.homeKeys) && root.islandOpen && !card.containsMouse) root.close()
   }
 
   // A quick second click on Search or Chat lands while the key window is
@@ -2013,7 +2009,7 @@ BarWidget {
   Connections {
     target: liveKeys
     function onSettlingChanged() {
-      if (liveKeys.settling) { if (root.pointerSeen) root.primeHeld = true; return }
+      if (liveKeys.settling) return
       root.maybeClose()
       liveFocusLost.restart()
     }
@@ -2224,7 +2220,7 @@ BarWidget {
     target: root
     function onIslandOpenChanged() {
       // Folded away: its notification went with it.
-      if (!root.islandOpen) { root.primeHeld = false; root.newMenuOpen = false; quickChat.picker = ""; if (!root.peeking) root.toast = null; return }
+      if (!root.islandOpen) { root.newMenuOpen = false; quickChat.picker = ""; if (!root.peeking) root.toast = null; return }
       root.refreshResumable()
       if (root.summoned) return
       if (root.view !== "detail" || (!root.liveId && !root.startingLabel)) root.view = "home"
