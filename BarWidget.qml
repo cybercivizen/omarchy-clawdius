@@ -201,10 +201,44 @@ BarWidget {
   onCardDownChanged: Link.islandCover(root.barWindow, root.cardDown, theme.fg)
 
   function open() { peeking = false; card.open = true }
-  function close() { viewHold = false; pinned = false; autoOpened = false; quickWanted = false; summoned = false; searchChip = ""; toast = null; card.open = false }
+  function close() { trace("close " + String(new Error().stack).split("\n").slice(1, 3).join(" < ")); viewHold = false; pinned = false; autoOpened = false; quickWanted = false; summoned = false; searchChip = ""; toast = null; card.open = false }
   function toggle() { if (card.open && pinned) close(); else { pinned = true; open() } }
 
   function maybeClose() { closeTimer.restart() }
+
+  // The last hover and open/close events, for `debug`: the island folding
+  // back as it opens (first hover after a while) hasn't been caught yet.
+  // z zone, g crab, k clock, c card hover; w/s key window wanted/settling;
+  // h primeHeld; e edgeArmed; p morph progress.
+  property var hoverTrace: []
+  function trace(what) {
+    var f = function(b) { return b ? 1 : 0 }
+    var t = hoverTrace.slice(-39)
+    t.push(Date.now() % 100000 + " " + what + " | z" + f(zoneHovered) + " g" + f(glyphArea.containsMouse) + " k" + f(clockHovered)
+      + " c" + f(card.containsMouse) + " w" + f(liveKeys.wanted) + " s" + f(liveKeys.settling) + " h" + f(primeHeld)
+      + " e" + f(edgeArmed) + " p" + card.progress.toFixed(2) + " " + view)
+    hoverTrace = t
+  }
+  onZoneHoveredChanged: trace("zone")
+  onClockHoveredChanged: trace("clock")
+  onEdgeArmedChanged: trace("edge")
+  onPrimeHeldChanged: trace("held")
+  Connections {
+    target: card
+    function onOpenChanged() { root.trace("open=" + card.open) }
+    function onContainsMouseChanged() { root.trace("card") }
+    function onVisibleChanged() { root.trace("visible=" + card.visible) }
+  }
+  Connections {
+    target: liveKeys
+    function onWantedChanged() { root.trace("keys wanted") }
+    function onSettlingChanged() { root.trace("keys settling") }
+    function onPrimedChanged() { root.trace("keys primed") }
+  }
+  Connections {
+    target: liveKeys.field
+    function onActiveFocusChanged() { root.trace("keys focus=" + liveKeys.field.activeFocus) }
+  }
 
   // A live terminal on show (or one starting) holds the card while the
   // pointer is elsewhere (you may be typing), and so does a half-typed chat
@@ -449,13 +483,17 @@ BarWidget {
   Timer {
     id: openTimer
     interval: root.hoverDelay
-    onTriggered: if (root.edgeReady && (glyphArea.containsMouse || root.clockHovered || root.zoneHovered)) root.open()
+    onTriggered: { root.trace("openTimer"); if (root.edgeReady && (glyphArea.containsMouse || root.clockHovered || root.zoneHovered)) root.open() }
   }
 
   Timer {
     id: closeTimer
     interval: root.closeDelay
-    onTriggered: if (!root.peeking && !root.holdOpen && !root.primeHeld && !root.viewHold && !liveKeys.settling && !glyphArea.containsMouse && !root.clockHovered && !root.zoneHovered && !card.containsMouse) card.open = false
+    onTriggered: { root.trace("closeTimer"); if (!root.peeking && !root.holdOpen && !root.primeHeld && !root.viewHold && !liveKeys.settling && !glyphArea.containsMouse && !root.clockHovered && !root.zoneHovered && !card.containsMouse) card.open = false }
+  }
+  Connections {
+    target: glyphArea
+    function onContainsMouseChanged() { root.trace("crab") }
   }
 
   // Switching views from inside the island (New chat on Home, say) can
@@ -842,7 +880,8 @@ BarWidget {
     return { screen: screenName(), drawn: drawn(), cardOpen: card.open, pinned: root.pinned, view: root.view,
              quick: root.quickActive, search: root.searchActive, keysWanted: liveKeys.wanted, keysFocused: liveKeys.field.activeFocus,
              keyHandler: liveKeys.handler === root.quickKey ? "quick" : liveKeys.handler === root.searchKey ? "search"
-               : liveKeys.handler === root.homeKey ? "home" : liveKeys.handler ? "other" : "none" }
+               : liveKeys.handler === root.homeKey ? "home" : liveKeys.handler ? "other" : "none",
+             trace: root.hoverTrace }
   }
   function screenName() {
     return root.barWindow && root.barWindow.screen ? String(root.barWindow.screen.name || "") : ""
@@ -2000,7 +2039,7 @@ BarWidget {
   Timer {
     id: liveFocusLost
     interval: 180
-    onTriggered: if (!liveKeys.settling && !root.livePicking && !liveKeys.field.activeFocus && (root.terminalUp || root.keysView || root.homeKeys) && root.islandOpen && !card.containsMouse) root.close()
+    onTriggered: { root.trace("liveFocusLost"); if (!liveKeys.settling && !root.livePicking && !liveKeys.field.activeFocus && (root.terminalUp || root.keysView || root.homeKeys) && root.islandOpen && !card.containsMouse) root.close() }
   }
 
   // A quick second click on Search or Chat lands while the key window is
