@@ -213,7 +213,7 @@ BarWidget {
   property var hoverTrace: []
   function trace(what) {
     var f = function(b) { return b ? 1 : 0 }
-    var t = hoverTrace.slice(-39)
+    var t = hoverTrace.slice(-299)
     t.push(Date.now() % 100000 + " " + what + " | z" + f(zoneHovered) + " g" + f(glyphArea.containsMouse) + " k" + f(clockHovered)
       + " c" + f(card.containsMouse) + " w" + f(liveKeys.wanted) + " s" + f(liveKeys.settling) + " h" + f(primeHeld)
       + " e" + f(edgeArmed) + " p" + card.progress.toFixed(2) + " " + view)
