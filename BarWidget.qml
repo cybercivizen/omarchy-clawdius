@@ -372,6 +372,9 @@ BarWidget {
   implicitWidth: revealed ? button.implicitWidth : 0
   implicitHeight: barSize
   clip: true
+  // The count's share of that width. The bar's center pod mirrors the crab's
+  // side to stay centered on the clock, but grows by this on the right only.
+  readonly property real podOverhang: revealed && countText.visible ? countText.width + row.spacing : 0
 
   Behavior on implicitWidth { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
@@ -631,6 +634,7 @@ BarWidget {
 
       // "!" while a session waits on you, else how many are busy.
       Text {
+        id: countText
         visible: root.needsYou > 0 || root.busyCount > 1
         anchors.verticalCenter: parent.verticalCenter
         text: root.needsYou > 0 ? "!" + (root.needsYou > 1 ? root.needsYou : "") : root.busyCount
