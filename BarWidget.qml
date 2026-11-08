@@ -670,6 +670,8 @@ BarWidget {
 
   //      Only the empty stretches count: over another module (the tray's
   //      arrows, the media title) the pointer is after that widget, not us.
+  //      The window title in the middle of the bar counts as empty: it sits
+  //      right where the island drops, and has no hover of its own.
   function overOtherModule(item, pos) {
     var kids = item.children
     for (var i = kids.length - 1; i >= 0; i--) {
@@ -677,7 +679,7 @@ BarWidget {
       if (c === hoverZone || !c.visible || c.width <= 0 || c.height <= 0) continue
       var p = item.mapToItem(c, pos.x, pos.y)
       if (p.x < 0 || p.y < 0 || p.x >= c.width || p.y >= c.height) continue
-      if (c.moduleName !== undefined && !/clock/.test(c.moduleName) && !root.isDescendantOf(c)) return true
+      if (c.moduleName !== undefined && !/clock|active-window/.test(c.moduleName) && !root.isDescendantOf(c)) return true
       if (overOtherModule(c, p)) return true
     }
     return false
