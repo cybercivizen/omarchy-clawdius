@@ -80,6 +80,28 @@ BarWidget {
   // Grace after the pointer leaves, so overshooting the edge doesn't close it.
   readonly property real closeDelay: setting("closeDelayMs", 400)
 
+  // A window is being dragged (~/.config/hypr/drag-snap.lua): the top edge is the
+  // workspace drop strip's then, so touching it must not open the island too.
+  // Times out in case the "end" event never arrives.
+  property bool windowDragging: false
+  Timer { id: windowDragTimeout; interval: 30000; onTriggered: root.windowDragging = false }
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (event.name !== "custom") return
+      var data = String(event.data || "")
+      if (data.indexOf("drag-snap:live") === 0) {
+        root.windowDragging = true
+        root.edgeArmed = false
+        openTimer.stop()
+        windowDragTimeout.restart()
+      } else if (data === "drag-snap:end") {
+        root.windowDragging = false
+        windowDragTimeout.stop()
+      }
+    }
+  }
+
   // Background sessions that never got a prompt (a Chat you walked away
   // from) are left out, except the one showing live, and reaped below.
   property var feedSessions: []
@@ -233,7 +255,7 @@ BarWidget {
   function hoverChanged(hovered) {
     if (hovered) {
       var other = root.bar && root.bar.activePopout && root.bar.activePopout !== root
-      if (!other && root.edgeReady && !openTimer.running) openTimer.restart()
+      if (!other && root.edgeReady && !root.windowDragging && !openTimer.running) openTimer.restart()
     } else if (!root.clockHovered && !root.zoneHovered && !glyphArea.containsMouse) {
       root.edgeArmed = false
       openTimer.stop()
@@ -242,7 +264,7 @@ BarWidget {
   }
   // The pointer in the bar window, whose outer row is the screen edge.
   function checkEdge(winX, winY) {
-    if (!edgeOpen || edgeArmed || !barWindow) return
+    if (!edgeOpen || edgeArmed || !barWindow || windowDragging) return
     var bottom = root.bar && root.bar.position === "bottom"
     var reach = Style.space(3)
     if (bottom ? winY < barWindow.height - reach : winY > reach) return
@@ -452,7 +474,7 @@ BarWidget {
   Timer {
     id: openTimer
     interval: root.hoverDelay
-    onTriggered: if (root.edgeReady && (glyphArea.containsMouse || root.clockHovered || root.zoneHovered)) root.open()
+    onTriggered: if (root.edgeReady && !root.windowDragging && (glyphArea.containsMouse || root.clockHovered || root.zoneHovered)) root.open()
   }
 
   Timer {
