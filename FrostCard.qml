@@ -41,9 +41,9 @@ PopupWindow {
   // Detached: room around the card inside the popup window for its shadow, a
   // wide soft Vista-style one dropped away from the bar. Clicks there pass
   // through (the mask is the card's own box).
-  readonly property int shadowSide: detached ? 32 : 0
+  readonly property int shadowSide: detached ? 28 : 0
   readonly property int shadowNear: detached ? 4 : 0
-  readonly property int shadowFar: detached ? 44 : 0
+  readonly property int shadowFar: detached ? 30 : 0
   // Where the card sits inside the window along the bar's axis.
   readonly property int shadowTop: fromBottom ? shadowFar : shadowNear
   property real islandRadius: Style.space(30)
@@ -247,7 +247,9 @@ PopupWindow {
     y: root.fromBottom ? root.height - height - root.shadowNear : root.shadowTop
   }
 
-  // Vista-style drop shadow: wide, soft and dark, dropped away from the bar.
+  // Vista-style shadow: an even soft halo, like the windows' (a drop away
+  // from the bar read as a heavy smudge under the island). Lighter on a
+  // light theme.
   RectangularShadow {
     visible: root.detached && !root.tucked
     x: surface.x
@@ -255,10 +257,10 @@ PopupWindow {
     width: surface.width
     height: surface.height
     radius: surface.radius
-    offset.y: root.fromBottom ? -8 : 8
-    blur: 26
+    offset.y: root.fromBottom ? -1 : 1
+    blur: 20
     spread: 0
-    color: Qt.rgba(0, 0, 0, 0.6)
+    color: Qt.rgba(0, 0, 0, Commons.Color.background.hslLightness > 0.5 ? 0.16 : 0.38)
     opacity: surface.opacity
   }
 
