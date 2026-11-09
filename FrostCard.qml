@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
@@ -37,6 +38,14 @@ PopupWindow {
   property int detachGap: 6
   property color detachBorder: Commons.Color.popups.border
   property color accent: Commons.Color.accent
+  // Detached: room around the card inside the popup window for its shadow, a
+  // wide soft Vista-style one dropped away from the bar. Clicks there pass
+  // through (the mask is the card's own box).
+  readonly property int shadowSide: detached ? 28 : 0
+  readonly property int shadowNear: detached ? 4 : 0
+  readonly property int shadowFar: detached ? 30 : 0
+  // Where the card sits inside the window along the bar's axis.
+  readonly property int shadowTop: fromBottom ? shadowFar : shadowNear
   property real islandRadius: Style.space(30)
   property int contentWidth: Style.space(280)
   property int maxContentWidth: contentWidth
@@ -149,8 +158,8 @@ PopupWindow {
 
   visible: open || progress > 0 || warm
   color: "transparent"
-  implicitWidth: Math.max(contentWidth, maxContentWidth)
-  implicitHeight: Math.max(contentHeight, maxContentHeight)
+  implicitWidth: Math.max(contentWidth, maxContentWidth) + shadowSide * 2
+  implicitHeight: Math.max(contentHeight, maxContentHeight) + shadowNear + shadowFar
   // The mask follows an untransformed twin of the surface: Region maps the
   // item when its geometry changes, not its scale, so masking the surface
   // itself froze the drop-in's 0.94 scale and left its edges dead to the
@@ -204,8 +213,8 @@ PopupWindow {
           // Below the bar itself, not its window: a pod bar's window runs on
           // past the bar for its shadow.
           popupAnchor.rect.y = Math.round(root.fromBottom
-            ? window.height - root.detachTop - popupHeight - root.detachGap
-            : root.detachTop + root.detachGap)
+            ? window.height - root.detachTop - popupHeight - root.detachGap + root.shadowNear
+            : root.detachTop + root.detachGap - root.shadowNear)
           return
         }
         popupAnchor.rect.y = Math.round(root.fromBottom ? -popupHeight - gap : window.height + gap)
@@ -235,7 +244,24 @@ PopupWindow {
     width: morphing ? root.contentWidth : surface.width
     height: morphing ? root.contentHeight : surface.height
     x: Math.round((root.width - width) / 2)
-    y: root.fromBottom ? root.height - height : 0
+    y: root.fromBottom ? root.height - height - root.shadowNear : root.shadowTop
+  }
+
+  // Vista-style shadow: an even soft halo, like the windows' (a drop away
+  // from the bar read as a heavy smudge under the island). Lighter on a
+  // light theme.
+  RectangularShadow {
+    visible: root.detached && !root.tucked
+    x: surface.x
+    y: surface.y
+    width: surface.width
+    height: surface.height
+    radius: surface.radius
+    offset.y: root.fromBottom ? -1 : 1
+    blur: 20
+    spread: 0
+    color: Qt.rgba(0, 0, 0, Commons.Color.background.hslLightness > 0.5 ? 0.16 : 0.38)
+    opacity: surface.opacity
   }
 
   Rectangle {
@@ -249,7 +275,7 @@ PopupWindow {
     // jagged at the corners.
     x: Math.round((parent.width - width) / 2)
     // Hug the bar's edge: top bars grow downwards, bottom bars upwards.
-    y: root.fromBottom ? parent.height - height : 0
+    y: root.fromBottom ? parent.height - height - root.shadowNear : root.shadowTop
     height: root.island && root.progress < 1
       ? Math.round(root.islandStartHeight + (root.contentHeight - root.islandStartHeight) * root.islandHeightT)
       : root.contentHeight
@@ -260,7 +286,7 @@ PopupWindow {
     topRightRadius: hangs && !root.fromBottom ? 0 : radius
     bottomLeftRadius: hangs && root.fromBottom ? 0 : radius
     bottomRightRadius: hangs && root.fromBottom ? 0 : radius
-    color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
+    color: root.detached ? "transparent" : Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
     border.width: hangs || root.detached ? 0 : 1
     border.color: root.detached ? root.detachBorder : Qt.rgba(root.edge.r, root.edge.g, root.edge.b, 0.16)
     clip: true
@@ -284,6 +310,32 @@ PopupWindow {
     Behavior on width {
       enabled: root.open && root.progress >= 1
       NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+    }
+
+    // Detached: the edge as a pane of glass catches light, in the accent:
+    // bright along the top (under the bar's accent seam), thinning to almost
+    // nothing down the sides and along the bottom. Two plain rounded
+    // rectangles, the accent one under the body inset 1 px, so the edge is
+    // what shows between them: a Rectangle antialiases its curve cleanly,
+    // where a 1 px Shape ring came out stair-stepped in the corners.
+    Rectangle {
+      visible: root.detached
+      anchors.fill: parent
+      radius: surface.radius
+      gradient: Gradient {
+        GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.85) }
+        GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30) }
+        GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
+      }
+    }
+    Rectangle {
+      visible: root.detached
+      anchors.fill: parent
+      anchors.margins: 1
+      radius: Math.max(0, surface.radius - 1)
+      // The edge's fill shows through the body by its transparency (4% at
+      // 0.96, about 3% of accent at the top): too little to see.
+      color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
     }
 
     // Glass: light catching the top edge, fading out a third of the way down.
@@ -314,39 +366,6 @@ PopupWindow {
           focalX: centerX; focalY: centerY
           GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16) }
           GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0) }
-        }
-        PathRectangle {
-          x: 1; y: 1
-          width: surface.width - 2
-          height: surface.height - 2
-          radius: Math.max(0, surface.radius - 1)
-        }
-      }
-    }
-
-    // Detached: the edge as a pane of glass catches light, a 1 px ring in the
-    // accent, bright along the top (under the bar's accent seam) that thins
-    // to almost nothing down the sides and along the bottom, in place of a
-    // flat border.
-    Shape {
-      visible: root.detached
-      anchors.fill: parent
-      preferredRendererType: Shape.CurveRenderer
-      ShapePath {
-        strokeColor: "transparent"
-        strokeWidth: 0
-        fillRule: ShapePath.OddEvenFill
-        fillGradient: LinearGradient {
-          x1: 0; y1: 0; x2: 0; y2: surface.height
-          GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.85) }
-          GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30) }
-          GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
-        }
-        PathRectangle {
-          x: 0; y: 0
-          width: surface.width
-          height: surface.height
-          radius: surface.radius
         }
         PathRectangle {
           x: 1; y: 1

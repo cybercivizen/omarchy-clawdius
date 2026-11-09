@@ -207,7 +207,12 @@ BarWidget {
   // The crab's idle gray and the count beside it sit on the bar: the
   // wallpaper-matched text color, until the island is down over them.
   readonly property color barInk: bar && !cardDown ? bar.barForeground : fg
-  readonly property color idleBarCrab: bar && !cardDown ? theme.mix(barInk, theme.bg, 0.35) : theme.idleCrab
+  // Idle on the bar: the bar's ink pulled toward grey, away from whatever the
+  // surface under it is (mixing with the theme's background washed it out
+  // to white on a light theme, where the crab sits on a dark tab).
+  readonly property color idleBarCrab: bar && !cardDown
+    ? theme.mix(barInk, barInk.hslLightness > 0.5 ? Qt.rgba(0, 0, 0, 1) : Qt.rgba(1, 1, 1, 1), 0.4)
+    : theme.idleCrab
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   // ---- Card lifecycle. The bar's popout coordinator calls close() when
@@ -851,7 +856,8 @@ BarWidget {
     id: edgeRipple
     parent: root.barWindow ? root.barWindow.contentItem : null
     z: 101
-    color: theme.fg
+    // The bar's ink, so it shows on the bar's surface whatever the theme.
+    color: root.barInk
   }
 
   // ---- Approvals. approvals.py watch streams the prompts the hook is holding;
