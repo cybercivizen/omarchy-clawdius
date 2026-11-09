@@ -234,7 +234,7 @@ PopupWindow {
     readonly property bool morphing: root.island && root.progress < 1
     width: morphing ? root.contentWidth : surface.width
     height: morphing ? root.contentHeight : surface.height
-    x: (root.width - width) / 2
+    x: Math.round((root.width - width) / 2)
     y: root.fromBottom ? root.height - height : 0
   }
 
@@ -242,13 +242,16 @@ PopupWindow {
     id: surface
     visible: !root.tucked
     width: root.island && root.progress < 1
-      ? root.islandStartWidth + (root.contentWidth - root.islandStartWidth) * root.islandWidthT
+      ? Math.round(root.islandStartWidth + (root.contentWidth - root.islandStartWidth) * root.islandWidthT)
       : root.contentWidth
-    x: (parent.width - width) / 2
+    // Whole pixels: centered on an odd difference the surface sat on a half
+    // pixel, and its 1 px border smeared across two columns, faint and
+    // jagged at the corners.
+    x: Math.round((parent.width - width) / 2)
     // Hug the bar's edge: top bars grow downwards, bottom bars upwards.
     y: root.fromBottom ? parent.height - height : 0
     height: root.island && root.progress < 1
-      ? root.islandStartHeight + (root.contentHeight - root.islandStartHeight) * root.islandHeightT
+      ? Math.round(root.islandStartHeight + (root.contentHeight - root.islandStartHeight) * root.islandHeightT)
       : root.contentHeight
     // A sliver is a pill; the full island has its 30 px corners.
     radius: root.island ? Math.min(root.islandRadius, height / 2) : Math.max(Style.cornerRadius, Style.space(14))
@@ -340,7 +343,7 @@ PopupWindow {
     // island's morph reveals it (clipped) instead of reflowing it every frame.
     Item {
       id: contentHolder
-      x: (surface.width - root.contentWidth) / 2 + root.padding
+      x: Math.round((surface.width - root.contentWidth) / 2) + root.padding
       y: root.fromBottom ? surface.height - root.contentHeight + root.padding : root.barPadding
       width: root.contentWidth - root.padding * 2
       height: root.contentHeight - root.padding - root.barPadding
