@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
@@ -37,6 +38,14 @@ PopupWindow {
   property int detachGap: 6
   property color detachBorder: Commons.Color.popups.border
   property color accent: Commons.Color.accent
+  // Detached: room around the card inside the popup window for its shadow, a
+  // wide soft Vista-style one dropped away from the bar. Clicks there pass
+  // through (the mask is the card's own box).
+  readonly property int shadowSide: detached ? 32 : 0
+  readonly property int shadowNear: detached ? 4 : 0
+  readonly property int shadowFar: detached ? 44 : 0
+  // Where the card sits inside the window along the bar's axis.
+  readonly property int shadowTop: fromBottom ? shadowFar : shadowNear
   property real islandRadius: Style.space(30)
   property int contentWidth: Style.space(280)
   property int maxContentWidth: contentWidth
@@ -149,8 +158,8 @@ PopupWindow {
 
   visible: open || progress > 0 || warm
   color: "transparent"
-  implicitWidth: Math.max(contentWidth, maxContentWidth)
-  implicitHeight: Math.max(contentHeight, maxContentHeight)
+  implicitWidth: Math.max(contentWidth, maxContentWidth) + shadowSide * 2
+  implicitHeight: Math.max(contentHeight, maxContentHeight) + shadowNear + shadowFar
   // The mask follows an untransformed twin of the surface: Region maps the
   // item when its geometry changes, not its scale, so masking the surface
   // itself froze the drop-in's 0.94 scale and left its edges dead to the
@@ -204,8 +213,8 @@ PopupWindow {
           // Below the bar itself, not its window: a pod bar's window runs on
           // past the bar for its shadow.
           popupAnchor.rect.y = Math.round(root.fromBottom
-            ? window.height - root.detachTop - popupHeight - root.detachGap
-            : root.detachTop + root.detachGap)
+            ? window.height - root.detachTop - popupHeight - root.detachGap + root.shadowNear
+            : root.detachTop + root.detachGap - root.shadowNear)
           return
         }
         popupAnchor.rect.y = Math.round(root.fromBottom ? -popupHeight - gap : window.height + gap)
@@ -235,7 +244,22 @@ PopupWindow {
     width: morphing ? root.contentWidth : surface.width
     height: morphing ? root.contentHeight : surface.height
     x: Math.round((root.width - width) / 2)
-    y: root.fromBottom ? root.height - height : 0
+    y: root.fromBottom ? root.height - height - root.shadowNear : root.shadowTop
+  }
+
+  // Vista-style drop shadow: wide, soft and dark, dropped away from the bar.
+  RectangularShadow {
+    visible: root.detached && !root.tucked
+    x: surface.x
+    y: surface.y
+    width: surface.width
+    height: surface.height
+    radius: surface.radius
+    offset.y: root.fromBottom ? -8 : 8
+    blur: 26
+    spread: 0
+    color: Qt.rgba(0, 0, 0, 0.6)
+    opacity: surface.opacity
   }
 
   Rectangle {
@@ -249,7 +273,7 @@ PopupWindow {
     // jagged at the corners.
     x: Math.round((parent.width - width) / 2)
     // Hug the bar's edge: top bars grow downwards, bottom bars upwards.
-    y: root.fromBottom ? parent.height - height : 0
+    y: root.fromBottom ? parent.height - height - root.shadowNear : root.shadowTop
     height: root.island && root.progress < 1
       ? Math.round(root.islandStartHeight + (root.contentHeight - root.islandStartHeight) * root.islandHeightT)
       : root.contentHeight
