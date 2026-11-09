@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import qs.Commons
@@ -10,6 +11,9 @@ import qs.Commons as Commons
 //
 // As an island (`island: true`) it hangs straight off the bar instead: square
 // corners against the bar, a wide radius on the free ones, no glass sheen.
+// A detached island (`detached: true`, for a see-through glass bar it can't
+// merge into) opens a gap below the bar instead, rounded all round, with the
+// glass back on and the accent glowing up from a corner.
 //
 // The window itself is sized for the widest and tallest card the screen
 // allows and stays put; the surface inside grows and shrinks, so view
@@ -27,6 +31,12 @@ PopupWindow {
   // The edge against the bar; the island's nav sits close under it.
   property int barPadding: padding
   property bool island: false
+  property bool detached: false
+  // Where the bar ends inside its window, and the gap under it (detached).
+  property real detachTop: 0
+  property int detachGap: 6
+  property color detachBorder: Commons.Color.popups.border
+  property color accent: Commons.Color.accent
   property real islandRadius: Style.space(30)
   property int contentWidth: Style.space(280)
   property int maxContentWidth: contentWidth
@@ -190,6 +200,14 @@ PopupWindow {
         cx = Math.max(root.margin, Math.min(cx, window.width - popupWidth - root.margin))
         popupAnchor.rect.x = Math.round(cx)
         var gap = root.island ? 0 : root.margin
+        if (root.island && root.detached && root.detachTop > 0) {
+          // Below the bar itself, not its window: a pod bar's window runs on
+          // past the bar for its shadow.
+          popupAnchor.rect.y = Math.round(root.fromBottom
+            ? window.height - root.detachTop - popupHeight - root.detachGap
+            : root.detachTop + root.detachGap)
+          return
+        }
         popupAnchor.rect.y = Math.round(root.fromBottom ? -popupHeight - gap : window.height + gap)
         return
       }
@@ -216,7 +234,7 @@ PopupWindow {
     readonly property bool morphing: root.island && root.progress < 1
     width: morphing ? root.contentWidth : surface.width
     height: morphing ? root.contentHeight : surface.height
-    x: (root.width - width) / 2
+    x: Math.round((root.width - width) / 2)
     y: root.fromBottom ? root.height - height : 0
   }
 
@@ -224,23 +242,27 @@ PopupWindow {
     id: surface
     visible: !root.tucked
     width: root.island && root.progress < 1
-      ? root.islandStartWidth + (root.contentWidth - root.islandStartWidth) * root.islandWidthT
+      ? Math.round(root.islandStartWidth + (root.contentWidth - root.islandStartWidth) * root.islandWidthT)
       : root.contentWidth
-    x: (parent.width - width) / 2
+    // Whole pixels: centered on an odd difference the surface sat on a half
+    // pixel, and its 1 px border smeared across two columns, faint and
+    // jagged at the corners.
+    x: Math.round((parent.width - width) / 2)
     // Hug the bar's edge: top bars grow downwards, bottom bars upwards.
     y: root.fromBottom ? parent.height - height : 0
     height: root.island && root.progress < 1
-      ? root.islandStartHeight + (root.contentHeight - root.islandStartHeight) * root.islandHeightT
+      ? Math.round(root.islandStartHeight + (root.contentHeight - root.islandStartHeight) * root.islandHeightT)
       : root.contentHeight
     // A sliver is a pill; the full island has its 30 px corners.
     radius: root.island ? Math.min(root.islandRadius, height / 2) : Math.max(Style.cornerRadius, Style.space(14))
-    topLeftRadius: root.island && !root.fromBottom ? 0 : radius
-    topRightRadius: root.island && !root.fromBottom ? 0 : radius
-    bottomLeftRadius: root.island && root.fromBottom ? 0 : radius
-    bottomRightRadius: root.island && root.fromBottom ? 0 : radius
+    readonly property bool hangs: root.island && !root.detached
+    topLeftRadius: hangs && !root.fromBottom ? 0 : radius
+    topRightRadius: hangs && !root.fromBottom ? 0 : radius
+    bottomLeftRadius: hangs && root.fromBottom ? 0 : radius
+    bottomRightRadius: hangs && root.fromBottom ? 0 : radius
     color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
-    border.width: root.island ? 0 : 1
-    border.color: Qt.rgba(root.edge.r, root.edge.g, root.edge.b, 0.16)
+    border.width: hangs || root.detached ? 0 : 1
+    border.color: root.detached ? root.detachBorder : Qt.rgba(root.edge.r, root.edge.g, root.edge.b, 0.16)
     clip: true
 
     // Hyprland's blur switches on at full strength as soon as the glass is
@@ -266,7 +288,7 @@ PopupWindow {
 
     // Glass: light catching the top edge, fading out a third of the way down.
     Rectangle {
-      visible: !root.island
+      visible: !surface.hangs
       anchors.fill: parent
       anchors.margins: 1
       radius: parent.radius - 1
@@ -277,18 +299,79 @@ PopupWindow {
       }
     }
 
+    // Detached: the accent glowing up from the bottom-left corner, faintly,
+    // inside the island's shape.
+    Shape {
+      visible: root.detached
+      anchors.fill: parent
+      preferredRendererType: Shape.CurveRenderer
+      ShapePath {
+        strokeColor: "transparent"
+        strokeWidth: 0
+        fillGradient: RadialGradient {
+          centerX: 0; centerY: surface.height
+          centerRadius: Math.max(surface.width, surface.height) * 0.9
+          focalX: centerX; focalY: centerY
+          GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16) }
+          GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0) }
+        }
+        PathRectangle {
+          x: 1; y: 1
+          width: surface.width - 2
+          height: surface.height - 2
+          radius: Math.max(0, surface.radius - 1)
+        }
+      }
+    }
+
+    // Detached: the edge as a pane of glass catches light, a 1 px ring in the
+    // accent, bright along the top (under the bar's accent seam) that thins
+    // to almost nothing down the sides and along the bottom, in place of a
+    // flat border.
+    Shape {
+      visible: root.detached
+      anchors.fill: parent
+      preferredRendererType: Shape.CurveRenderer
+      ShapePath {
+        strokeColor: "transparent"
+        strokeWidth: 0
+        fillRule: ShapePath.OddEvenFill
+        fillGradient: LinearGradient {
+          x1: 0; y1: 0; x2: 0; y2: surface.height
+          GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.85) }
+          GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30) }
+          GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
+        }
+        PathRectangle {
+          x: 0; y: 0
+          width: surface.width
+          height: surface.height
+          radius: surface.radius
+        }
+        PathRectangle {
+          x: 1; y: 1
+          width: surface.width - 2
+          height: surface.height - 2
+          radius: Math.max(0, surface.radius - 1)
+        }
+      }
+    }
+
     // A brighter hairline along the top, like the lip of a glass pane.
     Rectangle {
-      visible: !root.island
+      id: topShine
+      visible: !surface.hangs
       x: parent.radius
       y: 1
       width: parent.width - parent.radius * 2
       height: 1
+      // Detached, the bar's accent seam again, fading out at both ends.
+      readonly property color shine: root.detached ? root.accent : Qt.rgba(1, 1, 1, 1)
       gradient: Gradient {
         orientation: Gradient.Horizontal
-        GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0) }
-        GradientStop { position: 0.5; color: Qt.rgba(1, 1, 1, 0.22) }
-        GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
+        GradientStop { position: 0.0; color: Qt.rgba(topShine.shine.r, topShine.shine.g, topShine.shine.b, 0) }
+        GradientStop { position: 0.5; color: Qt.rgba(topShine.shine.r, topShine.shine.g, topShine.shine.b, root.detached ? 0.9 : 0.22) }
+        GradientStop { position: 1.0; color: Qt.rgba(topShine.shine.r, topShine.shine.g, topShine.shine.b, 0) }
       }
     }
 
@@ -296,7 +379,7 @@ PopupWindow {
     // island's morph reveals it (clipped) instead of reflowing it every frame.
     Item {
       id: contentHolder
-      x: (surface.width - root.contentWidth) / 2 + root.padding
+      x: Math.round((surface.width - root.contentWidth) / 2) + root.padding
       y: root.fromBottom ? surface.height - root.contentHeight + root.padding : root.barPadding
       width: root.contentWidth - root.padding * 2
       height: root.contentHeight - root.padding - root.barPadding

@@ -781,7 +781,12 @@ BarWidget {
     function onOpenChanged() { if (card.open) Qt.callLater(root.updateKeepRect) }
   }
 
-  readonly property bool bridgeOn: card.visible && !card.tucked && !!root.bar && !root.vertical && keepRect.width > 0
+  // On cybercivizen.bar's see-through y2k glass the island can't melt into
+  // the bar the way it does into an opaque one: it opens below it instead,
+  // like the bar's panels, with no bridge strips over the bar, and the bar's
+  // edge lights up above it in the accent.
+  readonly property bool y2kBar: !!root.barWindow && root.barWindow.y2kStyle === true && !root.vertical
+  readonly property bool bridgeOn: card.visible && !card.tucked && !!root.bar && !root.vertical && keepRect.width > 0 && !root.y2kBar
   readonly property color bridgeColor: Qt.rgba(card.tint.r, card.tint.g, card.tint.b, card.frostAlpha)
   readonly property real bridgeOpacity: Math.min(1, card.progress * 5)
   // The strips follow the island as it grows (drawnRect), not its final size.
@@ -821,6 +826,25 @@ BarWidget {
     z: 50
     color: root.bridgeColor
     opacity: root.bridgeOpacity
+  }
+
+  // y2k: the bar's inner edge glows in the accent across the island's width.
+  Rectangle {
+    parent: root.barWindow ? root.barWindow.contentItem : null
+    visible: root.y2kBar && card.visible && !card.tucked
+    readonly property real barEdge: root.barWindow && root.barWindow.barThickness !== undefined ? root.barWindow.barThickness : 0
+    x: root.surfLeft
+    width: Math.max(0, root.surfRight - root.surfLeft)
+    height: 2
+    y: root.bar && root.bar.position === "bottom" && parent ? parent.height - barEdge : barEdge - height
+    z: 60
+    opacity: root.bridgeOpacity
+    gradient: Gradient {
+      orientation: Gradient.Horizontal
+      GradientStop { position: 0.0; color: Qt.rgba(card.accent.r, card.accent.g, card.accent.b, 0) }
+      GradientStop { position: 0.5; color: Qt.rgba(card.accent.r, card.accent.g, card.accent.b, 0.95) }
+      GradientStop { position: 1.0; color: Qt.rgba(card.accent.r, card.accent.g, card.accent.b, 0) }
+    }
   }
 
   EdgeRipple {
@@ -2443,10 +2467,16 @@ BarWidget {
     owner: root
     centerOnBar: true
     island: true
-    islandRadius: theme.dense ? Style.space(10) : theme.dev ? Style.space(12) : Style.space(30)
+    detached: root.y2kBar
+    detachTop: root.barWindow && root.barWindow.barThickness !== undefined ? root.barWindow.barThickness : 0
+    detachGap: root.barWindow && root.barWindow.podPanelGap >= 0 ? root.barWindow.podPanelGap : Style.gapsOut
+    // Detached, the same corners as the bar's panels.
+    islandRadius: root.y2kBar ? Math.max(Style.cornerRadius, Style.space(10))
+      : theme.dense ? Style.space(10) : theme.dev ? Style.space(12) : Style.space(30)
     padding: theme.dense ? Style.space(8) : theme.dev ? Style.space(12) : Style.spacing.popupPadding
     barPadding: theme.dev ? Style.space(4) : Style.space(4)
-    tint: theme.island
+    // Detached it is one of the bar's panels, in their color.
+    tint: root.y2kBar ? Color.popups.background : theme.island
     // Pinned (the crab clicked): a click outside closes it. Otherwise it
     // goes when the pointer leaves, whatever was clicked inside. With a live
     // terminal up, Hyprland's focus grab can't be used: the terminal's key
@@ -2467,7 +2497,10 @@ BarWidget {
     heightDuration: viewMorph.running ? 340 : 240
     // The bar's opacity too, so the island blends into it; frostOpacity only
     // for a theme preview. A forced Dark / Light takes the bar's opacity too.
-    frostAlpha: theme.barColor.a > 0 ? theme.barColor.a
+    // Bigger and denser than a panel: a touch more opaque, so the windows
+    // under it don't show through the text (no blur behind it on the laptop).
+    frostAlpha: root.y2kBar ? Math.max(0.96, Color.popups.background.a)
+      : theme.barColor.a > 0 ? theme.barColor.a
       : root.previewTheme === "" && root.bar ? root.bar.background.a
       : Math.max(0.2, Math.min(1, Number(setting("frostOpacity", 92)) / 100))
     // Every view is full width, summoned or not (narrower in the dense
