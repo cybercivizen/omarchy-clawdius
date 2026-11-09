@@ -260,7 +260,7 @@ PopupWindow {
     topRightRadius: hangs && !root.fromBottom ? 0 : radius
     bottomLeftRadius: hangs && root.fromBottom ? 0 : radius
     bottomRightRadius: hangs && root.fromBottom ? 0 : radius
-    color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
+    color: root.detached ? "transparent" : Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
     border.width: hangs || root.detached ? 0 : 1
     border.color: root.detached ? root.detachBorder : Qt.rgba(root.edge.r, root.edge.g, root.edge.b, 0.16)
     clip: true
@@ -284,6 +284,32 @@ PopupWindow {
     Behavior on width {
       enabled: root.open && root.progress >= 1
       NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+    }
+
+    // Detached: the edge as a pane of glass catches light, in the accent:
+    // bright along the top (under the bar's accent seam), thinning to almost
+    // nothing down the sides and along the bottom. Two plain rounded
+    // rectangles, the accent one under the body inset 1 px, so the edge is
+    // what shows between them: a Rectangle antialiases its curve cleanly,
+    // where a 1 px Shape ring came out stair-stepped in the corners.
+    Rectangle {
+      visible: root.detached
+      anchors.fill: parent
+      radius: surface.radius
+      gradient: Gradient {
+        GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.85) }
+        GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30) }
+        GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
+      }
+    }
+    Rectangle {
+      visible: root.detached
+      anchors.fill: parent
+      anchors.margins: 1
+      radius: Math.max(0, surface.radius - 1)
+      // The edge's fill shows through the body by its transparency (4% at
+      // 0.96, about 3% of accent at the top): too little to see.
+      color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
     }
 
     // Glass: light catching the top edge, fading out a third of the way down.
@@ -314,39 +340,6 @@ PopupWindow {
           focalX: centerX; focalY: centerY
           GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16) }
           GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0) }
-        }
-        PathRectangle {
-          x: 1; y: 1
-          width: surface.width - 2
-          height: surface.height - 2
-          radius: Math.max(0, surface.radius - 1)
-        }
-      }
-    }
-
-    // Detached: the edge as a pane of glass catches light, a 1 px ring in the
-    // accent, bright along the top (under the bar's accent seam) that thins
-    // to almost nothing down the sides and along the bottom, in place of a
-    // flat border.
-    Shape {
-      visible: root.detached
-      anchors.fill: parent
-      preferredRendererType: Shape.CurveRenderer
-      ShapePath {
-        strokeColor: "transparent"
-        strokeWidth: 0
-        fillRule: ShapePath.OddEvenFill
-        fillGradient: LinearGradient {
-          x1: 0; y1: 0; x2: 0; y2: surface.height
-          GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.85) }
-          GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30) }
-          GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
-        }
-        PathRectangle {
-          x: 0; y: 0
-          width: surface.width
-          height: surface.height
-          radius: surface.radius
         }
         PathRectangle {
           x: 1; y: 1
