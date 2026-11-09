@@ -324,9 +324,10 @@ PopupWindow {
       }
     }
 
-    // Detached: the edge as a pane of glass catches light, a 1 px ring bright
-    // along the top that thins to almost nothing down the sides and along
-    // the bottom, in place of a flat border.
+    // Detached: the edge as a pane of glass catches light, a 1 px ring in the
+    // accent, bright along the top (under the bar's accent seam) that thins
+    // to almost nothing down the sides and along the bottom, in place of a
+    // flat border.
     Shape {
       visible: root.detached
       anchors.fill: parent
@@ -337,9 +338,9 @@ PopupWindow {
         fillRule: ShapePath.OddEvenFill
         fillGradient: LinearGradient {
           x1: 0; y1: 0; x2: 0; y2: surface.height
-          GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.42) }
-          GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(1, 1, 1, 0.16) }
-          GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.07) }
+          GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.85) }
+          GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30) }
+          GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
         }
         PathRectangle {
           x: 0; y: 0
@@ -358,16 +359,19 @@ PopupWindow {
 
     // A brighter hairline along the top, like the lip of a glass pane.
     Rectangle {
+      id: topShine
       visible: !surface.hangs
       x: parent.radius
       y: 1
       width: parent.width - parent.radius * 2
       height: 1
+      // Detached, the bar's accent seam again, fading out at both ends.
+      readonly property color shine: root.detached ? root.accent : Qt.rgba(1, 1, 1, 1)
       gradient: Gradient {
         orientation: Gradient.Horizontal
-        GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0) }
-        GradientStop { position: 0.5; color: Qt.rgba(1, 1, 1, 0.22) }
-        GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
+        GradientStop { position: 0.0; color: Qt.rgba(topShine.shine.r, topShine.shine.g, topShine.shine.b, 0) }
+        GradientStop { position: 0.5; color: Qt.rgba(topShine.shine.r, topShine.shine.g, topShine.shine.b, root.detached ? 0.9 : 0.22) }
+        GradientStop { position: 1.0; color: Qt.rgba(topShine.shine.r, topShine.shine.g, topShine.shine.b, 0) }
       }
     }
 
