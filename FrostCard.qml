@@ -261,7 +261,7 @@ PopupWindow {
     bottomLeftRadius: hangs && root.fromBottom ? 0 : radius
     bottomRightRadius: hangs && root.fromBottom ? 0 : radius
     color: Qt.rgba(root.tint.r, root.tint.g, root.tint.b, root.frostAlpha)
-    border.width: hangs ? 0 : 1
+    border.width: hangs || root.detached ? 0 : 1
     border.color: root.detached ? root.detachBorder : Qt.rgba(root.edge.r, root.edge.g, root.edge.b, 0.16)
     clip: true
 
@@ -314,6 +314,38 @@ PopupWindow {
           focalX: centerX; focalY: centerY
           GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16) }
           GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0) }
+        }
+        PathRectangle {
+          x: 1; y: 1
+          width: surface.width - 2
+          height: surface.height - 2
+          radius: Math.max(0, surface.radius - 1)
+        }
+      }
+    }
+
+    // Detached: the edge as a pane of glass catches light, a 1 px ring bright
+    // along the top that thins to almost nothing down the sides and along
+    // the bottom, in place of a flat border.
+    Shape {
+      visible: root.detached
+      anchors.fill: parent
+      preferredRendererType: Shape.CurveRenderer
+      ShapePath {
+        strokeColor: "transparent"
+        strokeWidth: 0
+        fillRule: ShapePath.OddEvenFill
+        fillGradient: LinearGradient {
+          x1: 0; y1: 0; x2: 0; y2: surface.height
+          GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.42) }
+          GradientStop { position: Math.min(0.5, 40 / Math.max(1, surface.height)); color: Qt.rgba(1, 1, 1, 0.16) }
+          GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.07) }
+        }
+        PathRectangle {
+          x: 0; y: 0
+          width: surface.width
+          height: surface.height
+          radius: surface.radius
         }
         PathRectangle {
           x: 1; y: 1
