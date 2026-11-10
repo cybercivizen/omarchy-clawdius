@@ -834,16 +834,36 @@ BarWidget {
   }
 
   // y2k: the bar's inner edge glows in the accent across the island's width.
+  // It fades in and spreads out from the middle as the island opens, and
+  // eases back in after it closes, rather than blinking on and off with it.
+  readonly property bool glowShown: root.y2kBar && card.open && !card.tucked
+  property real glowLevel: glowShown ? 1 : 0
+  Behavior on glowLevel {
+    NumberAnimation {
+      duration: 300
+      easing.type: root.glowShown ? Easing.OutCubic : Easing.InOutQuad
+    }
+  }
+  // The island's span, held once it's fully open so the glow keeps its
+  // width while it fades out after the island has gone.
+  property real glowLeft: 0
+  property real glowRight: 0
+  Binding { target: root; property: "glowLeft"; value: root.surfLeft; when: card.visible && card.progress >= 1; restoreMode: Binding.RestoreNone }
+  Binding { target: root; property: "glowRight"; value: root.surfRight; when: card.visible && card.progress >= 1; restoreMode: Binding.RestoreNone }
+
   Rectangle {
     parent: root.barWindow ? root.barWindow.contentItem : null
-    visible: root.y2kBar && card.visible && !card.tucked
+    visible: root.y2kBar && root.glowLevel > 0 && !card.tucked
     readonly property real barEdge: root.barWindow && root.barWindow.barThickness !== undefined ? root.barWindow.barThickness : 0
-    x: root.surfLeft
-    width: Math.max(0, root.surfRight - root.surfLeft)
+    readonly property bool live: card.progress >= 1 || root.glowRight <= root.glowLeft
+    readonly property real fullLeft: live ? root.surfLeft : root.glowLeft
+    readonly property real fullWidth: Math.max(0, (live ? root.surfRight : root.glowRight) - fullLeft)
+    width: Math.round(fullWidth * (0.35 + 0.65 * root.glowLevel))
+    x: Math.round(fullLeft + (fullWidth - width) / 2)
     height: 2
     y: root.bar && root.bar.position === "bottom" && parent ? parent.height - barEdge : barEdge - height
     z: 60
-    opacity: root.bridgeOpacity
+    opacity: root.glowLevel
     gradient: Gradient {
       orientation: Gradient.Horizontal
       GradientStop { position: 0.0; color: Qt.rgba(card.accent.r, card.accent.g, card.accent.b, 0) }
