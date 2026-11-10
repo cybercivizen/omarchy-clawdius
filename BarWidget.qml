@@ -840,7 +840,7 @@ BarWidget {
   property real glowLevel: glowShown ? 1 : 0
   Behavior on glowLevel {
     NumberAnimation {
-      duration: root.glowShown ? 520 : 340
+      duration: 300
       easing.type: root.glowShown ? Easing.OutCubic : Easing.InOutQuad
     }
   }
