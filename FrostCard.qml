@@ -257,10 +257,10 @@ PopupWindow {
     width: surface.width
     height: surface.height
     radius: surface.radius
-    offset.y: root.fromBottom ? -1 : 1
-    blur: 20
+    offset.y: root.fromBottom ? -3 : 3
+    blur: 24
     spread: 0
-    color: Qt.rgba(0, 0, 0, Commons.Color.background.hslLightness > 0.5 ? 0.16 : 0.38)
+    color: Qt.rgba(0, 0, 0, Commons.Color.background.hslLightness > 0.5 ? 0.20 : 0.50)
     opacity: surface.opacity
   }
 
