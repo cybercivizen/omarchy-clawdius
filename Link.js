@@ -54,7 +54,8 @@ function clockHover(window, hovered) {
   }
 }
 
-// A click on the clock: the island on Today, on that bar's crab.
+// A click on the clock: the island on Today, on that bar's crab. A bar with
+// no crab (bar.screens hides it on that monitor) opens the one that is drawn.
 function clockClick(window) {
   for (var i = crabs.length - 1; i >= 0; i--) {
     var crab = crabs[i]
@@ -64,6 +65,8 @@ function clockClick(window) {
       crabs.splice(i, 1)
     }
   }
+  var other = approvalCrab("")
+  if (other) other.clockClick()
 }
 
 // Every crab sees each permission prompt, but only one card should drop open:
