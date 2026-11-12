@@ -249,7 +249,10 @@ BarWidget {
   readonly property var barWindow: root.QsWindow.window
 
   Component.onCompleted: Link.register(root)
-  Component.onDestruction: Link.unregister(root)
+  Component.onDestruction: {
+    Link.unregister(root)
+    if (zoneHandler) zoneHandler.destroy()
+  }
   // The clock's click goes to the crab on the same bar window (Link.clockClick).
   function clockClick() { openToday() }
   function setClockHover(hovered) {
@@ -689,9 +692,12 @@ BarWidget {
   }
 
   // ---- The hover zone: the clock and crab are small targets, so a wider
-  //      stretch of the bar's middle opens the island too. A HoverHandler is
-  //      passive and non-blocking: the bar's widgets under it keep their own
-  //      hover and clicks.
+  //      stretch of the bar's middle opens the island too. The bar hands hover
+  //      only to the topmost item under the pointer and its ancestors, so a
+  //      zone item laid over the widgets took their hover (the bell, the clock
+  //      and the crab got no outline or tooltip) and one laid under them got
+  //      none itself. Its HoverHandler sits on the bar's top item instead, an
+  //      ancestor of every widget, and hoverZone only marks the stretch.
   readonly property real hoverZoneWidth: Math.max(0, Number(setting("hoverZoneWidth", 560)))
   property bool zoneHovered: false
 
@@ -715,22 +721,52 @@ BarWidget {
     for (var o = root; o; o = o.parent) if (o === item) return true
     return false
   }
+  function inZone(handler) {
+    if (!handler.hovered || !hoverZone.visible || !root.barWindow) return false
+    var p = handler.parent.mapToItem(hoverZone, handler.point.position.x, handler.point.position.y)
+    return p.x >= 0 && p.x < hoverZone.width && p.y >= 0 && p.y < hoverZone.height
+  }
   function updateZone(handler) {
-    var wp = hoverZone.mapToItem(root.barWindow.contentItem, handler.point.position.x, handler.point.position.y)
-    var on = handler.hovered && !(root.barWindow && overOtherModule(root.barWindow.contentItem, wp))
+    var inside = inZone(handler)
+    zoneInside = inside
+    var wp = handler.parent.mapToItem(root.barWindow.contentItem, handler.point.position.x, handler.point.position.y)
+    var on = inside && !overOtherModule(root.barWindow.contentItem, wp)
     if (on !== root.zoneHovered) {
       root.zoneHovered = on
       root.hoverChanged(on)
     }
-    if (handler.hovered) root.checkEdge(wp.x, wp.y)
+    if (inside) root.checkEdge(wp.x, wp.y)
   }
-  // Pointer moves walk the bar's items; the next move catches up.
+  // Pointer moves walk the bar's items; the next move catches up. Crossing the
+  // zone's edge doesn't wait: that used to be the zone item's own leave.
   property real zoneStamp: 0
+  property bool zoneInside: false
   function zoneMoved(handler) {
     var now = Date.now()
-    if (now - zoneStamp < 33) return
+    if (now - zoneStamp < 33 && inZone(handler) === zoneInside) return
     zoneStamp = now
     updateZone(handler)
+  }
+
+  // The bar's top item: the window's child that holds this widget, and with it
+  // every other one.
+  readonly property Item barTop: {
+    var top = root.barWindow ? root.barWindow.contentItem : null
+    var o = root
+    while (top && o && o.parent !== top) o = o.parent
+    return top ? o : null
+  }
+  property var zoneHandler: null
+  onBarTopChanged: {
+    if (zoneHandler) zoneHandler.destroy()
+    zoneHandler = barTop ? zoneHandlerComponent.createObject(barTop) : null
+  }
+  Component {
+    id: zoneHandlerComponent
+    HoverHandler {
+      onHoveredChanged: root.updateZone(this)
+      onPointChanged: root.zoneMoved(this)
+    }
   }
 
   Item {
@@ -740,13 +776,6 @@ BarWidget {
     x: parent ? (parent.width - width) / 2 : 0
     width: Style.space(root.hoverZoneWidth)
     height: parent ? parent.height : 0
-    z: 100
-
-    HoverHandler {
-      blocking: false   // let the modules under it (the tray drawer) get their hover
-      onHoveredChanged: root.updateZone(this)
-      onPointChanged: root.zoneMoved(this)
-    }
   }
 
   // The island hangs below the bar; with a see-through bar that leaves a gap
