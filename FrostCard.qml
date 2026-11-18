@@ -96,8 +96,12 @@ PopupWindow {
   property bool tucked: false
   readonly property real screenW: popupScreen ? popupScreen.width : 0
   readonly property real screenH: popupScreen ? popupScreen.height : 0
-  readonly property real barW: anchorWindow ? anchorWindow.width : 0
-  readonly property real barH: anchorWindow ? anchorWindow.height : 0
+  // The bar window can span the whole screen (the bar is only its strip),
+  // so prefer the strip's own thickness when the host reports it.
+  readonly property real barThick: anchorWindow && anchorWindow.barThickness !== undefined && anchorWindow.barThickness > 0 ? anchorWindow.barThickness
+    : bar && bar.barSize > 0 ? bar.barSize : 0
+  readonly property real barW: barThick > 0 ? barThick : anchorWindow ? anchorWindow.width : 0
+  readonly property real barH: barThick > 0 ? barThick : anchorWindow ? anchorWindow.height : 0
   readonly property real availableCardWidth: screenW > 0
     ? Math.max(120, screenW - ((bar && (bar.position === "left" || bar.position === "right")) ? barW : 0) - root.margin * 2)
     : 0
@@ -217,7 +221,11 @@ PopupWindow {
             : root.detachTop + root.detachGap - root.shadowNear)
           return
         }
-        popupAnchor.rect.y = Math.round(root.fromBottom ? -popupHeight - gap : window.height + gap)
+        // A bar window that spans the screen ends far below the bar:
+        // measure from the bar's own strip, or the popup is pushed off
+        // screen and slid back to the wrong edge.
+        var span = root.barThick > 0 ? root.barThick : window.height
+        popupAnchor.rect.y = Math.round(root.fromBottom ? window.height - span - popupHeight - gap : span + gap)
         return
       }
 
