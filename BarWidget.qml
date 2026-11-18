@@ -797,6 +797,8 @@ BarWidget {
   // The strips follow the island as it grows (drawnRect), not its final size.
   readonly property real surfLeft: Math.round(card.drawnRect.x)
   readonly property real surfRight: Math.round(card.drawnRect.x + card.drawnRect.width)
+  // The bridge covers the bar's strip only, even when its window spans the screen.
+  readonly property real bridgeHeight: root.bar && root.bar.barSize > 0 ? root.bar.barSize : root.barWindow ? root.barWindow.contentItem.height : 0
   readonly property real keepLeft: Math.round(keepRect.x)
   readonly property real keepRight: Math.round(keepRect.x + keepRect.width)
 
@@ -805,7 +807,7 @@ BarWidget {
     visible: root.bridgeOn
     x: Math.max(root.surfLeft, root.keepLeft)
     width: Math.max(0, Math.min(root.surfRight, root.keepRight) - x)
-    height: parent ? parent.height : 0
+    height: root.bridgeHeight
     z: -1
     color: root.bridgeColor
     opacity: root.bridgeOpacity
@@ -816,7 +818,7 @@ BarWidget {
     visible: root.bridgeOn
     x: root.surfLeft
     width: Math.max(0, Math.min(root.keepLeft, root.surfRight) - root.surfLeft)
-    height: parent ? parent.height : 0
+    height: root.bridgeHeight
     z: 50
     color: root.bridgeColor
     opacity: root.bridgeOpacity
@@ -827,7 +829,7 @@ BarWidget {
     visible: root.bridgeOn
     x: Math.max(root.surfLeft, root.keepRight)
     width: Math.max(0, root.surfRight - x)
-    height: parent ? parent.height : 0
+    height: root.bridgeHeight
     z: 50
     color: root.bridgeColor
     opacity: root.bridgeOpacity
@@ -2542,7 +2544,7 @@ BarWidget {
       : card.fittedContentHeight(Math.max(toastSlot.height + nav.height + content.spacing + body.implicitHeight,
                                           root.newMenuOpen ? newMenu.y + newMenu.height + Style.space(8) : 0), cap)
     // The window stays tall till the island has folded down out of the live view.
-    maxContentHeight: card.fittedContentHeight(100000, root.tallView || viewMorph.running ? Style.space(900) : cap)
+    maxContentHeight: viewMorph.running ? card.fittedContentHeight(100000, Style.space(900)) : card.contentHeight
 
     Item {
       id: islandRoot
